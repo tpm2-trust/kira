@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tpm2-trust/go-tui-slim/prompt"
+	"github.com/tpm2-trust/go-tui-slim/secret"
 	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
-	"github.com/tpm2-trust/tpm2-kira/internal/prompt"
 	"github.com/tpm2-trust/tpm2-kira/internal/vaultkey"
-	"github.com/tpm2-trust/tpm2-kira/internal/wipe"
 )
 
 // control's option for the disk key with the vault's salt (docs/VAULT.md):
@@ -117,7 +117,7 @@ func (c *controller) runVault() error {
 
 	var url, pin, ca string
 	var token []byte // the one-time token, shown to nobody, until it is sent
-	defer func() { wipe.Bytes(token) }()
+	defer func() { secret.Wipe(token) }()
 	for edit := true; ; {
 		if edit {
 			var err error
@@ -163,7 +163,7 @@ func (c *controller) runVault() error {
 				return err
 			}
 			if t := bytes.TrimSpace(typed); len(t) > 0 {
-				wipe.Bytes(token)
+				secret.Wipe(token)
 				token = t
 			}
 			url, pin, ca = strings.TrimSpace(url), strings.ToLower(strings.TrimSpace(pin)), strings.TrimSpace(ca)

@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/tpm2-trust/go-tui-slim/prompt"
 	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/prompt"
 	"github.com/tpm2-trust/tpm2-kira/internal/signing"
 	"github.com/tpm2-trust/tpm2-kira/internal/sshscreen"
 

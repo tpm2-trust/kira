@@ -7,10 +7,10 @@ import (
 	"os"
 	"strings"
 
+	"github.com/tpm2-trust/go-tui-slim/secret"
 	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
 	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
 	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
-	"github.com/tpm2-trust/tpm2-kira/internal/wipe"
 
 	"github.com/google/go-tpm/tpm2/transport"
 	"github.com/tpm2-trust/assh/persist"
@@ -285,7 +285,7 @@ func DeleteSlot(o DeleteSlotOptions) error {
 			}
 			fmt.Fprintf(out, "%s keyslot %d removed (was %s)\n", d.Device, ks.Keyslot, describeKeyslot(ks.KeyslotStatus))
 		}
-		wipe.Bytes(existing)
+		secret.Wipe(existing)
 	}
 
 	// The slot, as 'slot delete' takes it: its record, then what it keeps

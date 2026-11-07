@@ -38,10 +38,10 @@ import (
 
 	"github.com/google/go-tpm/tpm2/transport"
 
+	"github.com/tpm2-trust/go-tui-slim/secret"
 	"github.com/tpm2-trust/tpm2-kira/core/attest"
 	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
 	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/wipe"
 )
 
 // gateIdentity is what the radio worker needs to advertise and to run the
@@ -399,25 +399,25 @@ func (s *GateService) TakeRelease(r *attest.Release) (uint8, string) {
 		return attest.ReleaseTPMRefused, "the TPM did not open the phone salt: " + err.Error()
 	}
 	salt := FactorSalt(f, r.Label)
-	wipe.Bytes(f)
+	secret.Wipe(f)
 	var layout *attest.KeyboardLayout
 	if r.KeyboardCredential != nil {
 		s.TPMMu.Lock()
 		seed, err := UnwrapFactor(s.TPM, s.be.Sealed, s.be.SealIndex, s.Blob, &nvslot.WrappedFactor{Credential: r.KeyboardCredential, EncryptedSecret: r.KeyboardSecret})
 		s.TPMMu.Unlock()
 		if err != nil {
-			wipe.Bytes(salt)
+			secret.Wipe(salt)
 			return attest.ReleaseTPMRefused, "the TPM opened the salt, not the keyboard: " + err.Error()
 		}
 		layout, err = attest.KeyboardLayoutOf(seed)
-		wipe.Bytes(seed)
+		secret.Wipe(seed)
 		if err != nil {
-			wipe.Bytes(salt)
+			secret.Wipe(salt)
 			return attest.ReleaseTPMRefused, "the keyboard: " + err.Error()
 		}
 	}
 	s.mu.Lock()
-	wipe.Bytes(s.salt)
+	secret.Wipe(s.salt)
 	s.salt = salt
 	s.layout.Wipe()
 	s.layout = layout
@@ -481,7 +481,7 @@ func (s *GateService) Returned() bool {
 func (s *GateService) Forget() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	wipe.Bytes(s.salt)
+	secret.Wipe(s.salt)
 	s.salt = nil
 	s.layout.Wipe()
 	s.layout = nil

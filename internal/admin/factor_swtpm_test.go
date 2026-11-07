@@ -12,11 +12,11 @@ import (
 
 	"github.com/google/go-tpm/tpm2"
 
+	"github.com/tpm2-trust/go-tui-slim/secret"
 	"github.com/tpm2-trust/tpm2-kira/core/attest"
 	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
 	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
 	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
-	"github.com/tpm2-trust/tpm2-kira/internal/wipe"
 )
 
 // The factor's round trip on swtpm: wrapped for this TPM's EK and the
@@ -223,7 +223,7 @@ func TestFactorStatusAndUnenrol(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wipe.Bytes(f)
+	secret.Wipe(f)
 	tpmDev.Close()
 
 	out = grabStdout(t, func() {
@@ -292,7 +292,7 @@ func TestTPMSaltOpensInTheApprovedBootState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer wipe.Bytes(f)
+	defer secret.Wipe(f)
 	s.blob.TPMSalt = *w
 	if err := writeAttestBlob(tpm, slot, s.blob, signer); err != nil {
 		t.Fatal(err)
@@ -303,7 +303,7 @@ func TestTPMSaltOpensInTheApprovedBootState(t *testing.T) {
 	if len(failed) != 0 || !bytes.Equal(opened[n], f) {
 		t.Fatalf("in the approved state: opened %d, failed %v", len(opened), failed)
 	}
-	wipe.Bytes(opened[n])
+	secret.Wipe(opened[n])
 
 	s.extend(t, 23, "something else booted")
 	opened, failed = phonegate.OpenTPMSalts(tpm, false)

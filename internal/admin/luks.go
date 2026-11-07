@@ -13,11 +13,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tpm2-trust/go-tui-slim/secret"
 	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
 	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
 	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
 	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
-	"github.com/tpm2-trust/tpm2-kira/internal/wipe"
 
 	"golang.org/x/sys/unix"
 )
@@ -445,12 +445,12 @@ func LuksEnrol(o LuksEnrolOptions) error {
 		if err != nil {
 			return err
 		}
-		defer wipe.Bytes(pw)
+		defer secret.Wipe(pw)
 		again, err := terminalAsk("The same password again: ")
 		if err != nil {
 			return err
 		}
-		defer wipe.Bytes(again)
+		defer secret.Wipe(again)
 		if !bytes.Equal(pw, again) {
 			return errors.New("the passwords differ; nothing was added")
 		}
@@ -458,7 +458,7 @@ func LuksEnrol(o LuksEnrolOptions) error {
 		if err != nil {
 			return err
 		}
-		defer wipe.Bytes(salt)
+		defer secret.Wipe(salt)
 		fmt.Fprintln(os.Stderr, "Deriving the key (Argon2id, 1 GiB, a few seconds) ...")
 		if key, err = diskkey.Combine(pw, salt); err != nil {
 			return err
@@ -505,13 +505,13 @@ func LuksEnrol(o LuksEnrolOptions) error {
 			label = "luks"
 		}
 	}
-	defer wipe.Bytes(key)
+	defer secret.Wipe(key)
 
 	existing, err := existingPassphrase(o.Device, o.ExistingKeyFile)
 	if err != nil {
 		return err
 	}
-	defer wipe.Bytes(existing)
+	defer secret.Wipe(existing)
 	if _, err := cryptsetupAuth(key, existing, "luksAddKey", "--batch-mode", "--key-file", existingFD, o.Device, "-"); err != nil {
 		return err
 	}
@@ -724,7 +724,7 @@ func LuksRemove(o LuksRemoveOptions) error {
 	if err != nil {
 		return err
 	}
-	defer wipe.Bytes(existing)
+	defer secret.Wipe(existing)
 	if err := killKeyslot(o.Device, *have, existing); err != nil {
 		return err
 	}

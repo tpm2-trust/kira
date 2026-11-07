@@ -16,7 +16,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/wipe"
+	"github.com/tpm2-trust/go-tui-slim/secret"
 )
 
 // Transport sends one APDU and returns the response including SW1 SW2.
@@ -165,7 +165,7 @@ func (c *Card) VerifyPIN(pin []byte) error {
 	data := []byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
 	copy(data, pin)
 	_, err := c.cmd("VERIFY", 0x00, insVerify, 0x00, pinReference, data)
-	wipe.Bytes(data)
+	secret.Wipe(data)
 	if err == nil {
 		return nil
 	}
@@ -397,7 +397,7 @@ func (c *Card) cmd(op string, cla, ins, p1, p2 byte, data []byte) ([]byte, error
 		data = data[maxShortAPDUData:]
 		apdu := append([]byte{cla | 0x10, ins, p1, p2, byte(len(chunk))}, chunk...)
 		_, sw, err := c.transmit(apdu)
-		wipe.Bytes(apdu)
+		secret.Wipe(apdu)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", op, err)
 		}
@@ -406,7 +406,7 @@ func (c *Card) cmd(op string, cla, ins, p1, p2 byte, data []byte) ([]byte, error
 		}
 	}
 	apdu := append(make([]byte, 0, 4+1+len(data)+1), cla, ins, p1, p2)
-	defer wipe.Bytes(apdu)
+	defer secret.Wipe(apdu)
 	if len(data) > 0 {
 		apdu = append(apdu, byte(len(data)))
 		apdu = append(apdu, data...)

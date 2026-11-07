@@ -18,10 +18,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/tpm2-trust/go-tui-slim/secret"
 	"github.com/tpm2-trust/tpm2-kira/internal/journal"
 	"github.com/tpm2-trust/tpm2-kira/internal/screen"
 	"github.com/tpm2-trust/tpm2-kira/internal/unixsock"
-	"github.com/tpm2-trust/tpm2-kira/internal/wipe"
 
 	"golang.org/x/sys/unix"
 )
@@ -166,7 +166,7 @@ func (s *UnlockServer) answer(c net.Conn) {
 		s.log(fmt.Sprintf("unlock: no key for %s: %v", req.Volume, err))
 		return
 	}
-	defer wipe.Bytes(key)
+	defer secret.Wipe(key)
 	if _, err := c.Write(key); err != nil {
 		s.log(fmt.Sprintf("unlock: writing the key for %s failed: %v", req.Volume, err))
 		return
@@ -392,7 +392,7 @@ func KeyboardSalt(salt, pepper []byte) []byte {
 // salt. A recording of the keys is of no use without the layout; the password is typed as ever.
 // A wrong pepper of the right form makes a key that opens nothing, as a mistyped password does.
 func keyboardKey(volume string, vaultErr error, salt []byte, sess KeyboardSession, ask Prompter) ([]byte, error) {
-	defer wipe.Bytes(salt)
+	defer secret.Wipe(salt)
 	if w, ok := sess.(interface{ Wipe() }); ok {
 		defer w.Wipe() // this prompt's copy of the layout; another prompt takes another
 	}
@@ -407,7 +407,7 @@ func keyboardKey(volume string, vaultErr error, salt []byte, sess KeyboardSessio
 	if err != nil {
 		return nil, err
 	}
-	defer wipe.Bytes(pw)
+	defer secret.Wipe(pw)
 	pepperNote := ""
 	for try := 0; ; try++ {
 		typed, err := ask(volume, "Pepper", pepperNote)
@@ -415,7 +415,7 @@ func keyboardKey(volume string, vaultErr error, salt []byte, sess KeyboardSessio
 			return nil, err
 		}
 		p, err := sess.Pepper(typed)
-		wipe.Bytes(typed)
+		secret.Wipe(typed)
 		if errors.Is(err, ErrNotAPepper) {
 			if try+1 >= keyboardTries {
 				return nil, fmt.Errorf("%w (%v)", ErrUnlockSkipped, err)
@@ -427,8 +427,8 @@ func keyboardKey(volume string, vaultErr error, salt []byte, sess KeyboardSessio
 			return nil, fmt.Errorf("%w (%v)", ErrUnlockSkipped, err)
 		}
 		s := KeyboardSalt(salt, p)
-		wipe.Bytes(p)
-		defer wipe.Bytes(s)
+		secret.Wipe(p)
+		defer secret.Wipe(s)
 		return derive(pw, s)
 	}
 }
@@ -468,13 +468,13 @@ func typedKey(volume string, r Recipe, vaultErr error, salt func(volume string, 
 	if err != nil {
 		return nil, err
 	}
-	defer wipe.Bytes(pw)
+	defer secret.Wipe(pw)
 	if s == nil {
 		if s, err = ask(volume, "Salt", ""); err != nil {
 			return nil, err
 		}
 	}
-	defer wipe.Bytes(s)
+	defer secret.Wipe(s)
 	return derive(pw, s)
 }
 
@@ -557,7 +557,7 @@ func ReadPassphrase(f io.ReadWriter, fd int) ([]byte, error) {
 		}
 	}
 	one := make([]byte, 1)
-	defer wipe.Bytes(one)
+	defer secret.Wipe(one)
 	if old == nil {
 		// Not a terminal: one line, without its end, read a byte at a
 		// time so that nothing past the line is taken from the input -
@@ -570,7 +570,7 @@ func ReadPassphrase(f io.ReadWriter, fd int) ([]byte, error) {
 					break
 				}
 				if len(line) == MaxPassphrase {
-					wipe.Bytes(line)
+					secret.Wipe(line)
 					return nil, errPassphraseTooLong
 				}
 				line = append(line, one[0])
@@ -580,7 +580,7 @@ func ReadPassphrase(f io.ReadWriter, fd int) ([]byte, error) {
 				if errors.Is(err, io.EOF) && len(line) > 0 {
 					break
 				}
-				wipe.Bytes(line)
+				secret.Wipe(line)
 				return nil, err
 			}
 		}
@@ -619,7 +619,7 @@ func ReadRawPassphrase(next func() (byte, error), echo io.Writer) ([]byte, error
 	for {
 		c, err := next()
 		if err != nil {
-			wipe.Bytes(pw)
+			secret.Wipe(pw)
 			if errors.Is(err, io.EOF) {
 				return nil, errPassphraseCancelled
 			}
@@ -629,7 +629,7 @@ func ReadRawPassphrase(next func() (byte, error), echo io.Writer) ([]byte, error
 		case '\n', '\r':
 			return pw, nil
 		case 3, 4: // Ctrl-C, Ctrl-D
-			wipe.Bytes(pw)
+			secret.Wipe(pw)
 			return nil, errPassphraseCancelled
 		case 127, 8: // Backspace
 			if len(pw) > 0 {
@@ -671,7 +671,7 @@ var passphraseBuffer = func() []byte {
 var bufferLockSaid atomic.Bool
 
 // PassphraseBuffer is an empty buffer of MaxPassphrase's capacity, locked in memory:
-// for a prompt that asks for a secret in its own way (internal/prompt). Its caller
+// for a prompt that asks for a secret in its own way (go-tui-slim's prompt, Prompter.SecretBuffer). Its caller
 // keeps within the capacity, and wipes it.
 func PassphraseBuffer() []byte { return passphraseBuffer() }
 

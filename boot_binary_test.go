@@ -10,14 +10,14 @@ import (
 )
 
 // The boot image carries tpm2-kira-boot, and only what the boot runs:
-// nothing of the administration (internal/admin), not its prompts (internal/prompt), not control's full screen (internal/tui).
+// nothing of the administration (internal/admin), not its prompts nor control's full screen (go-tui-slim's prompt and tui).
 func TestBootBinaryHoldsNoAdministration(t *testing.T) {
 	out, err := exec.Command("go", "list", "-deps", "./cmd/tpm2-kira-boot").CombinedOutput()
 	if err != nil {
 		t.Fatalf("go list: %v\n%s", err, out)
 	}
 	for _, dep := range strings.Fields(string(out)) {
-		for _, bad := range []string{"github.com/tpm2-trust/tpm2-kira/internal/admin", "github.com/tpm2-trust/tpm2-kira/internal/prompt", "github.com/tpm2-trust/tpm2-kira/internal/tui"} {
+		for _, bad := range []string{"github.com/tpm2-trust/tpm2-kira/internal/admin", "github.com/tpm2-trust/go-tui-slim/prompt", "github.com/tpm2-trust/go-tui-slim/tui"} {
 			if dep == bad || strings.HasPrefix(dep, bad) {
 				t.Errorf("tpm2-kira-boot depends on %s", dep)
 			}

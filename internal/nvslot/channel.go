@@ -11,11 +11,11 @@ import (
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpm2/transport"
 
+	"github.com/tpm2-trust/go-tui-slim/secret"
 	"github.com/tpm2-trust/tpm2-kira/core/attest"
 	"github.com/tpm2-trust/tpm2-kira/internal/measure"
 	"github.com/tpm2-trust/tpm2-kira/internal/signing"
 	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
-	"github.com/tpm2-trust/tpm2-kira/internal/wipe"
 )
 
 // The phone channel's secrets: the machine's static Noise key and the
@@ -63,8 +63,8 @@ type ChannelSecrets struct {
 // Wipe clears them.
 func (c *ChannelSecrets) Wipe() {
 	if c != nil {
-		wipe.Bytes(c.NoisePrivate)
-		wipe.Bytes(c.AdvKey)
+		secret.Wipe(c.NoisePrivate)
+		secret.Wipe(c.AdvKey)
 	}
 }
 
@@ -189,7 +189,7 @@ func sealChannelObject(t transport.TPM, policy []byte, c *ChannelSecrets) (publi
 	defer tpmdev.FlushHandle(t, primary.ObjectHandle)
 	session := tpm2.HMAC(tpm2.TPMAlgSHA256, 16, tpm2.Salted(primary.ObjectHandle, primary.Public), tpm2.AESEncryption(128, tpm2.EncryptIn))
 	data := append(append(make([]byte, 0, channelSecretSize), c.NoisePrivate...), c.AdvKey...)
-	defer wipe.Bytes(data)
+	defer secret.Wipe(data)
 	rsp, err := tpm2.Create{
 		ParentHandle: tpm2.AuthHandle{Handle: primary.ObjectHandle, Name: primary.Name, Auth: session},
 		InSensitive: tpm2.TPM2BSensitiveCreate{Sensitive: &tpm2.TPMSSensitiveCreate{

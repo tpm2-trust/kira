@@ -7,10 +7,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/tpm2-trust/go-tui-slim/secret"
+	"github.com/tpm2-trust/go-tui-slim/termguard"
 	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
 	"github.com/tpm2-trust/tpm2-kira/internal/piv"
-	"github.com/tpm2-trust/tpm2-kira/internal/termguard"
-	"github.com/tpm2-trust/tpm2-kira/internal/wipe"
 	"golang.org/x/sys/unix"
 )
 
@@ -29,7 +29,7 @@ var pinBuffer = diskkey.PassphraseBuffer
 func readPINLine(r io.Reader) ([]byte, error) {
 	line := pinBuffer()
 	one := make([]byte, 1)
-	defer wipe.Bytes(one)
+	defer secret.Wipe(one)
 	for {
 		n, err := r.Read(one)
 		if n == 1 {
@@ -38,7 +38,7 @@ func readPINLine(r io.Reader) ([]byte, error) {
 			}
 			// One byte past the limit, for the \r of a line that ends in \r\n.
 			if len(line) == piv.MaxPINLength+1 {
-				wipe.Bytes(line)
+				secret.Wipe(line)
 				return nil, errPINTooLong()
 			}
 			line = append(line, one[0])
@@ -47,7 +47,7 @@ func readPINLine(r io.Reader) ([]byte, error) {
 		if err == nil || errors.Is(err, io.EOF) {
 			break
 		}
-		wipe.Bytes(line)
+		secret.Wipe(line)
 		return nil, err
 	}
 	if n := len(line); n > 0 && line[n-1] == '\r' {
@@ -55,7 +55,7 @@ func readPINLine(r io.Reader) ([]byte, error) {
 		line = line[:n-1]
 	}
 	if len(line) > piv.MaxPINLength {
-		wipe.Bytes(line)
+		secret.Wipe(line)
 		return nil, errPINTooLong()
 	}
 	return line, nil
@@ -89,7 +89,7 @@ func UsePINDescriptor(fd int) error {
 }
 
 func forgetDescriptorPIN() {
-	wipe.Bytes(descriptorPIN.pin)
+	secret.Wipe(descriptorPIN.pin)
 	descriptorPIN.given, descriptorPIN.source, descriptorPIN.pin = false, "", nil
 }
 
@@ -122,7 +122,7 @@ func readPINDescriptor(fd int) ([]byte, error) {
 		return nil, err
 	}
 	if len(pin) == 0 {
-		wipe.Bytes(pin)
+		secret.Wipe(pin)
 		return nil, errors.New("no PIN on the descriptor")
 	}
 	return pin, nil
@@ -161,7 +161,7 @@ func pinFromFile() ([]byte, bool, error) {
 	path := PINPath()
 	pin, loose, err := StoredPIN(path)
 	if loose {
-		wipe.Bytes(pin)
+		secret.Wipe(pin)
 		return nil, false, fmt.Errorf("%s holds the YubiKey PIN but other users can read it, or root does not own it,\n"+
 			"  so tpm2-kira does not use it. Make it readable by root only:\n"+
 			"      chown root: %s && chmod 600 %s\n"+
@@ -229,7 +229,7 @@ func promptPINOnTTY(s *YubiKeySigner) ([]byte, error) {
 		return nil, fmt.Errorf("reading the PIN: %w", err)
 	}
 	if len(pin) == 0 {
-		wipe.Bytes(pin)
+		secret.Wipe(pin)
 		return nil, errors.New("no PIN entered")
 	}
 	return pin, nil
@@ -319,7 +319,7 @@ func StoredPIN(path string) (pin []byte, loose bool, err error) {
 		return nil, loose, fmt.Errorf("%s: %w", path, err)
 	}
 	if len(pin) == 0 {
-		wipe.Bytes(pin)
+		secret.Wipe(pin)
 		return nil, false, nil
 	}
 	return pin, loose, nil
@@ -335,6 +335,6 @@ func looseFile(perm, uid uint32) bool {
 // loose (readable by others): the PIN's value stays out of it.
 func PINStored(path string) (stored, loose bool) {
 	pin, loose, err := StoredPIN(path)
-	defer wipe.Bytes(pin)
+	defer secret.Wipe(pin)
 	return pin != nil || err != nil, loose
 }

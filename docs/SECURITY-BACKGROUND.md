@@ -1992,7 +1992,7 @@ and uses go-uefi-slim for EFI variables and PCR 4's Authenticode hashes. On Arch
 db signature comes from outside, from sbctl or whatever the owner runs; tpm2-kira neither
 makes nor checks it.
 
-**WARNING, what still can reach swap.** `sandbox.LockMemory` covers what holds a
+**WARNING, what still can reach swap.** `secret.LockProcess` (go-tui-slim) covers what holds a
 passphrase, a salt, a derived key, a TOTP key, a signing key's file or a YubiKey's PIN
 (DISK-KEY.md, "Memory"), and aSSH's PIN and lockout authorization. Not covered, open for the
 owner: `assh agent` and `serve` hold host keys' authorization values, not dumpable but not

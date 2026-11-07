@@ -23,15 +23,16 @@ import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WORKSPACE = os.path.dirname(REPO)
-PROJECTS = ("tpm2-kira", "assh", "tpm2-kira-vault", "marify", "safearch", "tpm2-verifier", "go-uefi-slim")
+PROJECTS = ("tpm2-kira", "assh", "tpm2-kira-vault", "marify", "safearch", "tpm2-verifier", "go-uefi-slim", "go-tui-slim")
 # A pin's path in a project (a submodule, a line in a file), and the project it pins.
 PINS = {("tpm2-kira", "assh"): "assh", ("tpm2-kira", "go-uefi-slim"): "go-uefi-slim", ("tpm2-kira", "tpm2-verifier"): "tpm2-verifier",
         ("safearch", "assh"): "assh", ("assh", "go-uefi-slim"): "go-uefi-slim", ("tpm2-kira-vault", "tpm2-kira"): "tpm2-kira",
-        ("marify", "core.properties"): "tpm2-kira"}
+        ("marify", "core.properties"): "tpm2-kira", ("tpm2-kira", "go-tui-slim"): "go-tui-slim", ("assh", "go-tui-slim"): "go-tui-slim",
+        ("tpm2-kira-vault", "go-tui-slim"): "go-tui-slim"}
 # What of tpm2-kira the boot runs. Everything else of its Go code is the installed system's.
 BOOT = ("cmd/tpm2-kira-boot/*", "initramfs/*", "internal/bootclose/*", "internal/bootrun/*", "internal/diskkey/*", "internal/imageplan/*",
         "internal/journal/*", "internal/machineid/*", "internal/memlock/*", "internal/phonegate/*", "internal/screen/*", "internal/sshscreen/*",
-        "internal/tpmdev/*", "internal/unixsock/*", "internal/untrusted/*", "internal/vaultkey/*", "internal/wipe/*")
+        "internal/tpmdev/*", "internal/unixsock/*", "internal/untrusted/*", "internal/vaultkey/*")
 ARGON2 = ("internal/diskkey/combine*", "internal/memlock/*")
 DOCS = ("*.md", "docs/*", "LICENSE", "MAINTAINERS", "SECURITY.md")
 
@@ -77,6 +78,8 @@ ROWS = (
         project_is("tpm2-kira-vault"), ("vault", "machines")),
     Row("`go-uefi-slim/`", "its tests (the immutable test as root on a VM); aSSH's and tpm2-kira's suites after `./pin go-uefi-slim`",
         project_is("go-uefi-slim"), ("go-uefi-slim", "assh", "test-all")),
+    Row("`go-tui-slim/`", "its tests (the process lock's \"covers\" as root on a VM); aSSH's tests, tpm2-kira's `make test-all` and the vault's tests against it (`go.work`); after `./pin go-tui-slim`, safearch's `tests/run.sh` and the vmtest scenarios that drive `control` (setup)",
+        project_is("go-tui-slim"), ("go-tui-slim", "assh", "test-all", "vault", "safearch-run", "machines")),
     Row("`tpm2-verifier/`", "its tests; `core`'s and the vault's after `./pin tpm2-verifier`",
         project_is("tpm2-verifier"), ("tpm2-verifier", "test-all", "vault")),
     Row("`safearch/`", "`tests/run.sh`; `tests/vm.sh` at the end of the batch, when the boot changed",

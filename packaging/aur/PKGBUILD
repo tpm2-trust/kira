@@ -29,18 +29,22 @@ _verifier=804ab7ed7616c8984061febe01db999fdcb10d33
 # The commit of the go-uefi-slim submodule (EFI variables, Secure Boot), the
 # same way (git rev-parse "$_tag:go-uefi-slim").
 _uefislim=4e8c951178a9db47cf6f81dc3508f9a2d0513d45
+# The commit of the go-tui-slim submodule (the terminal's screen, questions and
+# secrets), the same way (git rev-parse "$_tag:go-tui-slim").
+_tuislim=9dcc3a29f8760fde2c8cc1a1d6c5c3e8541a2b8e
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/$_tag.tar.gz")
 source+=("assh-$_assh.tar.gz::https://github.com/tpm2-trust/assh/archive/$_assh.tar.gz")
 source+=("tpm2-verifier-$_verifier.tar.gz::https://github.com/tpm2-trust/tpm2-verifier/archive/$_verifier.tar.gz")
 source+=("go-uefi-slim-$_uefislim.tar.gz::https://github.com/tpm2-trust/go-uefi-slim/archive/$_uefislim.tar.gz")
-sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP')
+source+=("go-tui-slim-$_tuislim.tar.gz::https://github.com/tpm2-trust/go-tui-slim/archive/$_tuislim.tar.gz")
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP')
 options=('!debug')
 
 # GitHub names the extracted directory after the tag, minus a leading 'v'.
 _srcdir="$pkgname-${_tag#v}"
 
 prepare() {
-    # aSSH's, tpm2-verifier's and go-uefi-slim's sources where the
+    # aSSH's, tpm2-verifier's, go-uefi-slim's and go-tui-slim's sources where the
     # submodules go (an archive of the repository's HEAD carries them
     # already, and has no assh-*, tpm2-verifier-* or go-uefi-slim-* source).
     if [[ -d assh-$_assh ]]; then
@@ -54,6 +58,10 @@ prepare() {
     if [[ -d go-uefi-slim-$_uefislim ]]; then
         rm -rf "$_srcdir/go-uefi-slim"
         mv "go-uefi-slim-$_uefislim" "$_srcdir/go-uefi-slim"
+    fi
+    if [[ -d go-tui-slim-$_tuislim ]]; then
+        rm -rf "$_srcdir/go-tui-slim"
+        mv "go-tui-slim-$_tuislim" "$_srcdir/go-tui-slim"
     fi
 
     cd "$_srcdir"

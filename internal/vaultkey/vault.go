@@ -39,6 +39,7 @@ import (
 	"github.com/google/go-tpm/tpm2/transport"
 	"golang.org/x/crypto/hkdf"
 
+	"github.com/tpm2-trust/go-tui-slim/secret"
 	"github.com/tpm2-trust/tpm2-kira/core/attest"
 	"github.com/tpm2-trust/tpm2-kira/core/vaultproto"
 	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
@@ -48,7 +49,6 @@ import (
 	"github.com/tpm2-trust/tpm2-kira/internal/screen"
 	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
 	"github.com/tpm2-trust/tpm2-kira/internal/untrusted"
-	"github.com/tpm2-trust/tpm2-kira/internal/wipe"
 )
 
 // The derivation strings of the vault's parts as the combiner's inputs:
@@ -79,23 +79,23 @@ func Password(local []byte, label string) []byte {
 // wipes it.
 func Key(local, remote []byte, label string, pepper []byte) ([]byte, error) {
 	pw := Password(local, label)
-	defer wipe.Bytes(pw)
+	defer secret.Wipe(pw)
 	salt := Salt(remote, label, pepper)
-	defer wipe.Bytes(salt)
+	defer secret.Wipe(salt)
 	return diskkey.Combine(pw, salt)
 }
 
-func hkdfHex(secret, salt []byte, what, label string) []byte {
+func hkdfHex(ikm, salt []byte, what, label string) []byte {
 	if label == "" {
 		label = "luks"
 	}
 	info := append([]byte(what), byte(len(label)>>8), byte(len(label)))
 	info = append(info, label...)
 	out := make([]byte, 32)
-	if _, err := io.ReadFull(hkdf.New(sha256.New, secret, salt, info), out); err != nil {
+	if _, err := io.ReadFull(hkdf.New(sha256.New, ikm, salt, info), out); err != nil {
 		panic(err) // HKDF with a fixed length cannot fail
 	}
-	defer wipe.Bytes(out)
+	defer secret.Wipe(out)
 	return []byte(hex.EncodeToString(out))
 }
 
@@ -442,7 +442,7 @@ func Open(ctx context.Context, tpmDev transport.TPM, vs vaultSlot, say func(stri
 		if local, err = phonegate.UnwrapFactor(tpmDev, vs.Sealed, vs.Idx, vs.Att, &v.Local); err != nil {
 			return nil, nil, fmt.Errorf("the local part: %w", err)
 		}
-		defer wipe.Bytes(local)
+		defer secret.Wipe(local)
 	}
 	c, err := NewClient(v.URL, v.Pin)
 	if err != nil {
@@ -462,13 +462,13 @@ func Open(ctx context.Context, tpmDev transport.TPM, vs vaultSlot, say func(stri
 		}
 		pw := Password(local, v.Label)
 		key, err := diskkey.Combine(pw, salt)
-		wipe.Bytes(pw)
-		wipe.Bytes(salt)
+		secret.Wipe(pw)
+		secret.Wipe(salt)
 		if err != nil {
 			return nil, nil, err
 		}
 		if len(v.PepperCheck) > 0 && !hmac.Equal(PepperCheck(key), v.PepperCheck) {
-			wipe.Bytes(key)
+			secret.Wipe(key)
 			say("the pepper given with the approval does not fit this keyslot; asking the vault for a new approval")
 			continue
 		}
@@ -492,7 +492,7 @@ func saltOf(tpmDev transport.TPM, vs vaultSlot, rsp *vaultproto.ReleaseResponse)
 	if err != nil {
 		return nil, fmt.Errorf("the remote part: %w", err)
 	}
-	defer wipe.Bytes(remote)
+	defer secret.Wipe(remote)
 	if !v.Pepper {
 		return Salt(remote, v.Label, nil), nil
 	}
@@ -500,7 +500,7 @@ func saltOf(tpmDev transport.TPM, vs vaultSlot, rsp *vaultproto.ReleaseResponse)
 	if err != nil {
 		return nil, err
 	}
-	defer wipe.Bytes(p)
+	defer secret.Wipe(p)
 	return Salt(remote, v.Label, p), nil
 }
 
@@ -510,7 +510,7 @@ func openPepper(tpmDev transport.TPM, vs vaultSlot, w *vaultproto.WrappedPepper)
 	if err != nil {
 		return nil, fmt.Errorf("the pepper: %w", err)
 	}
-	defer wipe.Bytes(k)
+	defer secret.Wipe(k)
 	p, err := vaultproto.OpenPepper(k, vs.Att.DeviceID, w)
 	if err != nil {
 		return nil, fmt.Errorf("the pepper: %w", err)
@@ -745,10 +745,10 @@ func (vk *Keys) Forget() {
 	vk.mu.Lock()
 	defer vk.mu.Unlock()
 	for _, k := range vk.keys {
-		wipe.Bytes(k)
+		secret.Wipe(k)
 	}
 	for _, s := range vk.salts {
-		wipe.Bytes(s)
+		secret.Wipe(s)
 	}
 	for _, kb := range vk.keyboards {
 		kb.Wipe()

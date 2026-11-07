@@ -25,7 +25,6 @@ import (
 	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
 	"github.com/tpm2-trust/tpm2-kira/internal/piv"
 	"github.com/tpm2-trust/tpm2-kira/internal/piv/pivtest"
-	"github.com/tpm2-trust/tpm2-kira/internal/prompt"
 	"github.com/tpm2-trust/tpm2-kira/internal/signing"
 	"golang.org/x/sys/unix"
 )
@@ -782,7 +781,7 @@ func TestControlStoresThePIN(t *testing.T) {
 	defer signing.CloseTokenSessions()
 
 	var out bytes.Buffer
-	c := &controller{out: &out, p: prompt.New(strings.NewReader("\n654321\n"), &out)}
+	c := &controller{out: &out, p: newPrompter(strings.NewReader("\n654321\n"), &out)}
 	if err := c.storePINOf(signer); err == nil {
 		t.Fatal("a wrong PIN is taken")
 	}
@@ -794,7 +793,7 @@ func TestControlStoresThePIN(t *testing.T) {
 	}
 	signing.CloseTokenSessions()
 
-	c = &controller{out: &out, p: prompt.New(strings.NewReader("123456\n"), &out)}
+	c = &controller{out: &out, p: newPrompter(strings.NewReader("123456\n"), &out)}
 	if err := c.storePINOf(signer); err != nil {
 		t.Fatal(err)
 	}

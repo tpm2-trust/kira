@@ -7,6 +7,7 @@ require (
 	github.com/google/go-tpm v0.9.9-0.20261030171821-c395998989d7
 	github.com/tpm2-trust/tpm2-kira/core v0.0.0
 	github.com/tpm2-trust/assh v0.0.0
+	github.com/tpm2-trust/go-tui-slim v0.0.0
 	github.com/tpm2-trust/go-uefi-slim v0.0.0
 	golang.org/x/crypto v0.58.0
 	golang.org/x/sys v0.49.0
@@ -31,3 +32,8 @@ replace github.com/tpm2-trust/tpm2-verifier => ./tpm2-verifier
 // EFI variables and Secure Boot: the workspace's go-uefi-slim module, its
 // submodule (aSSH's replace of it does not reach here).
 replace github.com/tpm2-trust/go-uefi-slim => ./go-uefi-slim
+
+// A terminal's screen, questions and secrets (control, the prompts, wipe, the
+// process lock): the workspace's go-tui-slim module, its submodule (aSSH's
+// replace of it does not reach here).
+replace github.com/tpm2-trust/go-tui-slim => ./go-tui-slim

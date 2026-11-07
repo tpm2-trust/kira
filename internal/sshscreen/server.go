@@ -35,9 +35,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/tpm2-trust/go-tui-slim/secret"
 	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
 	"github.com/tpm2-trust/tpm2-kira/internal/screen"
-	"github.com/tpm2-trust/tpm2-kira/internal/wipe"
 
 	"github.com/tpm2-trust/assh/config"
 	"github.com/tpm2-trust/assh/server"
@@ -224,7 +224,7 @@ func (r *Server) read(s *remoteSession) {
 		r.signal(r.Changed)
 	}()
 	buf := make([]byte, 64)
-	defer wipe.Bytes(buf) // what was typed, a prompt's answer among it
+	defer secret.Wipe(buf) // what was typed, a prompt's answer among it
 	for {
 		n, err := s.conn.Read(buf)
 		if err != nil {
@@ -251,7 +251,7 @@ func (r *Server) read(s *remoteSession) {
 				return
 			}
 		}
-		wipe.Bytes(buf)
+		secret.Wipe(buf)
 	}
 }
 

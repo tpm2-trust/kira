@@ -35,7 +35,7 @@ It may not carry what came before.
   `tpm2-kira` (the module root's `main`) is everything on the installed
   system; `tpm2-kira-boot` (`cmd/tpm2-kira-boot`) is what the boot image
   carries, and the hooks put nothing else in. It must not import
-  `internal/admin` or its prompts, `internal/prompt` (`boot_binary_test.go`). Processes that must
+  `internal/admin` or its prompts and screen, go-tui-slim's `prompt` and `tui` (`boot_binary_test.go`). Processes that must
   be separated at boot (the confined radio worker, the SSH server's
   unprivileged half) are `tpm2-kira-boot` run with other arguments, never a
   third executable. Code lives in `internal/`, by layer; a package knows
@@ -296,7 +296,7 @@ It may not carry what came before.
   `--fast-kdf` run is no final proof.
 - **What holds a passphrase, a salt, a derived key, a TOTP key, a signing key's file or a
   YubiKey's PIN is locked and not dumpable.**
-  aSSH's `sandbox.LockMemory`, first thing: a command on the installed system, a hook's
+  go-tui-slim's `secret.LockProcess`, first thing: a command on the installed system, a hook's
   `slot approve` too, stops if it cannot, before it asks or reads (`holdsSecrets` in main.go; `secrets_test.go` finds
   what in `internal/admin` comes to one, and a new one fails there); at boot `run` and
   `unlock-key` go on and say so (no enforced mode). It locks on fault, or

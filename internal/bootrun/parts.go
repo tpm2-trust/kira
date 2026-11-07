@@ -3,8 +3,8 @@ package bootrun
 import (
 	"context"
 	"fmt"
+	"github.com/tpm2-trust/go-tui-slim/secret"
 	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
-	"github.com/tpm2-trust/tpm2-kira/internal/wipe"
 	"os"
 	"slices"
 	"sync"
@@ -511,7 +511,7 @@ func (p *tpmSaltPart) end(*board) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	for _, t := range p.salts {
-		wipe.Bytes(t)
+		secret.Wipe(t)
 	}
 	p.salts = nil
 }
@@ -565,7 +565,7 @@ func (p *unlockPart) start(bd *board) {
 			if t == nil {
 				return nil
 			}
-			defer wipe.Bytes(t)
+			defer secret.Wipe(t)
 			return phonegate.FactorSalt(t, tok.Label)
 		}
 		return nil

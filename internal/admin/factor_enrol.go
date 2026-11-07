@@ -14,13 +14,13 @@ import (
 
 	"golang.org/x/sys/unix"
 
+	"github.com/tpm2-trust/go-tui-slim/secret"
 	"github.com/tpm2-trust/tpm2-kira/core/attest"
 	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
 	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
 	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
 	"github.com/tpm2-trust/tpm2-kira/internal/signing"
 	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
-	"github.com/tpm2-trust/tpm2-kira/internal/wipe"
 )
 
 // FactorEnrolOptions is what 'phone salt enrol' takes.
@@ -64,7 +64,7 @@ func FactorEnrol(o FactorEnrolOptions) error {
 	if err != nil {
 		return err
 	}
-	defer wipe.Bytes(key)
+	defer secret.Wipe(key)
 	if err := writeKeyOut(o.Out, key); err != nil {
 		return err
 	}
@@ -162,9 +162,9 @@ func remoteSaltKey(o FactorEnrolOptions) ([]byte, uint32, error) {
 	if err != nil {
 		return nil, 0, err
 	}
-	defer wipe.Bytes(f)
+	defer secret.Wipe(f)
 	want := phonegate.FactorSalt(f, label)
-	defer wipe.Bytes(want)
+	defer secret.Wipe(want)
 	keepFactor := &attest.FactorBlob{CredentialBlob: w.Credential, EncryptedSecret: w.EncryptedSecret, Label: label}
 	var keepKeyboard *attest.KeyboardKeep
 	if o.Keyboard {
@@ -206,12 +206,12 @@ func remoteSaltKey(o FactorEnrolOptions) ([]byte, uint32, error) {
 	if err != nil {
 		return nil, 0, err
 	}
-	defer wipe.Bytes(pw)
+	defer secret.Wipe(pw)
 	again, err := terminalPassword("The same password again: ")
 	if err != nil {
 		return nil, 0, err
 	}
-	defer wipe.Bytes(again)
+	defer secret.Wipe(again)
 	if !bytes.Equal(pw, again) {
 		return nil, 0, errors.New("the passwords differ; nothing was written")
 	}
@@ -222,8 +222,8 @@ func remoteSaltKey(o FactorEnrolOptions) ([]byte, uint32, error) {
 			return nil, 0, err
 		}
 		salt = diskkey.KeyboardSalt(want, pepper)
-		wipe.Bytes(pepper)
-		defer wipe.Bytes(salt)
+		secret.Wipe(pepper)
+		defer secret.Wipe(salt)
 	}
 	fmt.Fprintln(os.Stderr, "Deriving the key (Argon2id, 1 GiB, a few seconds) ...")
 	key, err := diskkey.Combine(pw, salt)
@@ -414,17 +414,17 @@ func askKeyboardPepper() ([]byte, error) {
 		return nil, err
 	}
 	if err := attest.CheckKeyboardPepper(p); err != nil {
-		wipe.Bytes(p)
+		secret.Wipe(p)
 		return nil, fmt.Errorf("%w; nothing was written", err)
 	}
 	again, err := terminalAsk("The same pepper again: ")
 	if err != nil {
-		wipe.Bytes(p)
+		secret.Wipe(p)
 		return nil, err
 	}
-	defer wipe.Bytes(again)
+	defer secret.Wipe(again)
 	if !bytes.Equal(p, again) {
-		wipe.Bytes(p)
+		secret.Wipe(p)
 		return nil, errors.New("the peppers differ; nothing was written")
 	}
 	return p, nil

@@ -16,9 +16,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tpm2-trust/go-tui-slim/secret"
 	"github.com/tpm2-trust/tpm2-kira/internal/pcsc"
 	"github.com/tpm2-trust/tpm2-kira/internal/piv"
-	"github.com/tpm2-trust/tpm2-kira/internal/wipe"
 )
 
 // ── Key file stub ────────────────────────────────────────────────────────────
@@ -706,7 +706,7 @@ func (sess *tokenSession) ensurePIN(s *YubiKeySigner, force bool) error {
 		sess.pin, sess.pinSource = pin, source
 	}
 	if err := sess.card.VerifyPIN(sess.pin); err != nil {
-		wipe.Bytes(sess.pin)
+		secret.Wipe(sess.pin)
 		sess.pin = nil
 		sess.fatal = unavailable(s, "%v (PIN from %s) — stopping here so no further attempt is spent", err, sess.pinSource)
 		return sess.fatal
@@ -756,7 +756,7 @@ func CloseTokenSessions() {
 			sess.conn.Close(true)
 		}
 		sess.closeAll()
-		wipe.Bytes(sess.pin)
+		secret.Wipe(sess.pin)
 		delete(tokenSessions, serial)
 	}
 	forgetDescriptorPIN()

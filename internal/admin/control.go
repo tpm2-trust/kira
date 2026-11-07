@@ -11,9 +11,10 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/tpm2-trust/go-tui-slim/prompt"
+	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
 	"github.com/tpm2-trust/tpm2-kira/internal/measure"
 	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/prompt"
 	"github.com/tpm2-trust/tpm2-kira/internal/screen"
 	"golang.org/x/sys/unix"
 )
@@ -169,7 +170,7 @@ func Control(o ControlOptions) error {
 	if c.out == nil {
 		c.out = os.Stdout
 	}
-	c.p = prompt.New(os.Stdin, c.out)
+	c.p = newPrompter(os.Stdin, c.out)
 	c.out = c.p.Writer()
 	c.tty = isTerminal(os.Stdin)
 	// The configuration file first: control writes it, and a step taken
@@ -267,15 +268,24 @@ func (c *controller) screenTitle() string {
 	return "Overview > " + sectionByKey(c.screen).title
 }
 
+// newPrompter is a prompt.Prompter that reads every secret - a PIN, a password -
+// into diskkey's locked buffer, as every secret tpm2-kira holds: never swapped,
+// wiped by the caller (go-tui-slim's own default is a plain buffer).
+func newPrompter(in io.Reader, out io.Writer) *prompt.Prompter {
+	p := prompt.New(in, out)
+	p.SecretBuffer = diskkey.PassphraseBuffer
+	return p
+}
+
 // clearScreen is the terminal cleared, the cursor at the top.
 const clearScreen = "\033[H\033[2J"
 
-// ask is what control asks with (internal/prompt): the overview with the step to
+// ask is what control asks with (go-tui-slim's prompt): the overview with the step to
 // pick, a yes/no, a device. What a step prints stays on the screen above the next
 // question. Ctrl-C, Ctrl-D or Esc leaves.
 func (c *controller) ask() *prompt.Prompter {
 	if c.p == nil {
-		c.p = prompt.New(os.Stdin, c.out)
+		c.p = newPrompter(os.Stdin, c.out)
 	}
 	return c.p
 }

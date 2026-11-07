@@ -15,7 +15,6 @@ import (
 	"github.com/tpm2-trust/assh/persist"
 
 	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/prompt"
 	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
 )
 
@@ -249,7 +248,7 @@ func TestControlForeignGenerationIndex(t *testing.T) {
 	}
 	run := func(lines string) (string, error) {
 		var out bytes.Buffer
-		c := &controller{out: &out, p: prompt.New(strings.NewReader(lines), &out)}
+		c := &controller{out: &out, p: newPrompter(strings.NewReader(lines), &out)}
 		c.o.TPMPath = sock
 		c.facts.Dirt = dirt
 		err := c.runRemoveSlot(0)
