@@ -91,14 +91,14 @@ jobs:
           VERSION=${{ steps.get_version.outputs.VERSION }}
           LDFLAGS="-w -X main.Version=${VERSION}"
 
-          # Build for Linux amd64. Static and cgo-free: tpm2-kira-boot is
+          # Build for Linux amd64. Static and cgo-free: kira-boot is
           # copied into the initramfs, which has no libc.
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o dist/tpm2-kira-linux-amd64 .
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o dist/tpm2-kira-boot-linux-amd64 ./cmd/tpm2-kira-boot
-          for b in dist/tpm2-kira-linux-amd64 dist/tpm2-kira-boot-linux-amd64; do
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o dist/kira-linux-amd64 .
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o dist/kira-boot-linux-amd64 ./cmd/kira-boot
+          for b in dist/kira-linux-amd64 dist/kira-boot-linux-amd64; do
             go version -m "$b" | grep -q 'CGO_ENABLED=0' || { echo "$b built with cgo" >&2; exit 1; }
           done
-          sh packaging/release-binary-check.sh dist/tpm2-kira-linux-amd64 dist/tpm2-kira-boot-linux-amd64
+          sh packaging/release-binary-check.sh dist/kira-linux-amd64 dist/kira-boot-linux-amd64
 
       - name: Create checksums
         run: |
@@ -110,8 +110,8 @@ jobs:
         with:
           name: linux-binaries
           path: |
-            dist/tpm2-kira-linux-amd64
-            dist/tpm2-kira-boot-linux-amd64
+            dist/kira-linux-amd64
+            dist/kira-boot-linux-amd64
             dist/checksums.txt
           retention-days: 1
 
@@ -208,7 +208,7 @@ jobs:
           PKGVER=${{ steps.get_version.outputs.PKGVER }}
 
           # Find the main package (not debug package)
-          MAIN_PACKAGE=$(ls tpm2-kira-*.pkg.tar.zst | grep -v debug | head -1)
+          MAIN_PACKAGE=$(ls kira-*.pkg.tar.zst | grep -v debug | head -1)
           if [[ -z "$MAIN_PACKAGE" ]]; then
             echo "ERROR: No main package found"
             ls -la *.pkg.tar.zst
@@ -217,7 +217,7 @@ jobs:
 
           # The previous PKGBUILD could silently emit 0.0.0; never again.
           case "$MAIN_PACKAGE" in
-            tpm2-kira-${PKGVER}-*) ;;
+            kira-${PKGVER}-*) ;;
             *) echo "ERROR: ${MAIN_PACKAGE} does not carry version ${PKGVER}"; exit 1 ;;
           esac
 
@@ -226,11 +226,11 @@ jobs:
           tar -xf "$MAIN_PACKAGE" -C /tmp/package-test
 
           for path in \
-            usr/bin/tpm2-kira \
-            usr/bin/tpm2-kira-boot \
-            usr/lib/systemd/system/tpm2-kira.service \
-            usr/lib/initcpio/install/sd-tpm2-kira \
-            usr/lib/initcpio/post/sd-tpm2-kira
+            usr/bin/kira \
+            usr/bin/kira-boot \
+            usr/lib/systemd/system/kira.service \
+            usr/lib/initcpio/install/sd-kira \
+            usr/lib/initcpio/post/sd-kira
           do
             if [[ ! -e "/tmp/package-test/${path}" ]]; then
               echo "ERROR: ${path} missing from the package"
@@ -238,36 +238,36 @@ jobs:
             fi
           done
 
-          if [[ ! -x "/tmp/package-test/usr/bin/tpm2-kira" ]]; then
-            echo "ERROR: tpm2-kira binary not executable"
+          if [[ ! -x "/tmp/package-test/usr/bin/kira" ]]; then
+            echo "ERROR: kira binary not executable"
             exit 1
           fi
 
           # The unit must NOT be enabled on the host; the hook enables it in the image.
-          if [[ -e "/tmp/package-test/usr/lib/systemd/system/sysinit.target.wants/tpm2-kira.service" ]]; then
-            echo "ERROR: package force-enables tpm2-kira.service on the host"
+          if [[ -e "/tmp/package-test/usr/lib/systemd/system/sysinit.target.wants/kira.service" ]]; then
+            echo "ERROR: package force-enables kira.service on the host"
             exit 1
           fi
 
-          "/tmp/package-test/usr/bin/tpm2-kira" version
-          "/tmp/package-test/usr/bin/tpm2-kira-boot" version
+          "/tmp/package-test/usr/bin/kira" version
+          "/tmp/package-test/usr/bin/kira-boot" version
 
           # Built with the current Go release, not pacman's.
-          BUILT=$(go version -m /tmp/package-test/usr/bin/tpm2-kira | head -1 | awk '{print $2}')
+          BUILT=$(go version -m /tmp/package-test/usr/bin/kira | head -1 | awk '{print $2}')
           [[ "$BUILT" == "$GO" ]] || { echo "ERROR: built with $BUILT, the current release is $GO"; exit 1; }
 
       - name: Create package checksum
         run: |
           cd packaging/aur
           # Only checksum the main package, not debug packages
-          sha256sum tpm2-kira-*.pkg.tar.zst | grep -v debug > package-checksums.txt || sha256sum tpm2-kira-*.pkg.tar.zst > package-checksums.txt
+          sha256sum kira-*.pkg.tar.zst | grep -v debug > package-checksums.txt || sha256sum kira-*.pkg.tar.zst > package-checksums.txt
 
       - name: Upload package artifacts
         uses: actions/upload-artifact@v7
         with:
           name: archlinux-package
           path: |
-            packaging/aur/tpm2-kira-[0-9]*.pkg.tar.zst
+            packaging/aur/kira-[0-9]*.pkg.tar.zst
             packaging/aur/package-checksums.txt
             packaging/aur/PKGBUILD
           retention-days: 1
@@ -316,9 +316,9 @@ jobs:
           # cannot drift apart. On a tag this yields the bare version.
           VERSION_DEB=$(packaging/deb-version.sh)
 
-          sed -i "1s/^tpm2-kira (.*)/tpm2-kira (${VERSION_DEB})/" debian/changelog
+          sed -i "1s/^kira (.*)/kira (${VERSION_DEB})/" debian/changelog
           head -1 debian/changelog
-          grep -q "^tpm2-kira (${VERSION_DEB})" debian/changelog || {
+          grep -q "^kira (${VERSION_DEB})" debian/changelog || {
             echo "ERROR: could not set changelog version to ${VERSION_DEB}"
             exit 1
           }
@@ -339,29 +339,29 @@ jobs:
       - name: Collect artifacts
         run: |
           mkdir -p debpkg
-          cp ../tpm2-kira_*.deb ../tpm2-kira_*.dsc ../tpm2-kira_*.tar.xz debpkg/
+          cp ../kira_*.deb ../kira_*.dsc ../kira_*.tar.xz debpkg/
           ls -la debpkg/
 
       - name: Run lintian
         run: |
-          lintian --no-tag-display-limit ../tpm2-kira_*.changes || \
+          lintian --no-tag-display-limit ../kira_*.changes || \
             echo "lintian findings above (non-fatal)"
 
       - name: Validate package contents
         run: |
-          DEB=$(ls debpkg/tpm2-kira_*.deb | head -1)
+          DEB=$(ls debpkg/kira_*.deb | head -1)
           echo "Validating ${DEB}"
           dpkg-deb -I "$DEB"
           dpkg-deb -c "$DEB"
 
           for path in \
-            ./usr/bin/tpm2-kira \
-            ./usr/bin/tpm2-kira-boot \
-            ./usr/share/initramfs-tools/hooks/tpm2-kira \
-            ./usr/share/initramfs-tools/scripts/init-premount/tpm2-kira \
-            ./usr/share/initramfs-tools/scripts/init-bottom/tpm2-kira \
-            ./etc/initramfs/post-update.d/tpm2-kira \
-            ./etc/tpm2-kira/initramfs.conf
+            ./usr/bin/kira \
+            ./usr/bin/kira-boot \
+            ./usr/share/initramfs-tools/hooks/kira \
+            ./usr/share/initramfs-tools/scripts/init-premount/kira \
+            ./usr/share/initramfs-tools/scripts/init-bottom/kira \
+            ./etc/initramfs/post-update.d/kira \
+            ./etc/kira/initramfs.conf
           do
             dpkg-deb -c "$DEB" | awk '{print $NF}' | grep -qx "$path" || {
               echo "ERROR: ${path} missing from the package"
@@ -372,22 +372,22 @@ jobs:
           # The initramfs carries no libraries, so the binary must be static.
           mkdir -p /tmp/debcheck
           dpkg-deb -x "$DEB" /tmp/debcheck
-          file /tmp/debcheck/usr/bin/tpm2-kira-boot
-          file /tmp/debcheck/usr/bin/tpm2-kira-boot | grep -q "statically linked" || {
+          file /tmp/debcheck/usr/bin/kira-boot
+          file /tmp/debcheck/usr/bin/kira-boot | grep -q "statically linked" || {
             echo "ERROR: the boot binary is not statically linked"
             exit 1
           }
-          test -x /tmp/debcheck/usr/share/initramfs-tools/hooks/tpm2-kira || {
+          test -x /tmp/debcheck/usr/share/initramfs-tools/hooks/kira || {
             echo "ERROR: initramfs hook is not executable"
             exit 1
           }
-          /tmp/debcheck/usr/bin/tpm2-kira version
-          /tmp/debcheck/usr/bin/tpm2-kira-boot version
+          /tmp/debcheck/usr/bin/kira version
+          /tmp/debcheck/usr/bin/kira-boot version
 
       - name: Create package checksums
         run: |
           cd debpkg
-          sha256sum tpm2-kira_* > debian-checksums.txt
+          sha256sum kira_* > debian-checksums.txt
           cat debian-checksums.txt
 
       - name: Upload package artifacts
@@ -462,7 +462,7 @@ jobs:
           git config --global init.defaultBranch master
 
           rm -rf /tmp/aur-repo
-          git clone ssh://aur@aur.archlinux.org/tpm2-kira.git /tmp/aur-repo
+          git clone ssh://aur@aur.archlinux.org/kira.git /tmp/aur-repo
           cd /tmp/aur-repo
 
           # An AUR repository holds only these two files.
@@ -525,17 +525,17 @@ jobs:
         id: package_info
         run: |
           # Get the main package filename (not debug package)
-          PACKAGE_FILE=$(ls archlinux/tpm2-kira-*.pkg.tar.zst | grep -v debug | head -1 | xargs basename)
+          PACKAGE_FILE=$(ls archlinux/kira-*.pkg.tar.zst | grep -v debug | head -1 | xargs basename)
           if [[ -z "$PACKAGE_FILE" ]]; then
             # Fallback if no debug filtering needed
-            PACKAGE_FILE=$(ls archlinux/tpm2-kira-*.pkg.tar.zst | head -1 | xargs basename)
+            PACKAGE_FILE=$(ls archlinux/kira-*.pkg.tar.zst | head -1 | xargs basename)
           fi
           echo "PACKAGE_FILE=${PACKAGE_FILE}" >> $GITHUB_OUTPUT
           echo "Selected package: ${PACKAGE_FILE}"
 
-          DEB_FILE=$(ls debpkg/tpm2-kira_*.deb | head -1 | xargs basename)
-          DSC_FILE=$(ls debpkg/tpm2-kira_*.dsc | head -1 | xargs basename)
-          SRC_FILE=$(ls debpkg/tpm2-kira_*.tar.xz | head -1 | xargs basename)
+          DEB_FILE=$(ls debpkg/kira_*.deb | head -1 | xargs basename)
+          DSC_FILE=$(ls debpkg/kira_*.dsc | head -1 | xargs basename)
+          SRC_FILE=$(ls debpkg/kira_*.tar.xz | head -1 | xargs basename)
           for f in "$DEB_FILE" "$DSC_FILE" "$SRC_FILE"; do
             if [[ -z "$f" ]]; then
               echo "ERROR: a Debian artifact is missing"
@@ -578,8 +578,8 @@ jobs:
             echo "Release ${VERSION} exists, uploading all artifacts..."
 
             # Upload binary artifacts
-            gh release upload ${VERSION} dist/tpm2-kira-linux-amd64 --clobber --repo ${GH_REPO}
-            gh release upload ${VERSION} dist/tpm2-kira-boot-linux-amd64 --clobber --repo ${GH_REPO}
+            gh release upload ${VERSION} dist/kira-linux-amd64 --clobber --repo ${GH_REPO}
+            gh release upload ${VERSION} dist/kira-boot-linux-amd64 --clobber --repo ${GH_REPO}
             gh release upload ${VERSION} dist/checksums.txt --clobber --repo ${GH_REPO}
 
             # Upload package artifacts
@@ -602,8 +602,8 @@ jobs:
           ### Downloads
 
           #### Linux Binaries
-          - **Binaries**: \`tpm2-kira-linux-amd64\` (the installed system) and \`tpm2-kira-boot-linux-amd64\` (what the boot image carries; the hooks put it in)
-          - **Usage**: Download both, make them executable, install them as \`tpm2-kira\` and \`tpm2-kira-boot\`
+          - **Binaries**: \`kira-linux-amd64\` (the installed system) and \`kira-boot-linux-amd64\` (what the boot image carries; the hooks put it in)
+          - **Usage**: Download both, make them executable, install them as \`kira\` and \`kira-boot\`
 
           #### Arch Linux Package
           - **Package**: \`${PACKAGE_FILE}\`
@@ -619,24 +619,24 @@ jobs:
 
           #### From Binary
           \`\`\`bash
-          wget https://github.com/tpm2-trust/tpm2-kira/releases/download/${VERSION}/tpm2-kira-linux-amd64
-          wget https://github.com/tpm2-trust/tpm2-kira/releases/download/${VERSION}/tpm2-kira-boot-linux-amd64
-          sudo install -m755 tpm2-kira-linux-amd64 /usr/local/bin/tpm2-kira
-          sudo install -m755 tpm2-kira-boot-linux-amd64 /usr/local/bin/tpm2-kira-boot
+          wget https://github.com/tpm2-trust/kira/releases/download/${VERSION}/kira-linux-amd64
+          wget https://github.com/tpm2-trust/kira/releases/download/${VERSION}/kira-boot-linux-amd64
+          sudo install -m755 kira-linux-amd64 /usr/local/bin/kira
+          sudo install -m755 kira-boot-linux-amd64 /usr/local/bin/kira-boot
           \`\`\`
 
           #### Arch Linux
           \`\`\`bash
-          wget https://github.com/tpm2-trust/tpm2-kira/releases/download/${VERSION}/${PACKAGE_FILE}
+          wget https://github.com/tpm2-trust/kira/releases/download/${VERSION}/${PACKAGE_FILE}
           sudo pacman -U ${PACKAGE_FILE}
           \`\`\`
 
           #### Debian 13
           \`\`\`bash
-          wget https://github.com/tpm2-trust/tpm2-kira/releases/download/${VERSION}/${DEB_FILE}
+          wget https://github.com/tpm2-trust/kira/releases/download/${VERSION}/${DEB_FILE}
           sudo apt install ./${DEB_FILE}
-          sudo tpm2-kira setup
-          sudo tpm2-kira slot add --pcrs 0,7
+          sudo kira setup
+          sudo kira slot add --pcrs 0,7
           sudo update-initramfs -u
           \`\`\`
 
@@ -652,8 +652,8 @@ jobs:
             fi
 
             # Add all artifacts
-            RELEASE_CMD="$RELEASE_CMD dist/tpm2-kira-linux-amd64"
-            RELEASE_CMD="$RELEASE_CMD dist/tpm2-kira-boot-linux-amd64"
+            RELEASE_CMD="$RELEASE_CMD dist/kira-linux-amd64"
+            RELEASE_CMD="$RELEASE_CMD dist/kira-boot-linux-amd64"
             RELEASE_CMD="$RELEASE_CMD dist/checksums.txt"
             RELEASE_CMD="$RELEASE_CMD archlinux/${PACKAGE_FILE}"
             RELEASE_CMD="$RELEASE_CMD archlinux/package-checksums.txt"
@@ -677,15 +677,15 @@ jobs:
           echo "🎉 Release ${VERSION} completed successfully!"
           echo ""
           echo "📦 Artifacts created:"
-          echo "  • Linux binary: tpm2-kira-linux-amd64"
+          echo "  • Linux binary: kira-linux-amd64"
           echo "  • Binary checksums: checksums.txt"
           echo "  • Arch Linux package: ${PACKAGE_FILE}"
           echo "  • Package checksums: package-checksums.txt"
           echo "  • Debian package: ${{ steps.package_info.outputs.DEB_FILE }}"
           echo "  • Debian source: ${{ steps.package_info.outputs.SRC_FILE }}"
           echo ""
-          echo "🔗 Release URL: https://github.com/tpm2-trust/tpm2-kira/releases/tag/${VERSION}"
+          echo "🔗 Release URL: https://github.com/tpm2-trust/kira/releases/tag/${VERSION}"
           echo ""
           echo "📊 Artifact sizes:"
-          echo "  • Binary: $(du -h dist/tpm2-kira-linux-amd64 | cut -f1)"
+          echo "  • Binary: $(du -h dist/kira-linux-amd64 | cut -f1)"
           echo "  • Package: $(du -h archlinux/${PACKAGE_FILE} | cut -f1)"

@@ -5,14 +5,14 @@ Where things are in the repository, and how the tests are run.
 ## Project Structure
 
 ```
-├── main.go, help.go         # tpm2-kira, the installed system's command line: routing and the help pages
-├── cmd/tpm2-kira-boot/      # tpm2-kira-boot, what the boot image carries: run, close, machine-id, unlock-key, ssh-child, gate-child
-├── core/                    # The shared core: a Go module of its own (github.com/tpm2-trust/tpm2-kira/core),
+├── main.go, help.go         # kira, the installed system's command line: routing and the help pages
+├── cmd/kira-boot/      # kira-boot, what the boot image carries: run, close, machine-id, unlock-key, ssh-child, gate-child
+├── core/                    # The shared core: a Go module of its own (github.com/tpm2-trust/kira/core),
 │   │                        #   what the phone (Marify) and the vault require alone: go-tpm, x/crypto, tpm2-verifier,
 │   │                        #   nothing of internal/ or aSSH (the module boundary keeps it so)
 │   ├── attest/              # Phone attestation core: protocol, Noise, Verify(); no device access
 │   │   └── attesttest/      # Software TPM, in-memory pipe and simulated phone for tests
-│   ├── vaultproto/          # The contract with tpm2-kira-vault: REST messages, the release check
+│   ├── vaultproto/          # The contract with kira-vault: REST messages, the release check
 │   ├── transport/
 │   │   ├── frame/           # Record fragmentation for BLE (shared with the phone)
 │   │   └── ble/             # Pure-Go BLE peripheral over an HCI user channel
@@ -57,7 +57,7 @@ Where things are in the repository, and how the tests are run.
 │   ├── acceptance.py         # The acceptance run on a machine: package, install, checks, reboot, report
 │   ├── vmtest.py             # The VM test: fresh encrypted VMs through install, control, reboots over SSH, the vault
 │   ├── vmtest.conf.example   # Its VMs and the vault (copy to vmtest.conf, not in git)
-│   ├── vmtest-vault/         # The vault of the VM test: tpm2-kira-vault with swtpm, in a container
+│   ├── vmtest-vault/         # The vault of the VM test: kira-vault with swtpm, in a container
 │   ├── pcrtool.py            # PCR replay and full-chain diagnosis
 │   ├── tpm2-pcr11predict     # Independent cross-check of the built-in PCR 11 computation
 │   ├── vulncheck.py          # govulncheck that fails on what the code calls into, minus vulncheck-ignore
@@ -71,7 +71,7 @@ Where things are in the repository, and how the tests are run.
 │   ├── PHONE.md                  # The phone (Marify) verifies the boot over Bluetooth LE
 │   ├── SSH.md                    # SSH in the boot image: the code screen over the network
 │   ├── DISK-KEY.md               # The disk's key: the recipes, the token, the route, how systemd takes the key
-│   ├── VAULT.md                  # The vault: the disk's salt from tpm2-kira-vault
+│   ├── VAULT.md                  # The vault: the disk's salt from kira-vault
 │   ├── PROTOCOL-BLE.md           # Phone <-> machine protocol: the interface definition
 │   ├── PLAN-*.md                 # Designs: the phone (PLAN-PHONE, PLAN-BLE), the phone salt, the vault, LUKS, YubiKey, the test host (PLAN-BLE-TESTING)
 │   ├── mobile/                   # Agent prompts for the Android and iOS apps
@@ -79,19 +79,19 @@ Where things are in the repository, and how the tests are run.
 │   ├── pentest1/, pentest2/      # Security review findings and mitigations
 │   └── *.issue                   # Write-ups of specific bugs
 ├── initramfs/               # Everything that goes into, or builds, an initramfs
-│   ├── common/control.conf          # tpm2-kira's configuration: what the image is built with (radio, network, SSH); aSSH's is assh.conf beside it
-│   ├── systemd/tpm2-kira.service   # Shows the code in systemd-based images
-│   ├── systemd/tpm2-kira-close.service  # Runs 'close' (PCR 15) whatever run did, before any volume is opened
+│   ├── common/control.conf          # kira's configuration: what the image is built with (radio, network, SSH); aSSH's is assh.conf beside it
+│   ├── systemd/kira.service   # Shows the code in systemd-based images
+│   ├── systemd/kira-close.service  # Runs 'close' (PCR 15) whatever run did, before any volume is opened
 │   ├── mkinitcpio/                 # Arch
-│   │   ├── install/sd-tpm2-kira    # Build hook: puts the binary in the image
-│   │   ├── post/sd-tpm2-kira       # Approve after the image is written
+│   │   ├── install/sd-kira    # Build hook: puts the binary in the image
+│   │   ├── post/sd-kira       # Approve after the image is written
 │   │   └── mkinitcpio.conf.example
 │   └── initramfs-tools/            # Debian
-│       ├── hooks/tpm2-kira         # Build hook: copies the static binary
-│       ├── scripts/init-premount/tpm2-kira  # Shows the code before unlock
-│       ├── scripts/local-top/tpm2-kira-close  # Closes the boot (PCR 15) before cryptroot and before a resume from hibernation
-│       ├── scripts/init-bottom/tpm2-kira    # Stops it and closes the boot once more before switching root
-│       └── post-update.d/tpm2-kira          # slot approve for the new image
+│       ├── hooks/kira         # Build hook: copies the static binary
+│       ├── scripts/init-premount/kira  # Shows the code before unlock
+│       ├── scripts/local-top/kira-close  # Closes the boot (PCR 15) before cryptroot and before a resume from hibernation
+│       ├── scripts/init-bottom/kira    # Stops it and closes the boot once more before switching root
+│       └── post-update.d/kira          # slot approve for the new image
 ├── debian/                  # Debian package definition (must sit at the root)
 ├── packaging/
 │   ├── aur/                 # Arch Linux PKGBUILD

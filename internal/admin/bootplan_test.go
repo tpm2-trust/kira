@@ -13,11 +13,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/imageplan"
-	"github.com/tpm2-trust/tpm2-kira/internal/netstate"
-	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
-	"github.com/tpm2-trust/tpm2-kira/internal/sshscreen"
-	"github.com/tpm2-trust/tpm2-kira/internal/vaultkey"
+	"github.com/tpm2-trust/kira/internal/imageplan"
+	"github.com/tpm2-trust/kira/internal/netstate"
+	"github.com/tpm2-trust/kira/internal/phonegate"
+	"github.com/tpm2-trust/kira/internal/sshscreen"
+	"github.com/tpm2-trust/kira/internal/vaultkey"
 
 	"github.com/google/go-tpm/tpm2"
 	"github.com/tpm2-trust/assh/hostkey"
@@ -35,7 +35,7 @@ func planConfig(t *testing.T, content string) ControlConfig {
 }
 
 // testSSHCA is an SSH CA as the plan reads it, made without a TPM: a CA
-// key's public part, tpm2-kira's slots, and an authority's approval of
+// key's public part, kira's slots, and an authority's approval of
 // values in every slot, or none. The plan only needs it to load.
 func testSSHCA(t *testing.T, approved bool) sshCAState {
 	t.Helper()
@@ -94,7 +94,7 @@ func TestDecidePlan(t *testing.T) {
 
 	// No TPM, Bluetooth packed always, a phone's worth of settings: the
 	// disk unlock alone, and each part says why.
-	p := decidePlan(planInputs{TPMErr: "no /dev/tpmrm0", Config: planConfig(t, "TPM2_KIRA_ATTEST_BLUETOOTH=always\n")})
+	p := decidePlan(planInputs{TPMErr: "no /dev/tpmrm0", Config: planConfig(t, "KIRA_ATTEST_BLUETOOTH=always\n")})
 	if got := partsOn(p); got != "unlock" || p.TPM {
 		t.Fatalf("no TPM: %q, TPM %v", got, p.TPM)
 	}
@@ -130,7 +130,7 @@ func TestDecidePlan(t *testing.T) {
 		t.Errorf("no adapter: %+v", p.Part(imageplan.PartPhone))
 	}
 	// Packed ahead of any enrolment.
-	p = decidePlan(planInputs{Config: planConfig(t, "TPM2_KIRA_ATTEST_BLUETOOTH=always\n"), BT: bt, Signer: []byte("PEM")})
+	p = decidePlan(planInputs{Config: planConfig(t, "KIRA_ATTEST_BLUETOOTH=always\n"), BT: bt, Signer: []byte("PEM")})
 	if !p.Has(imageplan.PartPhone) || !strings.Contains(p.Part(imageplan.PartPhone).Why, "every image") || p.Has(imageplan.PartCodes) || !p.TPM {
 		t.Errorf("always: %+v", p.Parts)
 	}
@@ -153,13 +153,13 @@ func TestDecidePlan(t *testing.T) {
 	if p := decidePlan(in); p.Has(imageplan.PartVault) || !strings.Contains(p.Part(imageplan.PartVault).Why, "network") {
 		t.Errorf("a vault without a network: %+v", p.Part(imageplan.PartVault))
 	}
-	in.Config = planConfig(t, "TPM2_KIRA_NET=dhcp\nTPM2_KIRA_SSH=on\n")
+	in.Config = planConfig(t, "KIRA_NET=dhcp\nKIRA_SSH=on\n")
 	in.KeysErr = "authorized_keys holds no key without options: nobody could log in"
 	p = decidePlan(in)
 	if got := partsOn(p); got != "unlock codes vault net" || !strings.Contains(p.Part(imageplan.PartSSH).Why, "nobody could log in") {
 		t.Fatalf("a vault, SSH without keys: %q %+v", got, p.Part(imageplan.PartSSH))
 	}
-	in.KeysErr, in.Keys, in.SSHCA = "", []string{loginKey(t, "admin")}, sshCAState{Err: "no SSH CA: tpm2-kira control creates it in the TPM"}
+	in.KeysErr, in.Keys, in.SSHCA = "", []string{loginKey(t, "admin")}, sshCAState{Err: "no SSH CA: kira control creates it in the TPM"}
 	if p := decidePlan(in); p.Has(imageplan.PartSSH) || !strings.Contains(p.Part(imageplan.PartSSH).Why, "control creates it") {
 		t.Fatalf("SSH without a CA: %+v", p.Part(imageplan.PartSSH))
 	}
@@ -172,7 +172,7 @@ func TestDecidePlan(t *testing.T) {
 	}
 	// Switched off, the next image leaves the server out, its network stays what control says.
 	off := in
-	off.Config = planConfig(t, "TPM2_KIRA_NET=dhcp\nTPM2_KIRA_SSH=off\n")
+	off.Config = planConfig(t, "KIRA_NET=dhcp\nKIRA_SSH=off\n")
 	if q := decidePlan(off); q.Has(imageplan.PartSSH) || !strings.Contains(q.Part(imageplan.PartSSH).Why, "off (Network & SSH)") {
 		t.Fatalf("SSH switched off: %+v", q.Part(imageplan.PartSSH))
 	}
@@ -264,9 +264,9 @@ func TestWriteImageMkinitcpio(t *testing.T) {
 	ca := testSSHCA(t, true)
 	bt := &BTDeps{Adapter: "hci0", Modules: []string{"btusb", "btintel", "bluetooth"}, Firmware: []string{"intel/ibt-0180-0041.sfi"},
 		Authorize: &USBDevice{Port: "3-10", Vendor: "8087", Product: "0033"}}
-	in := planInputs{Config: planConfig(t, "TPM2_KIRA_NET=dhcp\nTPM2_KIRA_SSH=on\n"), Slots: 2, Shown: 2, Phones: 1, BT: bt,
+	in := planInputs{Config: planConfig(t, "KIRA_NET=dhcp\nKIRA_SSH=on\n"), Slots: 2, Shown: 2, Phones: 1, BT: bt,
 		Signer: []byte("-----BEGIN PUBLIC KEY-----\nAAAA\n-----END PUBLIC KEY-----\n"), Keys: []string{admin}, KeysSkipped: 2, SSHCA: ca}
-	in.Config.Remote.SSH.Assh.AuthorizedKeys = "/etc/tpm2-kira/authorized_keys"
+	in.Config.Remote.SSH.Assh.AuthorizedKeys = "/etc/kira/authorized_keys"
 	p := decidePlan(in)
 	out, root = writePlan(t, p, FormatMkinitcpio)
 	for _, want := range []string{
@@ -274,7 +274,7 @@ func TestWriteImageMkinitcpio(t *testing.T) {
 		"say Phone (Bluetooth): in  - 1 phone enrolled, via hci0\n",
 		"bt-module btusb\nbt-module btintel\nbt-module bluetooth\nbt-firmware intel/ibt-0180-0041.sfi\n",
 		"net-module drv_enp1s0\n",
-		"warning 2 line(s) of /etc/tpm2-kira/authorized_keys left out",
+		"warning 2 line(s) of /etc/kira/authorized_keys left out",
 		"module efivarfs\n",
 	} {
 		if !strings.Contains(out, want) {
@@ -298,11 +298,11 @@ func TestWriteImageMkinitcpio(t *testing.T) {
 		phonegate.DefaultAttestSignerPath: "BEGIN PUBLIC KEY",
 		"/" + BTUdevRuleFile:              `KERNEL=="3-10"`,
 		imageNetworkFile:                  "DHCP=yes",
-		imageRemoteConf:                   `TPM2_KIRA_NET_ANNOUNCE="on"`,
-		"/etc/tpm2-kira/authorized_keys":  admin + "\n",
+		imageRemoteConf:                   `KIRA_NET_ANNOUNCE="on"`,
+		"/etc/kira/authorized_keys":       admin + "\n",
 		sshscreen.DefaultConf:             "ASSH_CA=efi:KIRAasshCA\n",
-		imageRunDropIn:                    `"TPM2_KIRA_REMOTE=--ssh --ssh-hold=0"`,
-		imageResumeDropIn:                 "[Unit]\nAfter=tpm2-kira.service\n[Service]\nExecStartPre=/usr/bin/tpm2-kira-boot close --resume\n",
+		imageRunDropIn:                    `"KIRA_REMOTE=--ssh --ssh-hold=0"`,
+		imageResumeDropIn:                 "[Unit]\nAfter=kira.service\n[Service]\nExecStartPre=/usr/bin/kira-boot close --resume\n",
 	} {
 		if got := readImage(t, root, path); !strings.Contains(got, want) {
 			t.Errorf("%s: %q, want %q", path, got, want)
@@ -327,7 +327,7 @@ func TestWriteImageMkinitcpio(t *testing.T) {
 	}
 
 	// A MAC this machine does not have: every driver, and the hook says so.
-	in.Config = planConfig(t, "TPM2_KIRA_NET=static\nTPM2_KIRA_NET_MATCH=aa:bb:cc:dd:ee:09\nTPM2_KIRA_NET_ADDRESS=192.0.2.10/24\n")
+	in.Config = planConfig(t, "KIRA_NET=static\nKIRA_NET_MATCH=aa:bb:cc:dd:ee:09\nKIRA_NET_ADDRESS=192.0.2.10/24\n")
 	if out, _ := writePlan(t, decidePlan(in), FormatMkinitcpio); !strings.Contains(out, "net-modules-all\nwarning no interface aa:bb:cc:dd:ee:09") {
 		t.Errorf("unknown MAC:\n%s", out)
 	}
@@ -338,7 +338,7 @@ func TestWriteImageMkinitcpio(t *testing.T) {
 // systemd-networkd file, no drop-ins and no module list.
 func TestWriteImageInitramfsTools(t *testing.T) {
 	fakeNet(t, map[string]string{"enp1s0": "aa:bb:cc:dd:ee:01"})
-	in := planInputs{Config: planConfig(t, "TPM2_KIRA_NET=static\nTPM2_KIRA_NET_MATCH=aa:bb:cc:dd:ee:01\nTPM2_KIRA_NET_ADDRESS=\"192.0.2.10/24 2001:db8::10/64\"\nTPM2_KIRA_NET_GATEWAY=192.0.2.1\nTPM2_KIRA_SSH=on\n"),
+	in := planInputs{Config: planConfig(t, "KIRA_NET=static\nKIRA_NET_MATCH=aa:bb:cc:dd:ee:01\nKIRA_NET_ADDRESS=\"192.0.2.10/24 2001:db8::10/64\"\nKIRA_NET_GATEWAY=192.0.2.1\nKIRA_SSH=on\n"),
 		Slots: 1, Shown: 1, Phones: 1, BT: &BTDeps{Adapter: "hci0", Modules: []string{"btusb"}}, Signer: []byte("PEM"),
 		Keys: []string{loginKey(t, "admin")}, SSHCA: testSSHCA(t, true)}
 	in.Config.Remote.SSH.Assh.Listen = ":2222"
@@ -348,9 +348,9 @@ func TestWriteImageInitramfsTools(t *testing.T) {
 	}
 	conf := readImage(t, root, imageRemoteConf)
 	for _, want := range []string{
-		`TPM2_KIRA_NET="static"`, `TPM2_KIRA_NET_MATCH="aa:bb:cc:dd:ee:01"`,
-		`TPM2_KIRA_NET_ADDRESS="192.0.2.10/24 2001:db8::10/64"`, `TPM2_KIRA_NET_GATEWAY="192.0.2.1"`,
-		`TPM2_KIRA_REMOTE="--ssh --ssh-hold=0"`,
+		`KIRA_NET="static"`, `KIRA_NET_MATCH="aa:bb:cc:dd:ee:01"`,
+		`KIRA_NET_ADDRESS="192.0.2.10/24 2001:db8::10/64"`, `KIRA_NET_GATEWAY="192.0.2.1"`,
+		`KIRA_REMOTE="--ssh --ssh-hold=0"`,
 	} {
 		if !strings.Contains(conf, want) {
 			t.Errorf("remote.conf lacks %s:\n%s", want, conf)
@@ -366,35 +366,35 @@ func TestWriteImageInitramfsTools(t *testing.T) {
 	// file, not the image): names no prerequisite (cryptroot names it,
 	// TestDebianScriptOrder), only with the plan's TPM part; when the code screen is over; its
 	// failure reboots, the resume's clears resume=.
-	if b, err := os.ReadFile("../../initramfs/initramfs-tools/scripts/local-top/tpm2-kira-close"); err != nil {
+	if b, err := os.ReadFile("../../initramfs/initramfs-tools/scripts/local-top/kira-close"); err != nil {
 		t.Error(err)
-	} else if got := string(b); !strings.Contains(got, `PREREQ=""`) || !strings.Contains(got, "[ -d /etc/tpm2-kira/plan/tpm ] || exit 0") ||
-		!strings.Contains(got, "if ! /usr/bin/tpm2-kira-boot close --ready-file /run/tpm2-kira/screen-over --run-pid /run/tpm2-kira.pid") ||
+	} else if got := string(b); !strings.Contains(got, `PREREQ=""`) || !strings.Contains(got, "[ -d /etc/kira/plan/tpm ] || exit 0") ||
+		!strings.Contains(got, "if ! /usr/bin/kira-boot close --ready-file /run/kira/screen-over --run-pid /run/kira.pid") ||
 		!strings.Contains(got, "reboot -f") || !strings.Contains(got, "echo b >/proc/sysrq-trigger") || !strings.Contains(got, "while :; do sleep 60; done") ||
-		!strings.Contains(got, "if ! /usr/bin/tpm2-kira-boot close --resume") || !strings.Contains(got, `echo "resume=" >>/conf/param.conf`) {
+		!strings.Contains(got, "if ! /usr/bin/kira-boot close --resume") || !strings.Contains(got, `echo "resume=" >>/conf/param.conf`) {
 		t.Errorf("the local-top script:\n%s", got)
 	}
 	// The close when the initrd is left: with the plan's TPM part, and its
 	// failure reboots, with no shell and no way on; no cap.
-	if b, err := os.ReadFile("../../initramfs/initramfs-tools/scripts/init-bottom/tpm2-kira"); err != nil {
+	if b, err := os.ReadFile("../../initramfs/initramfs-tools/scripts/init-bottom/kira"); err != nil {
 		t.Error(err)
-	} else if got := string(b); !strings.Contains(got, "if [ -d /etc/tpm2-kira/plan/tpm ] && ! /usr/bin/tpm2-kira-boot close") ||
+	} else if got := string(b); !strings.Contains(got, "if [ -d /etc/kira/plan/tpm ] && ! /usr/bin/kira-boot close") ||
 		!strings.Contains(got, "reboot -f") || !strings.Contains(got, "echo b >/proc/sysrq-trigger") || !strings.Contains(got, "while :; do sleep 60; done") ||
-		strings.Contains(got, "panic") || strings.Contains(got, "tpm2-kira-boot cap") {
+		strings.Contains(got, "panic") || strings.Contains(got, "kira-boot cap") {
 		t.Errorf("the init-bottom script:\n%s", got)
 	}
 	if got := readImage(t, root, sshscreen.DefaultConf); !strings.Contains(got, "ASSH_LISTEN=:2222\n") {
 		t.Errorf("the image's assh.conf:\n%s", got)
 	}
-	for _, p := range []string{"/etc/tpm2-kira/authorized_keys", filepath.Join(imageplan.Dir, imageplan.PartTPM)} {
+	for _, p := range []string{"/etc/kira/authorized_keys", filepath.Join(imageplan.Dir, imageplan.PartTPM)} {
 		if _, err := os.Stat(filepath.Join(root, p)); err != nil {
 			t.Error(err)
 		}
 	}
 	// The network alone: no SSH flags.
-	in.Config = planConfig(t, "TPM2_KIRA_NET=dhcp\n")
+	in.Config = planConfig(t, "KIRA_NET=dhcp\n")
 	_, root = writePlan(t, decidePlan(in), FormatInitramfsTools)
-	if conf := readImage(t, root, imageRemoteConf); strings.Contains(conf, "TPM2_KIRA_REMOTE") || !strings.Contains(conf, `TPM2_KIRA_NET="dhcp"`) {
+	if conf := readImage(t, root, imageRemoteConf); strings.Contains(conf, "KIRA_REMOTE") || !strings.Contains(conf, `KIRA_NET="dhcp"`) {
 		t.Errorf("network alone:\n%s", conf)
 	}
 }
@@ -404,7 +404,7 @@ func TestWriteImageInitramfsTools(t *testing.T) {
 // rebuild; a part the image carries for nothing is not.
 func TestImagePlanPending(t *testing.T) {
 	fakeNet(t, map[string]string{"enp1s0": "aa:bb:cc:dd:ee:01"})
-	in := planInputs{Config: planConfig(t, "TPM2_KIRA_NET=dhcp\nTPM2_KIRA_SSH=on\n"), Slots: 1, Shown: 1, Keys: []string{loginKey(t, "admin")}, SSHCA: testSSHCA(t, true)}
+	in := planInputs{Config: planConfig(t, "KIRA_NET=dhcp\nKIRA_SSH=on\n"), Slots: 1, Shown: 1, Keys: []string{loginKey(t, "admin")}, SSHCA: testSSHCA(t, true)}
 	_, root := writePlan(t, decidePlan(in), FormatMkinitcpio)
 
 	img := filepath.Join(t.TempDir(), "initramfs-linux.img")
@@ -442,7 +442,7 @@ func TestImagePlanPending(t *testing.T) {
 	}
 	// SSH switched off: a reason to rebuild at once - the image would
 	// start it at the next boot.
-	in = planInputs{Config: planConfig(t, "TPM2_KIRA_NET=dhcp\n"), Slots: 1, Shown: 1}
+	in = planInputs{Config: planConfig(t, "KIRA_NET=dhcp\n"), Slots: 1, Shown: 1}
 	if p := planPending(decidePlan(in), parts, img); len(p) != 1 || !strings.Contains(p[0], "SSH server: switched off, still in initramfs-linux.img") {
 		t.Errorf("SSH off: %q", p)
 	}
@@ -455,7 +455,7 @@ func TestImagePlanPending(t *testing.T) {
 		t.Errorf("network and SSH off: %q", p)
 	}
 	// An image of no plan at all: everything in use is missing.
-	listImage = func(string) ([]string, error) { return []string{"./usr/bin/tpm2-kira-boot"}, nil }
+	listImage = func(string) ([]string, error) { return []string{"./usr/bin/kira-boot"}, nil }
 	st, _ := os.Stat(img)
 	os.Chtimes(img, st.ModTime().Add(1e9), st.ModTime().Add(1e9)) // a new build: the listing is cached by time
 	parts, _ = imagePlan(img)
@@ -485,7 +485,7 @@ func TestReadPlanned(t *testing.T) {
 // so; the bundle is in its settings, so a changed root is a rebuild; and
 // the image carries the bundle where the boot reads it.
 func TestVaultPartCarriesTheRoots(t *testing.T) {
-	cfg := planConfig(t, "TPM2_KIRA_NET=dhcp\n")
+	cfg := planConfig(t, "KIRA_NET=dhcp\n")
 	in := planInputs{Config: cfg, Slots: 1, Shown: 1, Vaults: 1, VaultRootsErr: "no root of a vault in " + vaultkey.RootsPath}
 	if p := decidePlan(in); p.Has(imageplan.PartVault) || !strings.Contains(p.Part(imageplan.PartVault).Why, "no root of a vault") {
 		t.Fatalf("without roots: %+v", p.Part(imageplan.PartVault))
@@ -522,7 +522,7 @@ func TestASealedSlotOrACAIsClosed(t *testing.T) {
 	}
 	// The close before a resume comes with the close, SSH or not.
 	_, root := writePlan(t, decidePlan(planInputs{Config: DefaultControlConfig(), Slots: 1}), FormatMkinitcpio)
-	if got := readImage(t, root, imageResumeDropIn); !strings.Contains(got, "ExecStartPre=/usr/bin/tpm2-kira-boot close --resume") {
+	if got := readImage(t, root, imageResumeDropIn); !strings.Contains(got, "ExecStartPre=/usr/bin/kira-boot close --resume") {
 		t.Fatalf("a sealed slot without SSH: the resume drop-in %q", got)
 	}
 	if p := decidePlan(planInputs{Config: DefaultControlConfig()}); p.TPM {

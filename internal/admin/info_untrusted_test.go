@@ -9,11 +9,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/totp"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
-	"github.com/tpm2-trust/tpm2-kira/internal/untrusted"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/totp"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/untrusted"
 
 	"github.com/google/go-tpm/tpm2"
 	"rsc.io/qr"
@@ -21,13 +21,13 @@ import (
 
 func TestQuoteUntrusted(t *testing.T) {
 	for in, want := range map[string]string{
-		"/etc/tpm2-kira/keys/seal.key": "/etc/tpm2-kira/keys/seal.key",
-		"v0.3.1":                       "v0.3.1",
-		"":                             `""`,
-		"a b":                          `"a b"`,
-		"\x1b[2J":                      `"\x1b[2J"`,
-		"x\nFAKE LINE":                 `"x\nFAKE LINE"`,
-		"\xff":                         `"\xff"`,
+		"/etc/kira/keys/seal.key": "/etc/kira/keys/seal.key",
+		"v0.3.1":                  "v0.3.1",
+		"":                        `""`,
+		"a b":                     `"a b"`,
+		"\x1b[2J":                 `"\x1b[2J"`,
+		"x\nFAKE LINE":            `"x\nFAKE LINE"`,
+		"\xff":                    `"\xff"`,
 	} {
 		if got := untrusted.Quote(in); got != want {
 			t.Errorf("quoteUntrusted(%q) = %s, want %s", in, got, want)
@@ -113,7 +113,7 @@ func TestInfoVerifiedBlob(t *testing.T) {
 }
 
 func TestRenderQRCode(t *testing.T) {
-	out, err := totp.RenderQRCode("otpauth://totp/TPM2-KIRA?secret=JBSWY3DPEHPK3PXP&issuer=TPM2-KIRA")
+	out, err := totp.RenderQRCode("otpauth://totp/KIRA?secret=JBSWY3DPEHPK3PXP&issuer=KIRA")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +123,7 @@ func TestRenderQRCode(t *testing.T) {
 	}
 	// Decode the half blocks back into modules and compare them with the
 	// encoder's bitmap, quiet zone included.
-	code, err := qr.Encode("otpauth://totp/TPM2-KIRA?secret=JBSWY3DPEHPK3PXP&issuer=TPM2-KIRA", qr.M)
+	code, err := qr.Encode("otpauth://totp/KIRA?secret=JBSWY3DPEHPK3PXP&issuer=KIRA", qr.M)
 	if err != nil {
 		t.Fatal(err)
 	}

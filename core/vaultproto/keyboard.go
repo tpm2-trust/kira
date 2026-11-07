@@ -3,7 +3,7 @@ package vaultproto
 import (
 	"io"
 
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
+	"github.com/tpm2-trust/kira/core/attest"
 )
 
 // A pepper typed through the vault's one-time keyboard (attest/keyboard.go). A device enrolled

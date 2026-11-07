@@ -1,7 +1,7 @@
 # Binaries for programs and plugins
-# Anchored: unanchored, this also swallows the initramfs scripts named tpm2-kira.
-/tpm2-kira
-/tpm2-kira-boot
+# Anchored: unanchored, this also swallows the initramfs scripts named kira.
+/kira
+/kira-boot
 
 # Test binary, built with `go test -c`
 *.test
@@ -24,7 +24,7 @@ debian/.debhelper/
 debian/.gocache/
 debian/debhelper-build-stamp
 debian/files
-debian/tpm2-kira/
+debian/kira/
 debian/*.substvars
 debian/*.debhelper.log
 debpkg/
@@ -37,7 +37,7 @@ vendor/
 
 packaging/archlinux/pkg
 packaging/archlinux/src
-packaging/archlinux/tpm2-kira*
+packaging/archlinux/kira*
 
 # Build directory
 build/

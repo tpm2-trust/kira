@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The VM test: tpm2-kira on fresh, encrypted test VMs, scenario by scenario.
+"""The VM test: kira on fresh, encrypted test VMs, scenario by scenario.
 
     tools/vmtest.py --target both                     # the proof's scenarios, from the snapshot fresh
     tools/vmtest.py --target both --all               # and the rest, before a release (the owner's call)
@@ -12,8 +12,8 @@ HEAD, aSSH as pinned), and exactly those are installed - never a package of anot
 
 The machines are described in tools/vmtest.conf (an address, a user with sudo, the LUKS device's
 passphrase, and how to reset it; see vmtest.conf.example). Each is put back into its defined state
-first: the machine's `reset` command runs, and the run waits for its ssh. Fresh means: tpm2-kira not
-installed, /etc/tpm2-kira absent, a LUKS-encrypted root whose passphrase is known, a TPM, and an ssh
+first: the machine's `reset` command runs, and the run waits for its ssh. Fresh means: kira not
+installed, /etc/kira absent, a LUKS-encrypted root whose passphrase is known, a TPM, and an ssh
 server for the user; a machine that is not is refused. Without a `reset` command (or with --no-reset)
 the machine must be fresh already. The run changes the machine (packages, slots in its TPM, an SSH CA
 in an EFI variable, a keyslot, the boot image).
@@ -92,7 +92,7 @@ SETUP_SNAPSHOT = "setup"
 # The same with Secure Boot on: the steps up to the first reboot, from tools/secureboot-vm.py's snapshot.
 SECURE_SETUP_SNAPSHOT = "setup-secure"
 # A boot's commands read at once: where one's output starts (Machine.batch).
-BATCH_MARK = "@@tpm2-kira-vmtest@@"
+BATCH_MARK = "@@kira-vmtest@@"
 FROM_SETUP_NOTE = "NOT A FINAL PROOF: started from a saved setup, not from the snapshot fresh."
 FAST_KDF_NOTE = "NOT A FINAL PROOF: a --fast-kdf TEST build, Argon2id at a test's cost, not the production's."
 PARTIAL_NOTE = "NOT A FINAL PROOF: a part of the run: "
@@ -218,8 +218,8 @@ def package_binaries(package, directory):
         archive = os.path.join(directory, member)
     else:
         archive = package
-    subprocess.run(["tar", "-xf", archive, "-C", directory, "--wildcards", "*usr/bin/tpm2-kira", "*usr/bin/tpm2-kira-boot"], check=True)
-    return [os.path.join(directory, "usr", "bin", b) for b in ("tpm2-kira", "tpm2-kira-boot")]
+    subprocess.run(["tar", "-xf", archive, "-C", directory, "--wildcards", "*usr/bin/kira", "*usr/bin/kira-boot"], check=True)
+    return [os.path.join(directory, "usr", "bin", b) for b in ("kira", "kira-boot")]
 
 
 def package_is(package, fast_kdf):
@@ -514,8 +514,8 @@ class Machine:
         self.check(f"{what} touched no swap (/proc/vmstat)", before.get("pswpout") == after.get("pswpout") and before.get("pswpin") == after.get("pswpin"), f"{before} -> {after}")
 
     def command_status(self):
-        """/proc/PID/status of the running tpm2-kira command, in KiB; empty when it is gone."""
-        rc, out = self.run("cat /proc/$(pgrep -xn tpm2-kira)/status 2>/dev/null")
+        """/proc/PID/status of the running kira command, in KiB; empty when it is gone."""
+        rc, out = self.run("cat /proc/$(pgrep -xn kira)/status 2>/dev/null")
         return {k: int(v) for k, v in re.findall(r"^(Vm\w+):\s+(\d+) kB", out, re.M)}
 
     def check_memory_lock(self):
@@ -523,25 +523,25 @@ class Machine:
         and on a machine with swap, at Argon2id's real cost and under memory pressure,
         that nothing of it goes there while other processes' pages do."""
         self.head("the memory of a command that holds a passphrase")
-        key = "/run/tpm2-kira-lock-test/key"
-        self.run("mkdir -m 700 /run/tpm2-kira-lock-test")
-        rc, out = self.run(f"prlimit --memlock=65536:65536 setpriv --bounding-set=-ipc_lock --inh-caps=-ipc_lock tpm2-kira luks derive --out {key} </dev/null 2>&1", save="lock-refused.log")
+        key = "/run/kira-lock-test/key"
+        self.run("mkdir -m 700 /run/kira-lock-test")
+        rc, out = self.run(f"prlimit --memlock=65536:65536 setpriv --bounding-set=-ipc_lock --inh-caps=-ipc_lock kira luks derive --out {key} </dev/null 2>&1", save="lock-refused.log")
         self.check("a limit on locked memory without CAP_IPC_LOCK stops the command before it asks",
                    "FAILED: nothing was asked" in out and "RLIMIT_MEMLOCK" in out and "Password" not in out, out[-400:])
         refuse = "prlimit --memlock=65536:65536 setpriv --bounding-set=-ipc_lock --inh-caps=-ipc_lock "
         for command in ("setup --local", "slot add --totp", "slot approve --unattended"):
-            rc, out = self.run(f"{refuse}tpm2-kira {command} </dev/null 2>&1", save="lock-refused-" + command.split(" -")[0].replace(" ", "-") + ".log")
+            rc, out = self.run(f"{refuse}kira {command} </dev/null 2>&1", save="lock-refused-" + command.split(" -")[0].replace(" ", "-") + ".log")
             self.check(f"{command}: a refused lock stops it before it reads a key", "FAILED: nothing was asked or read" in out and "RLIMIT_MEMLOCK" in out, out[-400:])
         for command in ("slot info", "status"):
-            rc, out = self.run(f"{refuse}tpm2-kira {command} </dev/null 2>&1", save="lock-readers-" + command.replace(" ", "-") + ".log")
+            rc, out = self.run(f"{refuse}kira {command} </dev/null 2>&1", save="lock-readers-" + command.replace(" ", "-") + ".log")
             self.check(f"{command} holds no secret: under such a limit it goes on", "nothing was asked" not in out and "RLIMIT_MEMLOCK" not in out, out[-400:])
-        hook = "/etc/initramfs/post-update.d/tpm2-kira" if self.distro == "debian" else "/usr/lib/initcpio/post/sd-tpm2-kira"
+        hook = "/etc/initramfs/post-update.d/kira" if self.distro == "debian" else "/usr/lib/initcpio/post/sd-kira"
         rc, out = self.run(f"{refuse}{hook} x x </dev/null 2>&1", save="lock-refused-hook.log")
         self.check("the image's hook under such a limit says the approval did not succeed, and the build would go on", rc == 0 and "RLIMIT_MEMLOCK" in out and "approval did not succeed" in out.lower(), out[-500:])
         swap = self.swap_counts()
         pressure = int(swap.get("SwapTotal:", "0")) > 0 and not self.fast_kdf
         hog = None
-        s = self.session(f"sudo tpm2-kira luks derive --out {key}", "luks-derive")
+        s = self.session(f"sudo kira luks derive --out {key}", "luks-derive")
         try:
             s.expect(r"^Password: ?$", 60)
             st = self.command_status()
@@ -594,7 +594,7 @@ class Machine:
             s.close()
             if hog:
                 self.run(f"kill {hog}", root=False)
-            self.run("rm -rf /run/tpm2-kira-lock-test")
+            self.run("rm -rf /run/kira-lock-test")
         rc, out = self.run("dmesg | grep -E 'Out of memory|oom-kill' | head -3")
         self.check("nothing was killed for memory by the pressure", "Out of memory" not in out and "oom-kill" not in out, out[-400:])
 
@@ -624,8 +624,8 @@ class Machine:
         rc, out = self.run(". /etc/os-release && echo ID=$ID", root=False)
         if not self.check("the target runs " + self.distro, rc == 0 and f"ID={self.distro}" in out.split(), out.strip()):
             raise Fail("not the distribution")
-        rc, out = self.run("test ! -e /etc/tpm2-kira && ! command -v tpm2-kira && echo fresh")
-        if not self.check("the machine is fresh (no tpm2-kira, no /etc/tpm2-kira)", "fresh" in out, out.strip()):
+        rc, out = self.run("test ! -e /etc/kira && ! command -v kira && echo fresh")
+        if not self.check("the machine is fresh (no kira, no /etc/kira)", "fresh" in out, out.strip()):
             raise Fail("not fresh: go back to the snapshot")
         rc, out = self.run("test -c /dev/tpmrm0 && echo tpm")
         if not self.check("a TPM (/dev/tpmrm0)", "tpm" in out):
@@ -644,18 +644,18 @@ class Machine:
         self.t.copy_to(package, remote)
         if self.distro == "debian":
             rc, out = self.run(f"dpkg -i {shlex.quote(remote)} 2>&1", save="install.log")
-            rc2, ver = self.run("dpkg-query -W -f='${Version}' tpm2-kira", root=False)
+            rc2, ver = self.run("dpkg-query -W -f='${Version}' kira", root=False)
             self.check("the package installs (dpkg -i)", rc == 0 and ver.strip() != "", out[-500:])
         else:
             rc, out = self.run(f"pacman -U --noconfirm {shlex.quote(remote)} 2>&1", save="install.log")
-            rc2, ver = self.run("pacman -Q tpm2-kira", root=False)
+            rc2, ver = self.run("pacman -Q kira", root=False)
             self.check("the package installs (pacman -U)", rc2 == 0, out[-500:])
             if rc != 0:
                 self.rep.issues.append("pacman -U exited %d: a hook reported an error (install.log; on the test VM mkinitcpio's own fsck hook does)" % rc)
         self.version = ver.strip().split()[-1] if ver.strip() else "-"
-        rc, out = self.run("tpm2-kira version; tpm2-kira-boot version", root=False)
-        vers = re.findall(r"^tpm2-kira(?:-boot)? version (\S+)$", out, re.M)
-        self.check("tpm2-kira and tpm2-kira-boot, of one version", len(vers) == 2 and vers[0] == vers[1], out.strip())
+        rc, out = self.run("kira version; kira-boot version", root=False)
+        vers = re.findall(r"^kira(?:-boot)? version (\S+)$", out, re.M)
+        self.check("kira and kira-boot, of one version", len(vers) == 2 and vers[0] == vers[1], out.strip())
         says = out.count("TEST BUILD")
         if self.fast_kdf:
             self.check("both binaries say they are a test build, as --fast-kdf asks", says == 2 and ".fastkdf" in self.version, out.strip())
@@ -664,9 +664,9 @@ class Machine:
 
     def seal(self):
         self.head("setup and slot add")
-        rc, out = self.run("tpm2-kira setup --local 2>&1", save="setup.log")
+        rc, out = self.run("kira setup --local 2>&1", save="setup.log")
         self.check("setup --local makes the signing key", "Setup Complete" in out, out[-400:])
-        rc, out = self.run("tpm2-kira slot add --totp 2>&1", save="slot-add.log")
+        rc, out = self.run("kira slot add --totp 2>&1", save="slot-add.log")
         added_at = time.time()
         self.check_secure_boot("slot add, two slots", out)
         self.secrets = re.findall(r"^Secret: ([A-Z2-7]+)", out, re.M)
@@ -678,7 +678,7 @@ class Machine:
         if self.distro == "debian":
             self.check("GRUB: the fallback slot 1 is sealed to 7e,8e,9e", "the fallback, sealed to PCRs 7e,8e,9e alone" in out, out[-600:])
             self.check("GRUB: slot 0 is sealed to 0e,2e,4u,7e,8e,9e", "PCRs: 0e,2e,4u,7e,8e,9e" in out, out[-600:])
-            rc, refused = self.run("tpm2-kira slot add --totp --nvram 2 --pcrs 0,7 2>&1", save="slot-add-grub-07.log")
+            rc, refused = self.run("kira slot add --totp --nvram 2 --pcrs 0,7 2>&1", save="slot-add-grub-07.log")
             self.check("GRUB: slot add refuses a slot without PCRs 8 and 9", "PCR 8 is not selected: on a GRUB boot" in refused, refused[-400:])
         rc, mid = self.run(f"test -e {self.MID_VAR} && echo sealed")
         self.check("slot 0 seals the machine-id in the EFI variable KIRAmachineID", "sealed" in mid and "Sealed the machine-id" in out, out[-400:])
@@ -696,24 +696,24 @@ class Machine:
     def inspect(self):
         self.head("the commands that read")
         cmds = {
-            "slot status": ("tpm2-kira slot status --nvram 0 2>&1", r"Slot 0 \(0x01803010\)\n  Record: EFI variable KIRAslot0-"),
-            "phone ekcert": ("tpm2-kira phone ekcert 2>&1", r"EK certificate:"),
-            "luks status": ("tpm2-kira luks status 2>&1", re.escape(self.luks_dev)),
+            "slot status": ("kira slot status --nvram 0 2>&1", r"Slot 0 \(0x01803010\)\n  Record: EFI variable KIRAslot0-"),
+            "phone ekcert": ("kira phone ekcert 2>&1", r"EK certificate:"),
+            "luks status": ("kira luks status 2>&1", re.escape(self.luks_dev)),
         }
         for name, (cmd, want) in cmds.items():
             rc, out = self.run(cmd, save="cmd-" + name.split(" (")[0].replace(" ", "-") + ".log")
             self.check(f"'{name}' answers", re.search(want, out) is not None, out[-400:])
-        rc, out = self.run("tpm2-kira status 2>&1")
+        rc, out = self.run("kira status 2>&1")
         self.check_secure_boot("status", out)
-        rc, out = self.run(f"tpm2-kira luks enrol {self.luks_dev} --password tpm --salt vault --url https://vault.invalid --pin sha256:{'0' * 64} --token none 2>&1", save="luks-enrol-vault-not-on.log")
+        rc, out = self.run(f"kira luks enrol {self.luks_dev} --password tpm --salt vault --url https://vault.invalid --pin sha256:{'0' * 64} --token none 2>&1", save="luks-enrol-vault-not-on.log")
         self.check("a vault's keyslot on a machine not on Secure Boot: says the vault releases nothing, and to keep a recovery keyslot", "releases nothing to this machine until Secure Boot is on" in out and "recovery keyslot" in out, out[-500:])
-        rc, out = self.run("tpm2-kira status --json 2>&1")
+        rc, out = self.run("kira status --json 2>&1")
         self.check("status --json carries Secure Boot's warning", (self.secure_boot_warning() or "secure_boot_warning") in out if self.secure_boot_warning() else "secure_boot_warning" not in out, out[-300:])
 
     def enrol(self):
         self.head(f"luks enrol {self.luks_dev} --salt typed")
         swap = self.swap_counts()
-        s = self.session(f"sudo tpm2-kira luks enrol {self.luks_dev} --salt typed", "luks-enrol")
+        s = self.session(f"sudo kira luks enrol {self.luks_dev} --salt typed", "luks-enrol")
         try:
             s.expect(r"^Password: ?$", 60); s.send(TEST_PASSWORD + "\n")
             s.expect(r"The same password again: ?$"); s.send(TEST_PASSWORD + "\n")
@@ -722,7 +722,7 @@ class Machine:
             s.expect(r"to authorise: ?$", 900); s.send(self.luks_pass + "\n")
             self.log.say(f"Argon2id took {time.time() - t0:.0f} s here")
             self.lap("the prompts and Argon2id")
-            text, _ = s.expect(r"keyslot (\d+) added: tpm2-kira, 0x1100 ", 300)
+            text, _ = s.expect(r"keyslot (\d+) added: kira, 0x1100 ", 300)
             out = s.wait_end(120)
             self.check("luks enrol adds a keyslot of the recovery recipe (0x1100)", True)
             self.check_no_swap(swap, "the enrolment's Argon2id")
@@ -736,7 +736,7 @@ class Machine:
 
     def control(self):
         self.head("control, answered line by line")
-        s = self.session("sudo tpm2-kira control", "control")
+        s = self.session("sudo kira control", "control")
         menu = r"Enter a number between 1 and \d+: ?$"
         try:
             # The boot chain: every open adoption, written when asked; then on.
@@ -794,9 +794,9 @@ class Machine:
             # What control asks the person to do: the key that may log in.
             key = os.path.join(self.dir, "bootkey")
             if not os.path.exists(key):
-                subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", "tpm2-kira vmtest", "-f", key], check=True)
+                subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", "kira vmtest", "-f", key], check=True)
             pub = open(key + ".pub").read().strip()
-            rc, out = self.run(f"umask 077; printf '%s\\n' {shlex.quote(pub)} > /etc/tpm2-kira/authorized_keys")
+            rc, out = self.run(f"umask 077; printf '%s\\n' {shlex.quote(pub)} > /etc/kira/authorized_keys")
             self.check("control: the SSH server at boot with an SSH CA in the TPM", rc == 0, out)
 
             pick(r"Back to the overview")
@@ -825,7 +825,7 @@ class Machine:
         terminal given back as it was on q. The session of control() has no size, and so
         the numbered line menus."""
         self.head("control's full screen")
-        s = self.session("sudo tpm2-kira control; stty -a", "control-keys", size=(24, 40))
+        s = self.session("sudo kira control; stty -a", "control-keys", size=(24, 40))
         try:
             s.expect(r"Overview", 120)
             s.expect(r"Keys & slots", 30)
@@ -874,22 +874,22 @@ class Machine:
                        "objcopy -O binary --only-section=.initrd \"$uki\" initrd && lsinitcpio -x initrd >/dev/null")
         order = "sed -n 's#^/scripts/local-top/\\([^ ]*\\) .*#ORDER \\1#p' scripts/local-top/ORDER; " if self.distro == "debian" else (
             "ls usr/lib/systemd/system/cryptsetup-pre.target; "
-            "systemd-analyze verify --root=$PWD initrd.target tpm2-kira-close.service tpm2-kira.service tpm2-kira-unlock.socket 2>&1 | grep -i 'cycle' | sed 's/^/CYCLE /' || true; ")
+            "systemd-analyze verify --root=$PWD initrd.target kira-close.service kira.service kira-unlock.socket 2>&1 | grep -i 'cycle' | sed 's/^/CYCLE /' || true; ")
         rc, out = self.run(f"set -e; d=$(mktemp -d); cd $d; {listing}; ls usr/bin | grep kira; "
-                           "find etc/tpm2-kira -maxdepth 2 | sort; ls etc/tpm2-kira/control.conf 2>&1 || true; "
-                           "grep -rlE 'tpm2-kira-boot gate|tpm2-kira-attest' etc usr/lib/systemd scripts 2>/dev/null | sed 's/^/STARTS-GATE /'; "
+                           "find etc/kira -maxdepth 2 | sort; ls etc/kira/control.conf 2>&1 || true; "
+                           "grep -rlE 'kira-boot gate|kira-attest' etc usr/lib/systemd scripts 2>/dev/null | sed 's/^/STARTS-GATE /'; "
                            f"{order}cd /; rm -rf $d", save="image.log")
-        bins = [l for l in out.split("\n") if l.strip().startswith("tpm2-kira")]
-        self.check("the image carries tpm2-kira-boot", "tpm2-kira-boot" in bins, out[-500:])
-        self.check("the image carries no tpm2-kira (the administration)", "tpm2-kira" not in bins, str(bins))
+        bins = [l for l in out.split("\n") if l.strip().startswith("kira")]
+        self.check("the image carries kira-boot", "kira-boot" in bins, out[-500:])
+        self.check("the image carries no kira (the administration)", "kira" not in bins, str(bins))
         self.check("the image carries no control.conf", "No such file" in out or "cannot access" in out, out[-300:])
         self.check("no unit or script of the image starts a gate: run starts its children itself", "STARTS-GATE" not in out, out[-300:])
         for part in ("unlock", "codes", "net", "ssh", "tpm"):
-            self.check(f"the image's plan names '{part}'", f"etc/tpm2-kira/plan/{part}" in out, out[-500:])
+            self.check(f"the image's plan names '{part}'", f"etc/kira/plan/{part}" in out, out[-500:])
         if self.distro == "debian":
             scripts = re.findall(r"^ORDER (\S+)$", out, re.M)
             self.check("the image's local-top closes before cryptroot, and cryptroot is last",
-                       "tpm2-kira-close" in scripts and scripts[-1:] == ["cryptroot"], str(scripts))
+                       "kira-close" in scripts and scripts[-1:] == ["cryptroot"], str(scripts))
         else:
             self.check("the image carries cryptsetup-pre.target", "usr/lib/systemd/system/cryptsetup-pre.target" in out, out[-500:])
             self.check("systemd-analyze verify of the image's units finds no ordering cycle", "CYCLE" not in out, out[-500:])
@@ -946,7 +946,7 @@ class Machine:
         s = self.boot_session(n)
         try:
             text = self.code_screen(n, s, console_from)
-            self.check(f"boot {n}: the screen names tpm2-kira's password and salt prompt", "continue to the password and salt prompt" in text, text[-300:])
+            self.check(f"boot {n}: the screen names kira's password and salt prompt", "continue to the password and salt prompt" in text, text[-300:])
             s.send("\r")
             s.expect(r"Password for disk \S+: ?$", 120); s.send(TEST_PASSWORD + "\r")
             s.expect(r"Salt for disk \S+: ?$", 60); s.send(TEST_SALT + "\r")
@@ -970,18 +970,18 @@ class Machine:
         out = got["log"]
         self.check(f"boot {n}: the boot's log follows the network until it has an address",
                    re.search(r"network: Network \(DHCP\): \S+ on ", out) is not None, out[-500:])
-        self.check(f"boot {n}: the address was announced to the neighbours (TPM2_KIRA_NET_ANNOUNCE)",
+        self.check(f"boot {n}: the address was announced to the neighbours (KIRA_NET_ANNOUNCE)",
                    re.search(r"network: announced \S+ on \S+ to the neighbours", out) is not None, out[-500:])
 
     # PID 1's lines alone: sudo's log of this very command names the words too.
-    VOLUME_ORDER = ("journalctl -b -o cat --no-pager -u tpm2-kira-close.service -u 'systemd-cryptsetup@*' | grep -E '^(Starting|Finished) '; "
+    VOLUME_ORDER = ("journalctl -b -o cat --no-pager -u kira-close.service -u 'systemd-cryptsetup@*' | grep -E '^(Starting|Finished) '; "
                     "journalctl -b -o cat --no-pager _PID=1 | grep -iE 'ordering cycle|Found dependency on' | sed 's/^/CYCLE /'; true")
 
     def check_volume_order(self, where, out):
         """Arch: the close's unit is done before a volume's unit starts, and this boot's systemd
         found no cycle: the journal, in its order, with what the generator wrote too."""
         lines = out.splitlines()
-        done = next((i for i, l in enumerate(lines) if l.startswith("Finished tpm2-kira: the boot closed")), None)
+        done = next((i for i, l in enumerate(lines) if l.startswith("Finished kira: the boot closed")), None)
         volume = next((i for i, l in enumerate(lines) if l.startswith("Starting Cryptography Setup")), None)
         self.check(f"{where}: the close is done before a volume's unit starts", done is not None and volume is not None and done < volume, out[-600:])
         self.check(f"{where}: no ordering cycle in this boot's journal", "CYCLE " not in out, out[-300:])
@@ -998,8 +998,8 @@ class Machine:
                        0 <= log.find("the boot is closed (PCR 15)") < close, log[-600:])
 
     def boot_log_command(self):
-        return ("cat /run/initramfs/tpm2-kira.log" if self.distro == "debian" else
-                "journalctl -b -o cat --no-pager -t tpm2-kira -u tpm2-kira.service -u tpm2-kira-machine-id.service")
+        return ("cat /run/initramfs/kira.log" if self.distro == "debian" else
+                "journalctl -b -o cat --no-pager -t kira -u kira.service -u kira-machine-id.service")
 
     def batch(self, commands):
         """Every command of a dict, in one ssh command as root, each one's output and
@@ -1022,23 +1022,23 @@ class Machine:
         slot0, slot1 = ("0,2,4,7,8,9", "7,8,9") if self.distro == "debian" else ("0,2,4,7", "7")
         commands = {
             "oom": ("dmesg | grep -E 'Out of memory|oom-kill' | head -3", f"oom-boot-{n}.log"),
-            "status": ("tpm2-kira status --json", f"status-boot{n}.json"),
-            "log": (self.boot_log_command(), f"boot{n}-tpm2-kira.log"),
+            "status": ("kira status --json", f"status-boot{n}.json"),
+            "log": (self.boot_log_command(), f"boot{n}-kira.log"),
             # The boot is closed in the running system: PCR 15 extended (the kernel's sysfs
             # view of the TPM's PCRs), by run and the image's close when the code screen was
-            # over (Arch: tpm2-kira-close.service).
+            # over (Arch: kira-close.service).
             "close": ("cat /sys/class/tpm/tpm0/pcr-sha256/15 2>&1; " + ("true" if self.distro == "debian" else
-                      "journalctl -b -o cat --no-pager -u tpm2-kira-close.service 2>&1 | tail -5"), f"boot{n}-close.log"),
-            "cap": ("ls /usr/lib/systemd/system/tpm2-kira-cap.service 2>&1; grep -c 'tpm2-kira-boot cap' /usr/share/initramfs-tools/scripts/init-bottom/tpm2-kira 2>&1; true", None),
-            "state": ("cat /run/tpm2-kira/close-state; ls /run/tpm2-kira/close-pending 2>&1; systemctl is-active tpm2-kira-late-close.service; ls /sys/firmware/efi/efivars | grep -c KIRAcloseReboot; true", f"boot{n}-close-state.log"),
-            "ca": ("grep '^ASSH_CA_SLOT_[0-9]' /etc/tpm2-kira/assh.conf 2>&1", f"boot{n}-ca-slots.log"),
+                      "journalctl -b -o cat --no-pager -u kira-close.service 2>&1 | tail -5"), f"boot{n}-close.log"),
+            "cap": ("ls /usr/lib/systemd/system/kira-cap.service 2>&1; grep -c 'kira-boot cap' /usr/share/initramfs-tools/scripts/init-bottom/kira 2>&1; true", None),
+            "state": ("cat /run/kira/close-state; ls /run/kira/close-pending 2>&1; systemctl is-active kira-late-close.service; ls /sys/firmware/efi/efivars | grep -c KIRAcloseReboot; true", f"boot{n}-close-state.log"),
+            "ca": ("grep '^ASSH_CA_SLOT_[0-9]' /etc/kira/assh.conf 2>&1", f"boot{n}-ca-slots.log"),
             # PCR 4 was predicted before this boot, for this boot: the approval
             # holds the prediction, the register what the firmware measured.
-            "pcr4": ("tpm2-kira slot info --nvram 0 2>&1; echo LIVE=$(cat /sys/class/tpm/tpm0/pcr-sha256/4)", f"boot{n}-pcr4.log"),
+            "pcr4": ("kira slot info --nvram 0 2>&1; echo LIVE=$(cat /sys/class/tpm/tpm0/pcr-sha256/4)", f"boot{n}-pcr4.log"),
         }
         if self.distro != "debian":
             commands["volume-order"] = (self.VOLUME_ORDER, f"boot{n}-volume-order.log")
-            commands["pcr11"] = ("tpm2-kira slot info --nvram 0 2>&1 | grep -E 'PCR 11 ' | head -2; stat -c '%a %U' /etc/tpm2-kira/pcr.key; grep -c '^Phases=enter-initrd$' /etc/kernel/uki.conf", f"boot{n}-pcr11.log")
+            commands["pcr11"] = ("kira slot info --nvram 0 2>&1 | grep -E 'PCR 11 ' | head -2; stat -c '%a %U' /etc/kira/pcr.key; grep -c '^Phases=enter-initrd$' /etc/kernel/uki.conf", f"boot{n}-pcr11.log")
         got = self.batch(commands)
         self.lap("what the boot's system is checked for, read")
         self.check(f"boot {n}: nothing was killed for memory", "Out of memory" not in got["oom"] and "oom-kill" not in got["oom"], got["oom"][-400:])
@@ -1066,13 +1066,13 @@ class Machine:
         own_uid = confined is not None and 0x7FFE0000 <= int(confined.group(1)) <= 0x7FFEFFFF
         self.check(f"boot {n}: ssh-child ran confined (a uid of its own, namespaces, no new privileges, not dumpable, no executable memory, Landlock, seccomp)", own_uid, out[-500:])
         bad = [l for l in out.split("\n") if re.search(r"ERROR|FAILED|does not answer|cannot", l)]
-        self.check(f"boot {n}: no tpm2-kira error in the boot's log", not bad, "\n".join(bad[:5]))
+        self.check(f"boot {n}: no kira error in the boot's log", not bad, "\n".join(bad[:5]))
         out = got["close"]
         pcr15 = out.split("\n")[0].strip()
         self.check(f"boot {n}: the boot is closed in the running system (PCR 15 extended)",
                    re.fullmatch(r"[0-9A-Fa-f]{64}", pcr15) is not None and set(pcr15) != {"0"}, out[-300:])
         if self.distro != "debian":
-            self.check(f"boot {n}: tpm2-kira-close.service ran in the initrd", "Finished" in out and "Failed" not in out, out[-300:])
+            self.check(f"boot {n}: kira-close.service ran in the initrd", "Finished" in out and "Failed" not in out, out[-300:])
             self.check_volume_order(f"boot {n}", got["volume-order"])
         # No cap: PCR 15 closes the slots.
         state, out = got["state"], got["cap"]
@@ -1116,9 +1116,9 @@ class Machine:
         self.head("an image not approved, signed by the PCR key")
         # mkinitcpio -P does not hand --nopost to its presets, and runs every file
         # of the hooks' directory: the hook goes out of it.
-        hook = "/usr/lib/initcpio/post/sd-tpm2-kira"
-        rc, out = self.run(f"set -e; sed -i '$ s/$/ kiratest=1/' /etc/kernel/cmdline; mv {hook} /root/sd-tpm2-kira.off; "
-                           f"mkinitcpio -P 2>&1 | tail -3; mv /root/sd-tpm2-kira.off {hook}", save="unapproved-rebuild.log")
+        hook = "/usr/lib/initcpio/post/sd-kira"
+        rc, out = self.run(f"set -e; sed -i '$ s/$/ kiratest=1/' /etc/kernel/cmdline; mv {hook} /root/sd-kira.off; "
+                           f"mkinitcpio -P 2>&1 | tail -3; mv /root/sd-kira.off {hook}", save="unapproved-rebuild.log")
         self.check("unapproved: the hook did not approve it", "approv" not in out, out[-400:])
         self.check("unapproved: an image built without the hook's approval", rc == 0, out[-400:])
         self.lap("the image built (mkinitcpio -P, without the hook)")
@@ -1142,7 +1142,7 @@ class Machine:
             s.close()
         if not self.check("unapproved: the system comes up (ssh)", self.wait_port(22, True, 300)):
             raise Fail("the system does not come up")
-        rc, out = self.run("tpm2-kira slot approve 2>&1 | tail -4", save="unapproved-approve.log")
+        rc, out = self.run("kira slot approve 2>&1 | tail -4", save="unapproved-approve.log")
         self.check("unapproved: slot approve brings slot 0 back", "approved" in out, out[-400:])
 
     def rebuild(self):
@@ -1155,7 +1155,7 @@ class Machine:
     def vault_root(self, vault):
         """Without a root of the vault the enrolment is refused before the vault is asked; the
         root comes over as an operator brings it."""
-        rc, out = self.run("tpm2-kira luks enrol " + self.luks_dev + " --password tpm --salt vault --url " + vault.url +
+        rc, out = self.run("kira luks enrol " + self.luks_dev + " --password tpm --salt vault --url " + vault.url +
                            " --pin sha256:" + "0" * 64 + " --token none 2>&1", save="luks-enrol-vault-no-root.log")
         self.check("luks enrol without a root of the vault is refused, naming --ca", "no root certificate of a vault" in out and "--ca FILE" in out, out[-400:])
         self.check("with Secure Boot on it says nothing of a recovery keyslot", "releases nothing" not in out, out[-400:])
@@ -1173,8 +1173,8 @@ class Machine:
         """The keyslot the vault has now goes, and its device: unenrolled, the slot's attestation
         part went with the vault, the next enrolment is a new device. The old one is revoked, as
         the unenrol says, by its ID."""
-        rc, out = self.run("tpm2-kira vault unenrol --nvram 0 2>&1", save=f"vault-unenrol-{self.vault_device}.log")
-        m = re.search(r"tpm2-kira-vault device revoke ([0-9a-f]+)", out)
+        rc, out = self.run("kira vault unenrol --nvram 0 2>&1", save=f"vault-unenrol-{self.vault_device}.log")
+        m = re.search(r"kira-vault device revoke ([0-9a-f]+)", out)
         if not self.check("vault unenrol: the slot's vault method is gone", m is not None, out[-400:]):
             raise Fail("vault unenrol")
         self.luks_remove(self.vault_keyslot, f"luks-remove-{self.vault_device}")
@@ -1188,10 +1188,10 @@ class Machine:
         self.head("remote attestation over TLS: the vault alone")
         self.vault_leave(vault)
         url, pin, token = self.vault_token(vault, self.name)
-        s = self.session(f"sudo tpm2-kira luks enrol {self.luks_dev} --password tpm --salt vault --url {url} --pin {pin} --token {token} --ca {self.CA_FILE} --name {self.name}", "luks-enrol-vault")
+        s = self.session(f"sudo kira luks enrol {self.luks_dev} --password tpm --salt vault --url {url} --pin {pin} --token {token} --ca {self.CA_FILE} --name {self.name}", "luks-enrol-vault")
         try:
             s.expect(r"to authorise: ?$", 300); s.send(self.luks_pass + "\n")
-            _, m = s.expect(r"keyslot (\d+) added: tpm2-kira, 0x240[01] ", 300)
+            _, m = s.expect(r"keyslot (\d+) added: kira, 0x240[01] ", 300)
             self.vault_keyslot, self.vault_device = m.group(1), self.name
             s.wait_end(120)
             self.check("luks enrol 0x2400: the vault knows the device, a keyslot is added", True)
@@ -1212,7 +1212,7 @@ class Machine:
         if not self.check("the vault's boot: the system comes up with nobody at the console or in SSH", up):
             raise Fail("the vault's boot did not come up")
         self.booted("the vault's boot")
-        out = self.boot_log("boot-vault-tpm2-kira.log")
+        out = self.boot_log("boot-vault-kira.log")
         self.check("the vault released the remote part; the key was made", "released; the key is made" in out, out[-600:])
         self.check("the key was answered", "unlock: answered for" in out, out[-600:])
 
@@ -1236,7 +1236,7 @@ class Machine:
             self.check("TPM salt: the screen names the password prompt", "continue to the password prompt" in text, text[-300:])
             s.send("\r")
             text, _ = s.expect(r"(Password|Salt) for disk \S+: ?$", 300)
-            self.check("revoked: tpm2-kira says the vault gave no key and asks the keyslot after it", "no key from the vault" in text and "revoked" in text, text[-500:])
+            self.check("revoked: kira says the vault gave no key and asks the keyslot after it", "no key from the vault" in text and "revoked" in text, text[-500:])
             self.check("TPM salt: the password is asked with the salt this TPM opened", "Password for disk" in text.split("\n")[-1] and "the salt this TPM opened" in text, text[-500:])
             if "Salt for disk" in text.split("\n")[-1]:
                 raise Fail("asked for a typed salt: " + text[-300:])
@@ -1276,12 +1276,12 @@ class Machine:
         self.vault_root(vault)
         name = self.name + "-pepper"
         url, pin, token = self.vault_token(vault, name)
-        s = self.session(f"sudo tpm2-kira luks enrol {self.luks_dev} --password tpm --salt vault --pepper --url {url} --pin {pin} --token {token} --ca {self.CA_FILE} --name {name}", "luks-enrol-vault-pepper")
+        s = self.session(f"sudo kira luks enrol {self.luks_dev} --password tpm --salt vault --pepper --url {url} --pin {pin} --token {token} --ca {self.CA_FILE} --name {name}", "luks-enrol-vault-pepper")
         try:
             s.expect(r"Pepper \(the operator gives it with every approval on the vault\): ?$", 300); s.send(self.PEPPER + "\n")
             s.expect(r"The same pepper again: ?$", 60); s.send(self.PEPPER + "\n")
             s.expect(r"to authorise: ?$", 300); s.send(self.luks_pass + "\n")
-            _, m = s.expect(r"keyslot (\d+) added: tpm2-kira, 0x240[01] ", 300)
+            _, m = s.expect(r"keyslot (\d+) added: kira, 0x240[01] ", 300)
             self.vault_keyslot, self.vault_device = m.group(1), name
             text = s.wait_end(120)
             self.check("luks enrol --pepper: a keyslot that waits for an operator", "approves it on the vault with the pepper" in text, text[-400:])
@@ -1292,8 +1292,8 @@ class Machine:
             s.close()
         out = vault.admin("devices")
         self.check("the vault lists the device", name in out, out[-400:])
-        rc, out = self.run("cat /etc/tpm2-kira/vault-ca.pem 2>&1")
-        self.check("--ca put the vault's root into /etc/tpm2-kira/vault-ca.pem", out.strip() == vault.root.strip(), out[-300:])
+        rc, out = self.run("cat /etc/kira/vault-ca.pem 2>&1")
+        self.check("--ca put the vault's root into /etc/kira/vault-ca.pem", out.strip() == vault.root.strip(), out[-300:])
         out = vault.admin("device", "show", name)
         self.check("the vault's device needs a pepper and waits for approvals", "pepper:          yes" in out and "approve" in out, out[-400:])
         out = self.rebuild()
@@ -1324,7 +1324,7 @@ class Machine:
         if not self.check("the pepper's boot: the system comes up with nobody at the console", up):
             raise Fail("the pepper's boot did not come up")
         self.booted("the pepper's boot")
-        out = self.boot_log("boot-vault-pepper-tpm2-kira.log")
+        out = self.boot_log("boot-vault-pepper-kira.log")
         self.check("the wrong pepper did not fit the slot's pepper check", "does not fit this keyslot" in out, out[-600:])
         self.check("with the right pepper the key was made and answered", "released; the key is made" in out and "unlock: answered for" in out, out[-600:])
         self.check_memory("the pepper's boot, two derivations", out)
@@ -1335,13 +1335,13 @@ class Machine:
         self.check_vault_secure_boot(vault, name)
 
     def luks_remove(self, keyslot, name):
-        s = self.session(f"sudo tpm2-kira luks remove {self.luks_dev} --keyslot {keyslot}", name)
+        s = self.session(f"sudo kira luks remove {self.luks_dev} --keyslot {keyslot}", name)
         try:
             s.expect(r"to authorise: ?$", 120); s.send(self.luks_pass + "\n")
             text = s.wait_end(120)
         finally:
             s.close()
-        rc, out = self.run(f"tpm2-kira luks status {self.luks_dev} 2>&1")
+        rc, out = self.run(f"kira luks status {self.luks_dev} 2>&1")
         return out
 
     def typed_boot(self, name, from_words, before_enter=None):
@@ -1372,8 +1372,8 @@ class Machine:
             raise
 
     def boot_log(self, save):
-        log = ("cat /run/initramfs/tpm2-kira.log" if self.distro == "debian" else
-               "journalctl -b -o cat --no-pager -t tpm2-kira -u tpm2-kira.service")
+        log = ("cat /run/initramfs/kira.log" if self.distro == "debian" else
+               "journalctl -b -o cat --no-pager -t kira -u kira.service")
         rc, out = self.run(log + " 2>&1", save=save)
         return out
 
@@ -1382,12 +1382,12 @@ class Machine:
         that takes it is vault-pepper's, its boot the revoked one, where it goes again."""
         self.head("the salt in this TPM (0x1200)")
         swap = self.swap_counts()
-        s = self.session(f"sudo tpm2-kira luks enrol {self.luks_dev} --salt tpm", "luks-enrol-tpm-salt")
+        s = self.session(f"sudo kira luks enrol {self.luks_dev} --salt tpm", "luks-enrol-tpm-salt")
         try:
             s.expect(r"Password \(typed at the machine at every boot\): ?$", 300); s.send(TPM_SALT_PASSWORD + "\n")
             s.expect(r"The same password again: ?$", 60); s.send(TPM_SALT_PASSWORD + "\n")
             s.expect(r"to authorise: ?$", 600); s.send(self.luks_pass + "\n")
-            _, m = s.expect(r"keyslot (\d+) added: tpm2-kira, 0x1200 ", 300)
+            _, m = s.expect(r"keyslot (\d+) added: kira, 0x1200 ", 300)
             self.tpm_salt_keyslot = m.group(1)
             s.wait_end(120)
             self.check("luks enrol --salt tpm: a keyslot of recipe 0x1200", True)
@@ -1397,11 +1397,11 @@ class Machine:
             raise
         finally:
             s.close()
-        rc, out = self.run(f"tpm2-kira luks status {self.luks_dev} 2>&1", save="luks-status-tpm-salt.log")
+        rc, out = self.run(f"kira luks status {self.luks_dev} 2>&1", save="luks-status-tpm-salt.log")
         self.check("luks status names the recipe", "0x1200 password typed · salt in this TPM" in out, out[-500:])
         rc, out = self.run(f"cryptsetup luksDump {self.luks_dev} 2>&1")
-        self.check("luksDump names it too (token type tpm2-kira-1200)", "tpm2-kira-1200" in out, out[-500:])
-        rc, out = self.run("tpm2-kira status --json 2>&1", save="status-tpm-salt.json")
+        self.check("luksDump names it too (token type kira-1200)", "kira-1200" in out, out[-500:])
+        rc, out = self.run("kira status --json 2>&1", save="status-tpm-salt.json")
         self.check("status: slot 0 holds a TPM salt", '"tpm_salt": true' in out, out[-400:])
 
     def tpm_salt_in_image(self, out):
@@ -1415,7 +1415,7 @@ class Machine:
     def tpm_salt_removed(self):
         out = self.luks_remove(self.tpm_salt_keyslot, "luks-remove-tpm-salt")
         self.check("luks remove takes the TPM salt's keyslot", "0x1200" not in out, out[-400:])
-        rc, out = self.run("tpm2-kira status --json 2>&1")
+        rc, out = self.run("kira status --json 2>&1")
         self.check("the TPM salt went with its last keyslot", '"tpm_salt": true' not in out, out[-400:])
         self.tpm_salt_keyslot = None
 
@@ -1429,14 +1429,14 @@ class Machine:
         self.vault_leave(vault)
         name = self.name + "-typed"
         url, pin, token = self.vault_token(vault, name)
-        s = self.session(f"sudo tpm2-kira luks enrol {self.luks_dev} --salt vault --pepper --url {url} --pin {pin} --token {token} --ca {self.CA_FILE} --name {name}", "luks-enrol-vault-typed")
+        s = self.session(f"sudo kira luks enrol {self.luks_dev} --salt vault --pepper --url {url} --pin {pin} --token {token} --ca {self.CA_FILE} --name {name}", "luks-enrol-vault-typed")
         try:
             s.expect(r"Pepper \(the operator gives it with every approval on the vault\): ?$", 300); s.send(self.PEPPER + "\n")
             s.expect(r"The same pepper again: ?$", 60); s.send(self.PEPPER + "\n")
             s.expect(r"Password \(typed at the machine at every boot\): ?$", 60); s.send(VAULT_PASSWORD + "\n")
             s.expect(r"The same password again: ?$", 60); s.send(VAULT_PASSWORD + "\n")
             s.expect(r"to authorise: ?$", 600); s.send(self.luks_pass + "\n")
-            _, m = s.expect(r"keyslot (\d+) added: tpm2-kira, 0x1401 ", 300)
+            _, m = s.expect(r"keyslot (\d+) added: kira, 0x1401 ", 300)
             self.vault_keyslot, self.vault_device = m.group(1), name
             s.wait_end(120)
             self.check("luks enrol --salt vault --pepper: a keyslot of recipe 0x1401", True)
@@ -1445,7 +1445,7 @@ class Machine:
             raise
         finally:
             s.close()
-        rc, out = self.run("tpm2-kira status 2>&1", save="status-vault-typed.log")
+        rc, out = self.run("kira status 2>&1", save="status-vault-typed.log")
         self.check("status: the vault method is the typed recipe with a pepper", "0x1401 password typed · salt from the vault (pepper)" in out, out[-500:])
 
         self.head("a boot: the operator approves on the vault's CLI, the password typed after")
@@ -1475,7 +1475,7 @@ class Machine:
         if not self.check("typed vault: the disk unlocks with the password and the vault's salt", up):
             raise Fail("the typed vault's boot did not come up")
         self.booted("typed vault")
-        out = self.boot_log("boot-vault-typed-tpm2-kira.log")
+        out = self.boot_log("boot-vault-typed-kira.log")
         self.check("typed vault: the salt opened during the hold, the key answered", "released; the salt is opened" in out and "unlock: answered for" in out, out[-600:])
         out = vault.admin("audit")
         self.check("the vault's audit holds no pepper", self.PEPPER not in out, out[-300:])
@@ -1514,14 +1514,14 @@ class Machine:
         self.vault_leave(vault)
         name = self.name + "-keyboard"
         url, pin, token = self.vault_token(vault, name)
-        s = self.session(f"sudo tpm2-kira luks enrol {self.luks_dev} --salt vault --keyboard-pepper --url {url} --pin {pin} --token {token} --ca {self.CA_FILE} --name {name}", "luks-enrol-vault-keyboard")
+        s = self.session(f"sudo kira luks enrol {self.luks_dev} --salt vault --keyboard-pepper --url {url} --pin {pin} --token {token} --ca {self.CA_FILE} --name {name}", "luks-enrol-vault-keyboard")
         try:
             s.expect(r"Password \(typed at the machine at every boot\): ?$", 300); s.send(VAULT_PASSWORD + "\n")
             s.expect(r"The same password again: ?$", 60); s.send(VAULT_PASSWORD + "\n")
             s.expect(r"Pepper: ?$", 60); s.send(self.KB_PEPPER + "\n")
             s.expect(r"The same pepper again: ?$", 60); s.send(self.KB_PEPPER + "\n")
             s.expect(r"to authorise: ?$", 600); s.send(self.luks_pass + "\n")
-            _, m = s.expect(r"keyslot (\d+) added: tpm2-kira, 0x1402 ", 300)
+            _, m = s.expect(r"keyslot (\d+) added: kira, 0x1402 ", 300)
             self.vault_keyslot, self.vault_device = m.group(1), name
             s.wait_end(120)
             self.check("luks enrol --salt vault --keyboard-pepper: a keyslot of recipe 0x1402", True)
@@ -1530,7 +1530,7 @@ class Machine:
             raise
         finally:
             s.close()
-        rc, out = self.run("tpm2-kira status 2>&1", save="status-vault-keyboard.log")
+        rc, out = self.run("kira status 2>&1", save="status-vault-keyboard.log")
         self.check("status: the keyboard's recipe", "pepper typed through a one-time keyboard" in out, out[-500:])
 
         layouts = []
@@ -1635,7 +1635,7 @@ WantedBy=sysinit.target
         self.check("phone: the test's record is reset", ok, out[-300:])
 
         st = ph.start("enrol", 300)
-        s = self.session("sudo tpm2-kira phone enrol --verify-tpm off --verify-phone off --adapter-wait 60s", "phone-enrol")
+        s = self.session("sudo kira phone enrol --verify-tpm off --verify-phone off --adapter-wait 60s", "phone-enrol")
         try:
             while True:
                 text, m = s.expect(r"(\[y\] yes, I verified this boot.*: ?$|Enrol anyway\? \[y/N\]: ?$|\[y\] it matches.*: ?$|Enrolled: +phone)", 400)
@@ -1659,14 +1659,14 @@ WantedBy=sysinit.target
         self.check("the image is rebuilt with the phone's Bluetooth in it", "Bluetooth" in out, out[-600:])
 
         st = ph.start("attest", 300)
-        s = self.session(f"sudo tpm2-kira luks enrol {self.luks_dev} --salt phone --keyboard-pepper", "luks-enrol-phone-keyboard")
+        s = self.session(f"sudo kira luks enrol {self.luks_dev} --salt phone --keyboard-pepper", "luks-enrol-phone-keyboard")
         try:
             s.expect(r"Password for the disk \(the factor's other half\): ?$", 420); s.send(self.PHONE_PASSWORD + "\n")
             s.expect(r"The same password again: ?$", 60); s.send(self.PHONE_PASSWORD + "\n")
             s.expect(r"Pepper: ?$", 60); s.send(self.PHONE_PEPPER + "\n")
             s.expect(r"The same pepper again: ?$", 60); s.send(self.PHONE_PEPPER + "\n")
             s.expect(r"to authorise: ?$", 600); s.send(self.luks_pass + "\n")
-            s.expect(r"keyslot (\d+) added: tpm2-kira, 0x1302 ", 300)
+            s.expect(r"keyslot (\d+) added: kira, 0x1302 ", 300)
             s.wait_end(120)
             self.check("luks enrol --salt phone --keyboard-pepper: the phone kept the salt, a keyslot of recipe 0x1302", True)
         except Fail as e:
@@ -1719,19 +1719,19 @@ WantedBy=sysinit.target
 
     def slot_life(self):
         self.head("a slot's life")
-        rc, out = self.run(f"tpm2-kira slot approve --nvram {self.slots[-1]} 2>&1", save="slot-approve.log")
+        rc, out = self.run(f"kira slot approve --nvram {self.slots[-1]} 2>&1", save="slot-approve.log")
         self.check("slot approve raises the generation", "Successfully approved the boot state" in out, out[-400:])
         self.check_secure_boot("slot approve", out)
-        rc, out = self.run("tpm2-kira slot approve 2>&1", save="slot-approve-all.log")
+        rc, out = self.run("kira slot approve 2>&1", save="slot-approve-all.log")
         self.check_secure_boot("slot approve of every slot", out)
         pcrs = "0,7,8,9" if self.distro == "debian" else "0,7"
-        rc, out = self.run(f"tpm2-kira slot add --totp --nvram 2 --pcrs {pcrs} 2>&1 | grep -v '^Secret'", save="slot-add-2.log")
-        rc, info = self.run("tpm2-kira slot info --nvram 2 2>&1")
+        rc, out = self.run(f"kira slot add --totp --nvram 2 --pcrs {pcrs} 2>&1 | grep -v '^Secret'", save="slot-add-2.log")
+        rc, info = self.run("kira slot info --nvram 2 2>&1")
         self.check("slot add --nvram 2: its record is KIRAslot2", "EFI variable: KIRAslot2-" in info, info[-300:])
         self.moved_channel(2)
-        rc, out = self.run("tpm2-kira slot delete --nvram 2 2>&1", save="slot-delete.log")
+        rc, out = self.run("kira slot delete --nvram 2 2>&1", save="slot-delete.log")
         self.check("slot delete --nvram 2", "Successfully deleted" in out, out[-400:])
-        rc, out = self.run("tpm2-kira slot list 2>&1", save="slot-list-after-delete.log")
+        rc, out = self.run("kira slot list 2>&1", save="slot-list-after-delete.log")
         self.check("slot 2 is gone whole (its blob and its generation index)", "0x01803012" not in out and "0x01803812" not in out, out[-500:])
 
     def moved_channel(self, slot):
@@ -1746,7 +1746,7 @@ WantedBy=sysinit.target
         self.run(f"chmod 755 {remote}")
 
         def moved():
-            rc, out = self.run("tpm2-kira status --json 2>&1", save=f"status-channel-{self.sessions}.json")
+            rc, out = self.run("kira status --json 2>&1", save=f"status-channel-{self.sessions}.json")
             try:
                 s = next(x for x in json.loads(out)["slots"] if x["slot_number"] == slot)
             except (ValueError, StopIteration, KeyError):
@@ -1759,23 +1759,23 @@ WantedBy=sysinit.target
                 raise Fail("the fixture makes no moved channel:\n" + out[-800:])
 
         left = f"WARNING: slot {slot}'s phone channel was left sealed to the old PCR 7"
-        hooks = ["/usr/lib/initcpio/post/sd-tpm2-kira"] if self.distro == "arch" else ["/etc/initramfs/post-update.d/tpm2-kira", "/etc/kernel/postinst.d/zzz-tpm2-kira"]
+        hooks = ["/usr/lib/initcpio/post/sd-kira"] if self.distro == "arch" else ["/etc/initramfs/post-update.d/kira", "/etc/kernel/postinst.d/zzz-kira"]
         fixture()
         for hook in hooks:
             name = os.path.basename(hook)
             rc, out = self.run(f"{hook} 0.0 /boot/nothing 2>&1", save=f"channel-hook-{name}.log")
-            self.check(f"{name}: the hook's approval says it left the channel, with the command", left in out and f"sudo tpm2-kira slot approve --nvram {slot}" in out, out[-800:])
+            self.check(f"{name}: the hook's approval says it left the channel, with the command", left in out and f"sudo kira slot approve --nvram {slot}" in out, out[-800:])
             self.check(f"{name}: old and new PCR 7, and what the event log names", re.search(r"PCR 7 sealed: +[0-9a-f]{64}", out) is not None and re.search(r"PCR 7 next boot: +[0-9a-f]{64}", out) is not None and re.search(r"SecureBoot: (on|off)", out) is not None, out[-800:])
             self.check(f"{name}: the channel stays moved", moved())
-        rc, out = self.run("tpm2-kira status 2>&1", save="status-channel.log")
+        rc, out = self.run("kira status 2>&1", save="status-channel.log")
         self.check("status: the moved channel is a warning, with the command", f"WARNING: slot {slot}'s phone channel is sealed to another PCR 7" in out and f"slot approve --nvram {slot}" in out, out[-800:])
-        rc, out = self.run("tpm2-kira slot approve --if-moved 2>&1", save="channel-if-moved.log")
+        rc, out = self.run("kira slot approve --if-moved 2>&1", save="channel-if-moved.log")
         self.check("--if-moved never seals it", moved() and "is sealed again" not in out, out[-500:])
-        rc, out = self.run(f"tpm2-kira slot approve --nvram {slot} </dev/null 2>&1", save="channel-no-terminal.log")
+        rc, out = self.run(f"kira slot approve --nvram {slot} </dev/null 2>&1", save="channel-no-terminal.log")
         self.check("no terminal, no flag: the slot approved, the channel left, and said", moved() and left in out and "Successfully approved the boot state" in out, out[-800:])
 
         # A person's yes is TestApprovalLeavesAMovedChannel's; control's line seals it here.
-        s = self.session(f"sudo tpm2-kira slot approve --nvram {slot}", "channel-person-n")
+        s = self.session(f"sudo kira slot approve --nvram {slot}", "channel-person-n")
         try:
             text, _ = s.expect(r"Seal slot \d+'s phone channel to the next boot's PCR 7\? \[y/N\] ?$", 120)
             self.check("at a terminal: old, new and what moved it, before the question (n)",
@@ -1786,7 +1786,7 @@ WantedBy=sysinit.target
             s.close()
         self.check("at a terminal, n: left, and said", moved() and left in out, out[-500:])
 
-        s = self.session("sudo tpm2-kira control", "control-channel")
+        s = self.session("sudo kira control", "control-channel")
         menu = r"Enter a number between 1 and \d+: ?$"
 
         def pick(rx, timeout=120):
@@ -1825,15 +1825,15 @@ WantedBy=sysinit.target
         self.run(f"rm -f {remote}")
 
     def removal(self):
-        """What tpm2-kira keeps outside the disk goes when asked, and only
+        """What kira keeps outside the disk goes when asked, and only
         then: control asks before it removes the SSH CA when SSH is switched
         off (No keeps it); slot delete without --nvram takes everything -
         the slots, the boot settings, the SSH CA's EFI variable and its
         public key."""
-        self.head("removing what tpm2-kira keeps in the TPM and the EFI variables")
+        self.head("removing what kira keeps in the TPM and the EFI variables")
         ca_var = "/sys/firmware/efi/efivars/KIRAasshCA-24415b90-39be-45c0-a9a3-d547ebe28ea0"
         there = lambda path: "yes" in self.run(f"test -e {path} && echo yes")[1]
-        s = self.session("sudo tpm2-kira control", "control-ssh-off")
+        s = self.session("sudo kira control", "control-ssh-off")
         menu = r"Enter a number between 1 and \d+: ?$"
 
         def pick(rx, timeout=120):
@@ -1882,20 +1882,20 @@ WantedBy=sysinit.target
         """The SSH CA kept, then slot delete --yes: everything goes."""
         ca_var = self.CA_VAR
         there = lambda path: "yes" in self.run(f"test -e {path} && echo yes")[1]
-        self.check("No keeps the SSH CA: its EFI variable and ssh_ca.pub", there(ca_var) and there("/etc/tpm2-kira/ssh_ca.pub"))
-        rc, out = self.run("tpm2-kira slot delete --yes 2>&1", save="slot-delete-all.log")
+        self.check("No keeps the SSH CA: its EFI variable and ssh_ca.pub", there(ca_var) and there("/etc/kira/ssh_ca.pub"))
+        rc, out = self.run("kira slot delete --yes 2>&1", save="slot-delete-all.log")
         self.check("slot delete without --nvram names the SSH CA and deletes everything",
                    "Found the SSH CA efi:KIRAasshCA" in out and "item(s) deleted successfully" in out, out[-800:])
-        rc, out = self.run("tpm2-kira slot list 2>&1", save="slot-list-after-delete-all.log")
+        rc, out = self.run("kira slot list 2>&1", save="slot-list-after-delete-all.log")
         left = re.findall(r"0x01803[0-9A-Fa-f]{3}", out)
-        self.check("no index of tpm2-kira's is left in the TPM (slots, generations, counters, boot settings)", not left, ", ".join(sorted(set(left))))
+        self.check("no index of kira's is left in the TPM (slots, generations, counters, boot settings)", not left, ", ".join(sorted(set(left))))
         self.check("the SSH CA's EFI variable is gone", not there(ca_var))
         self.check("the sealed machine-id's EFI variable is gone", not there(self.MID_VAR))
-        self.check("its public key /etc/tpm2-kira/ssh_ca.pub is gone", not there("/etc/tpm2-kira/ssh_ca.pub"))
-        rc, out = self.run("tpm2-kira slot delete --yes --sweep 2>&1", save="slot-delete-sweep.log")
-        self.check("slot delete --sweep after it: nothing of tpm2-kira is left at its places", "nothing of tpm2-kira found" in out, out[-300:])
+        self.check("its public key /etc/kira/ssh_ca.pub is gone", not there("/etc/kira/ssh_ca.pub"))
+        rc, out = self.run("kira slot delete --yes --sweep 2>&1", save="slot-delete-sweep.log")
+        self.check("slot delete --sweep after it: nothing of kira is left at its places", "nothing of kira found" in out, out[-300:])
         rc, out = self.run("ls /sys/firmware/efi/efivars | grep -c 67f474ef-94a1-4412-88df-d62349d430a9; true")
-        self.check("no EFI variable of tpm2-kira's GUID is left", out.strip().split("\n")[-1] == "0", out.strip())
+        self.check("no EFI variable of kira's GUID is left", out.strip().split("\n")[-1] == "0", out.strip())
 
     def make_setup(self, reset=None, secure=False):
         """The steps up to the first reboot. The packages arrive while the machine goes back to
@@ -2185,7 +2185,7 @@ WantedBy=sysinit.target
     def report(self):
         self.timing.finish()
         self.log.save("times.json", self.timing.as_json())
-        lines = list(self.notes) + [f"tpm2-kira vmtest: {self.name} ({self.distro}) on {self.host}", datetime.datetime.now().isoformat(timespec="seconds"), ""]
+        lines = list(self.notes) + [f"kira vmtest: {self.name} ({self.distro}) on {self.host}", datetime.datetime.now().isoformat(timespec="seconds"), ""]
         for name, status, detail in self.rep.checks:
             lines.append(f"[{status}] {name}" + (f" - {detail}" if detail else ""))
         lines += ["", "Issues:" if self.rep.issues else "No issues."] + ["  - " + i for i in self.rep.issues]
@@ -2231,8 +2231,8 @@ def head_packages(directory, fast_kdf=False):
     mark = ".fastkdf" if fast_kdf else ""
     short = subprocess.run(["git", "-C", REPO, "rev-parse", "--short", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
     pick = lambda pattern: (sorted(glob.glob(os.path.join(directory, pattern)), key=os.path.getmtime) or [None])[-1]
-    return short, {"debian": pick(f"tpm2-kira_*.g{short}{mark}_amd64.deb"),
-                   "arch": pick(f"tpm2-kira-*.g{short}{mark}-*-x86_64.pkg.tar.zst")}
+    return short, {"debian": pick(f"kira_*.g{short}{mark}_amd64.deb"),
+                   "arch": pick(f"kira-*.g{short}{mark}-*-x86_64.pkg.tar.zst")}
 
 
 class Ready:
@@ -2355,7 +2355,7 @@ def main():
     vault = None
     if not args.save_setup and any(scenario(n).vault for n in names):
         vc = cfg["vault"] if cfg.has_section("vault") else {}
-        vault = Vault(os.path.abspath(os.path.join(REPO, vc.get("src", "../tpm2-kira-vault"))),
+        vault = Vault(os.path.abspath(os.path.join(REPO, vc.get("src", "../kira-vault"))),
                       vc.get("url", "https://172.17.2.174"), int(vc.get("port", "443")), int(vc.get("operator_port", "8444")), run_dir)
     ready = Ready()
 
@@ -2401,7 +2401,7 @@ def main():
             for m in machines:
                 m.vmcheck = lambda path=path: path
         timing.finish()
-        print(f"tpm2-kira {short}: " + ", ".join(f"{m.name} {os.path.basename(built[m.name] or 'the saved setup')}" + (" (reset)" if m.name in resets else "") for m in machines), flush=True)
+        print(f"kira {short}: " + ", ".join(f"{m.name} {os.path.basename(built[m.name] or 'the saved setup')}" + (" (reset)" if m.name in resets else "") for m in machines), flush=True)
         return built
 
     results = {}

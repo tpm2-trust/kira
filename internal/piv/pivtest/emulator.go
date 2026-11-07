@@ -13,7 +13,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/piv"
+	"github.com/tpm2-trust/kira/internal/piv"
 )
 
 // Key is one populated slot.

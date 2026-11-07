@@ -15,8 +15,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
+	"github.com/tpm2-trust/kira/core/attest"
+	"github.com/tpm2-trust/kira/internal/measure"
 
 	"github.com/google/go-tpm/tpm2"
 )
@@ -29,7 +29,7 @@ type BlobVersionError struct {
 }
 
 func (e *BlobVersionError) Error() string {
-	return fmt.Sprintf("tpm2-kira: incompatible blob version (found v%d, requires v%d). Re-seal with: tpm2-kira slot add", e.FoundVersion, e.RequiredVersion)
+	return fmt.Sprintf("kira: incompatible blob version (found v%d, requires v%d). Re-seal with: kira slot add", e.FoundVersion, e.RequiredVersion)
 }
 
 // IsBlobVersionError checks if an error (or its wrapped chain) is a BlobVersionError

@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/tpm2-trust/go-tui-slim/panel"
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 )
 
 // control's model: every line a screen shows is a controlStep - its state (done,
@@ -42,7 +42,7 @@ var controlSections = []controlSection{
 	{key: "overview", title: "Overview",
 		intro: "What this machine has, judged line by line, and what it combines. Each section sets one part up; the recommended next step is named."},
 	{key: "chain", title: "Boot chain",
-		intro: "What tpm2-kira needs of the machine to be in its boot at all: the prerequisites, the hook in the boot image, the key's route. The other sections open when it is in place."},
+		intro: "What kira needs of the machine to be in its boot at all: the prerequisites, the hook in the boot image, the key's route. The other sections open when it is in place."},
 	{key: "keys", title: "Keys & slots", required: true,
 		intro: "The signing key approves boot states and authorises every write to the TPM; with it the TOTP codes at boot are sealed into slot 0 (the boot as it is) and slot 1 (the fallback for a boot whose kernel changed unpredicted). Everything else builds on them."},
 	{key: "phone", title: "Phone",
@@ -50,7 +50,7 @@ var controlSections = []controlSection{
 	{key: "disk", title: "Disk unlock",
 		intro: "How the disk's key is made at boot, beside the recovery passphrase: each way is a keyslot of its own, and they combine - at boot the one that answers first opens the disk, and cryptsetup's own prompt stays the fallback."},
 	{key: "remote", title: "Network & SSH",
-		intro: "The boot image's own network - for the vault, and for tpm2-kira's SSH server, where the codes are confirmed and passwords typed remotely. Set for the image alone; the running system's network stays as it is."},
+		intro: "The boot image's own network - for the vault, and for kira's SSH server, where the codes are confirmed and passwords typed remotely. Set for the image alone; the running system's network stays as it is."},
 	{key: "image", title: "Boot image",
 		intro: "What the next boot image carries, and the switch that makes the boot log every step. The image is built when control is left, or here."},
 	{key: "tools", title: "Tools",
@@ -106,60 +106,60 @@ func (c *controller) annotate(s controlStep) controlStep {
 	cmd := ""
 	switch key {
 	case "setup":
-		cmd = "tpm2-kira setup"
+		cmd = "kira setup"
 	case "seal":
-		cmd = "tpm2-kira slot add" + tpm + " --nvram 0 --pcrs " + f.PCRs
+		cmd = "kira slot add" + tpm + " --nvram 0 --pcrs " + f.PCRs
 	case "seal-more":
-		cmd = "tpm2-kira slot add" + tpm + " --nvram N --pcrs LIST"
+		cmd = "kira slot add" + tpm + " --nvram N --pcrs LIST"
 	case "approve":
-		cmd = "tpm2-kira slot approve" + tpm
+		cmd = "kira slot approve" + tpm
 	case "slot":
-		cmd, s.Danger = "tpm2-kira slot delete"+tpm+" --nvram "+arg, dangerDestroy
+		cmd, s.Danger = "kira slot delete"+tpm+" --nvram "+arg, dangerDestroy
 		if s.Destroys == "" {
 			s.Destroys = "slot " + arg + " whole: its TOTP key (the authenticator's code stops matching), its phones, its phone salt, the vault's local part, the LUKS keyslots bound to it"
 		}
 	case "delete-all":
-		cmd, s.Danger = "tpm2-kira luks remove DEVICE --keyslot N (each of tpm2-kira's); tpm2-kira slot delete"+tpm+" --yes --sweep; rm -r "+strings.Join(kiraDirs, " "), dangerDestroy
+		cmd, s.Danger = "kira luks remove DEVICE --keyslot N (each of kira's); kira slot delete"+tpm+" --yes --sweep; rm -r "+strings.Join(kiraDirs, " "), dangerDestroy
 	case "channel":
-		cmd = "tpm2-kira slot approve" + tpm + " --nvram " + arg + " --seal-channel"
+		cmd = "kira slot approve" + tpm + " --nvram " + arg + " --seal-channel"
 	case "attest":
-		cmd = "tpm2-kira phone enrol" + tpm
+		cmd = "kira phone enrol" + tpm
 	case "phone-remove":
-		cmd, s.Danger = "tpm2-kira phone unenrol"+tpm+" --nvram "+arg, dangerDestroy
+		cmd, s.Danger = "kira phone unenrol"+tpm+" --nvram "+arg, dangerDestroy
 	case "salt-remove":
-		cmd, s.Danger = "tpm2-kira phone salt unenrol"+tpm+" --nvram "+arg, dangerDestroy
+		cmd, s.Danger = "kira phone salt unenrol"+tpm+" --nvram "+arg, dangerDestroy
 	case "bt-always":
-		cmd = "TPM2_KIRA_ATTEST_BLUETOOTH in " + controlConfigPath()
+		cmd = "KIRA_ATTEST_BLUETOOTH in " + controlConfigPath()
 	case "luks-salt", "luks-tpm", "luks-remote", "luks-remote-keyboard":
-		cmd = "tpm2-kira luks enrol DEVICE " + map[string]string{
+		cmd = "kira luks enrol DEVICE " + map[string]string{
 			"luks-salt": "--password typed --salt typed", "luks-tpm": "--password typed --salt tpm",
 			"luks-remote": "--password typed --salt phone", "luks-remote-keyboard": "--password typed --salt phone --keyboard-pepper"}[key]
 		if s.Done != "" {
-			cmd, s.Danger = "tpm2-kira luks remove DEVICE --keyslot N", dangerDestroy
+			cmd, s.Danger = "kira luks remove DEVICE --keyslot N", dangerDestroy
 			s.Destroys = s.Done + ": the keyslot, so that this way opens the disk no more"
 		}
 	case "vault":
-		cmd = "tpm2-kira luks enrol DEVICE --password tpm --salt vault --url URL --pin PIN --token TOKEN"
+		cmd = "kira luks enrol DEVICE --password tpm --salt vault --url URL --pin PIN --token TOKEN"
 		if s.Done != "" {
-			cmd = "tpm2-kira vault status" + tpm + "; tpm2-kira vault unenrol" + tpm
+			cmd = "kira vault status" + tpm + "; kira vault unenrol" + tpm
 		}
 	case "net":
-		cmd = "TPM2_KIRA_NET* in " + controlConfigPath()
+		cmd = "KIRA_NET* in " + controlConfigPath()
 	case "ssh":
-		cmd = "TPM2_KIRA_SSH* in " + controlConfigPath() + ", ASSH_* in " + sshConfPath(controlConfigPath())
+		cmd = "KIRA_SSH* in " + controlConfigPath() + ", ASSH_* in " + sshConfPath(controlConfigPath())
 	case "debug":
 		cmd = "the boot settings in the TPM (NV index 0x01803000), signed"
 	case "initramfs":
 		cmd = "HOOKS in " + mkinitcpioConf
 	case "route":
-		cmd = "tpm2-kira luks route"
+		cmd = "kira luks route"
 	case "pcrkey":
 		cmd = ukiConfPath
 	case "build":
 		cmd = rebuildCommand(f.Initramfs)
 	case "view", "help":
 		s.Danger = dangerView
-		cmd = "tpm2-kira " + strings.Join(viewArgs(s.Key), " ")
+		cmd = "kira " + strings.Join(viewArgs(s.Key), " ")
 	}
 	if s.Command == "" {
 		s.Command = cmd
@@ -239,7 +239,7 @@ func (c *controller) runSealMore() error {
 		return err
 	}
 	pcrs, err := c.ask().Input("PCRs for slot "+fmt.Sprint(free[i]),
-		"Indices with a source each: none or r the register, e the event log, u the unified kernel image - such as 0e,2e,4u,7e,11u (tpm2-kira help slot).",
+		"Indices with a source each: none or r the register, e the event log, u the unified kernel image - such as 0e,2e,4u,7e,11u (kira help slot).",
 		c.facts.PCRs, func(s string) error {
 			_, err := measure.ParsePCRSpecs(s)
 			return err
@@ -278,18 +278,18 @@ func (c *controller) approveStep() controlStep {
 	return s
 }
 
-// kiraDirs are the directories of tpm2-kira's own files: the keys and the
+// kiraDirs are the directories of kira's own files: the keys and the
 // configuration, and the state (recovery blobs, the adapters' firmware names). Vars:
 // the tests' own.
-var kiraDirs = []string{"/etc/tpm2-kira", "/var/lib/tpm2-kira"}
+var kiraDirs = []string{"/etc/kira", "/var/lib/kira"}
 
-// kiraKeyslot is a LUKS keyslot with a tpm2-kira token.
+// kiraKeyslot is a LUKS keyslot with a kira token.
 type kiraKeyslot struct {
 	device  string
 	keyslot int
 }
 
-// kiraKeyslots are every keyslot of tpm2-kira's, on every device.
+// kiraKeyslots are every keyslot of kira's, on every device.
 func (c *controller) kiraKeyslots() []kiraKeyslot {
 	var out []kiraKeyslot
 	for _, d := range c.facts.Status.Devices {
@@ -302,22 +302,22 @@ func (c *controller) kiraKeyslots() []kiraKeyslot {
 	return out
 }
 
-// deleteAllStep removes everything of tpm2-kira's from the machine, in three parts,
-// each shown and asked for its word: the LUKS keyslots of tpm2-kira's, the TPM and the
+// deleteAllStep removes everything of kira's from the machine, in three parts,
+// each shown and asked for its word: the LUKS keyslots of kira's, the TPM and the
 // EFI variables (slot delete --yes --sweep), and the files.
 func (c *controller) deleteAllStep() controlStep {
 	f := &c.facts
-	s := controlStep{Key: "delete-all", Title: "Delete everything of tpm2-kira's on this machine", Optional: true, SelfConfirm: true,
-		Explain: "In three parts, each shown and asked for on its own: tpm2-kira's LUKS keyslots; the TPM and the EFI variables - every slot, " +
-			"the boot settings, the sealed machine-id, the SSH CA, and whatever this or an earlier version left at tpm2-kira's places; " +
-			"the files in /etc/tpm2-kira and /var/lib/tpm2-kira. The recovery passphrase's keyslot stays. The package stays installed: " +
+	s := controlStep{Key: "delete-all", Title: "Delete everything of kira's on this machine", Optional: true, SelfConfirm: true,
+		Explain: "In three parts, each shown and asked for on its own: kira's LUKS keyslots; the TPM and the EFI variables - every slot, " +
+			"the boot settings, the sealed machine-id, the SSH CA, and whatever this or an earlier version left at kira's places; " +
+			"the files in /etc/kira and /var/lib/kira. The recovery passphrase's keyslot stays. The package stays installed: " +
 			"its hook is still in the boot image until it is taken out of HOOKS or the package is removed.",
-		Destroys: "tpm2-kira's LUKS keyslots; every slot (all TOTP keys, phones, phone salts, the vault's local parts), the boot settings, the sealed machine-id, the SSH CA and everything else at tpm2-kira's places in the TPM and the EFI variables; the signing key's files, the configuration, the PIN, the PCR key and the state",
+		Destroys: "kira's LUKS keyslots; every slot (all TOTP keys, phones, phone salts, the vault's local parts), the boot settings, the sealed machine-id, the SSH CA and everything else at kira's places in the TPM and the EFI variables; the signing key's files, the configuration, the PIN, the PCR key and the state",
 		Run:      (*controller).runDeleteAll}
 	_, dirsErr := os.Stat(kiraDirs[0])
 	switch {
 	case f.TPMErr != "" && len(c.kiraKeyslots()) == 0 && dirsErr != nil:
-		s.Blocked = "no TPM, no keyslot and no file of tpm2-kira's"
+		s.Blocked = "no TPM, no keyslot and no file of kira's"
 	}
 	return s
 }
@@ -331,8 +331,8 @@ func (c *controller) runDeleteAll() error {
 		for _, k := range ks {
 			names = append(names, fmt.Sprintf("keyslot %d of %s", k.keyslot, k.device))
 		}
-		fmt.Fprintf(c.out, "1. tpm2-kira's LUKS keyslots: %s. Removing each asks for a remaining passphrase (the recovery one).\n\n", strings.Join(names, ", "))
-		ok, err := c.confirmDestroy("Remove tpm2-kira's LUKS keyslots?", strings.Join(names, ", ")+": the ways tpm2-kira opens the disk", "delete")
+		fmt.Fprintf(c.out, "1. kira's LUKS keyslots: %s. Removing each asks for a remaining passphrase (the recovery one).\n\n", strings.Join(names, ", "))
+		ok, err := c.confirmDestroy("Remove kira's LUKS keyslots?", strings.Join(names, ", ")+": the ways kira opens the disk", "delete")
 		if err != nil {
 			return err
 		}
@@ -346,14 +346,14 @@ func (c *controller) runDeleteAll() error {
 		}
 	}
 	if c.facts.TPMErr == "" {
-		fmt.Fprintln(c.out, "\n2. The TPM and the EFI variables: every slot, the boot settings, the sealed machine-id, the SSH CA, and what this or an earlier version left at tpm2-kira's places, whatever its shape.")
+		fmt.Fprintln(c.out, "\n2. The TPM and the EFI variables: every slot, the boot settings, the sealed machine-id, the SSH CA, and what this or an earlier version left at kira's places, whatever its shape.")
 		fmt.Fprintln(c.out)
-		ok, err := c.confirmDestroy("Delete everything of tpm2-kira's in the TPM and the EFI variables?", "all of the above in the TPM and the EFI variables", "delete")
+		ok, err := c.confirmDestroy("Delete everything of kira's in the TPM and the EFI variables?", "all of the above in the TPM and the EFI variables", "delete")
 		if err != nil {
 			return err
 		}
 		if ok {
-			if err := NVRAMDeleteCommand(c.o.TPMPath, 0, true, false, true, c.o.Debug); err != nil && !strings.Contains(err.Error(), "nothing of tpm2-kira") {
+			if err := NVRAMDeleteCommand(c.o.TPMPath, 0, true, false, true, c.o.Debug); err != nil && !strings.Contains(err.Error(), "nothing of kira") {
 				return err
 			}
 			done = append(done, "the TPM and the EFI variables")
@@ -384,7 +384,7 @@ func (c *controller) runDeleteAll() error {
 	if len(done) == 0 {
 		return errKept
 	}
-	fmt.Fprintf(c.out, "\nRemoved: %s. The boot image still carries tpm2-kira's hook: take sd-tpm2-kira out of HOOKS (or remove the package) and rebuild it.\n", strings.Join(done, ", "))
+	fmt.Fprintf(c.out, "\nRemoved: %s. The boot image still carries kira's hook: take sd-kira out of HOOKS (or remove the package) and rebuild it.\n", strings.Join(done, ", "))
 	return nil
 }
 
@@ -474,14 +474,14 @@ func (c *controller) toolSteps() []controlStep {
 			Blocked: blocked, Explain: explain, Run: func(c *controller) error { return c.runSelf(strings.Fields(args)) }}
 	}
 	out := []controlStep{
-		view("Status", "status", "", "The machine's status as 'tpm2-kira status' says it: the slots, the phones, the keyslots, the image."),
+		view("Status", "status", "", "The machine's status as 'kira status' says it: the slots, the phones, the keyslots, the image."),
 		view("Slots in the TPM", "slot list", noTPM, "Every slot, its index and what it holds."),
 	}
 	for _, s := range f.Status.Slots {
 		out = append(out, view(fmt.Sprintf("Slot %d in detail", s.Slot), fmt.Sprintf("slot info --nvram %d", s.Slot), noTPM,
 			"The slot's blob: its PCRs as sealed against the live ones, its approvals, its methods."))
 	}
-	out = append(out, view("LUKS keyslots", "luks status", "", "Every LUKS device, its keyslots and which are tpm2-kira's, with their recipes."))
+	out = append(out, view("LUKS keyslots", "luks status", "", "Every LUKS device, its keyslots and which are kira's, with their recipes."))
 	for _, s := range f.Status.Slots {
 		if s.Vault != "" {
 			out = append(out, view(fmt.Sprintf("The vault of slot %d", s.Slot), fmt.Sprintf("vault status --nvram %d", s.Slot), noTPM, "Whether the vault answers, with its pinned key, and knows this device."))
@@ -503,13 +503,13 @@ func (c *controller) referenceSteps() []controlStep {
 	var out []controlStep
 	for _, topic := range c.o.HelpTopics {
 		t := topic
-		out = append(out, controlStep{Key: "help:" + t, Title: "tpm2-kira help " + t, Optional: true, SelfConfirm: true, Danger: dangerView,
+		out = append(out, controlStep{Key: "help:" + t, Title: "kira help " + t, Optional: true, SelfConfirm: true, Danger: dangerView,
 			Explain: "The help page of '" + t + "'.", Run: func(c *controller) error { return c.runSelf([]string{"help", t}) }})
 	}
 	return out
 }
 
-// runSelf runs tpm2-kira itself with args, on this terminal: a view is the command as
+// runSelf runs kira itself with args, on this terminal: a view is the command as
 // it is. A var: the tests see what runs.
 var runSelf = func(tpmPath string, args []string) error {
 	exe, err := os.Executable()
@@ -525,6 +525,6 @@ var runSelf = func(tpmPath string, args []string) error {
 }
 
 func (c *controller) runSelf(args []string) error {
-	fmt.Fprintf(c.out, "\033[2m$ tpm2-kira %s\033[0m\n\n", strings.Join(args, " "))
+	fmt.Fprintf(c.out, "\033[2m$ kira %s\033[0m\n\n", strings.Join(args, " "))
 	return runSelf(c.o.TPMPath, args)
 }

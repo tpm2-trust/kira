@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/google/go-tpm/tpm2"
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
+	"github.com/tpm2-trust/kira/core/attest"
 )
 
 // The attestation part of a slot's blob.
@@ -24,7 +24,7 @@ import (
 //	  methods        who may ask for a quote, and over what. Each method is
 //	                 a typed, length-prefixed block of its own:
 //	    1  phone     phones over Bluetooth LE (the Marify app)
-//	    2  vault     tpm2-kira-vault over HTTPS, keeping the remote part of
+//	    2  vault     kira-vault over HTTPS, keeping the remote part of
 //	                 the disk's key (docs/VAULT.md)
 //
 // Every method uses the same attestation key, release key and count. The layout is documented in
@@ -101,7 +101,7 @@ type PhoneAttestation struct {
 // Enabled reports whether the method is set up.
 func (p *PhoneAttestation) Enabled() bool { return len(p.ChannelPublic) != 0 }
 
-// VaultAttestation is the method "tpm2-kira-vault": where the vault is,
+// VaultAttestation is the method "kira-vault": where the vault is,
 // the pin of its key, and the local part L of a vault keyslot's key,
 // wrapped for this TPM's EK and the slot's release key (internal/vaultkey/vault.go). The
 // zero value is "not set up".
@@ -416,7 +416,7 @@ func UnmarshalAttestation(data []byte) (*Attestation, error) {
 		default:
 			// Carrying over a method this build cannot read would mean
 			// signing it again unseen on the next reseal.
-			return nil, fmt.Errorf("attestation method %d is not known to this version of tpm2-kira", kind)
+			return nil, fmt.Errorf("attestation method %d is not known to this version of kira", kind)
 		}
 	}
 	if r.err != nil {

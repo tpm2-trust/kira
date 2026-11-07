@@ -1,7 +1,7 @@
-# Agent prompt — build the tpm2-kira verifier app for Android
+# Agent prompt — build the kira verifier app for Android
 
 > Hand this file to a coding agent together with a checkout of the
-> tpm2-kira repository. The iOS counterpart is
+> kira repository. The iOS counterpart is
 > [AGENT-PROMPT-IOS.md](AGENT-PROMPT-IOS.md); both implement the same
 > protocol, [docs/PROTOCOL-BLE.md](../PROTOCOL-BLE.md), through the same Go core.
 
@@ -11,7 +11,7 @@
 
 Build **"Marify"** (application id `io.wiora.marify`, package `app.marify`),
 an Android app that acts as the *verifier* for
-tpm2-kira machines. Before the user types their disk passphrase on a Linux
+kira machines. Before the user types their disk passphrase on a Linux
 laptop, the laptop advertises over Bluetooth LE; the app connects, lets the
 machine's TPM prove what it booted, shows the user a verdict they can act
 on, and returns a signed receipt.
@@ -66,13 +66,13 @@ with gomobile and call.
 ```sh
 go install golang.org/x/mobile/cmd/gomobile@latest
 gomobile init
-# from the tpm2-kira checkout:
+# from the kira checkout:
 gomobile bind -target=android -androidapi 28 -o app/libs/kiracore.aar ./mobile/kiracore
 gomobile bind -target=android -androidapi 28 -o app/libs/kiratest.aar  ./mobile/kiratest   # tests only
 ```
 
 Add a Gradle task (or script `scripts/build-core.sh`) that rebuilds the
-`.aar` files from a pinned tpm2-kira commit, and document it in the README.
+`.aar` files from a pinned kira commit, and document it in the README.
 Generated Java API (verified with gobind — note that Go `int` is Java `long`):
 
 ```java
@@ -224,7 +224,7 @@ screen (proves StrongBox/TEE); it is informational.
   the JSON; parse display fields via `Kiracore.recordSummary`.
 - `android:allowBackup="false"`, `dataExtractionRules` excluding everything.
 - Deleting a machine: delete the record and its anchor key; tell the user to
-  run `sudo tpm2-kira phone unenrol` on the machine.
+  run `sudo kira phone unenrol` on the machine.
 
 ## Screens
 
@@ -234,7 +234,7 @@ screen (proves StrongBox/TEE); it is informational.
 2. **Machines** — enrolled machines with last-attested time; FAB "Enrol a
    machine"; a banner "<machine> is asking for attestation" when its
    advertisement is seen (tap → session).
-3. **Enrol** — instructions ("run `sudo tpm2-kira phone enrol` on the
+3. **Enrol** — instructions ("run `sudo kira phone enrol` on the
    machine"), list of ENROL-mode advertisements, then the **SAS screen**: the
    six digits huge, "Does this match the number on your computer's screen?"
    *Matches* / *Does not match*. Then biometric "Bind", then success.
@@ -282,8 +282,8 @@ filter that posts a notification "<machine> is waiting for attestation".
    (`receipt: verdict=ok authentic=true`, …).
 3. **Compose UI tests** for the three verdict screens with fixed JSON.
 4. **Real hardware checklist** (document results in `TESTING.md`): a Linux
-   machine with a Bluetooth adapter running `sudo tpm2-kira phone enrol` and
-   `sudo tpm2-kira phone gate`; Pixel (StrongBox) and one non-Pixel device;
+   machine with a Bluetooth adapter running `sudo kira phone enrol` and
+   `sudo kira phone gate`; Pixel (StrongBox) and one non-Pixel device;
    Bluetooth off/on mid-session; app killed mid-session; two machines in range.
 
 ## Acceptance criteria

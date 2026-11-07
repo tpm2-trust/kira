@@ -8,12 +8,12 @@ import (
 
 	"github.com/google/go-tpm/tpm2/transport"
 
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
-	"github.com/tpm2-trust/tpm2-kira/internal/untrusted"
+	"github.com/tpm2-trust/kira/core/attest"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/signing"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/untrusted"
 )
 
 // ── tree-drawing helpers ────────────────────────────────────────────────
@@ -443,7 +443,7 @@ func printPCRSources(sub string, blob *nvslot.SealedBlob) {
 func printAttestationTree(prefix string, si *slotInfo) {
 	att := si.Blob.Payload.Attestation
 	if att == nil {
-		fmt.Printf("%s%sAttestation: not set up (tpm2-kira phone enrol: the phone at the machine; tpm2-kira vault enrol: the vault over TLS)\n", prefix, branch(false))
+		fmt.Printf("%s%sAttestation: not set up (kira phone enrol: the phone at the machine; kira vault enrol: the vault over TLS)\n", prefix, branch(false))
 		return
 	}
 	fmt.Printf("%s%sAttestation (the phone at the machine, the vault over TLS)\n", prefix, branch(false))

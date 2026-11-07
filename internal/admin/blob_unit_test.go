@@ -15,8 +15,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/nvslot"
 
 	"github.com/google/go-tpm/tpm2"
 )
@@ -488,7 +488,7 @@ func TestUnmarshalIncompatibleVersion(t *testing.T) {
 	if !strings.Contains(err.Error(), fmt.Sprintf("v%d", nvslot.CurrentBlobVersion)) {
 		t.Errorf("Expected error to mention requires v%d, got: %v", nvslot.CurrentBlobVersion, err)
 	}
-	if !strings.Contains(err.Error(), "tpm2-kira slot add") {
+	if !strings.Contains(err.Error(), "kira slot add") {
 		t.Errorf("Expected error to suggest re-sealing, got: %v", err)
 	}
 }

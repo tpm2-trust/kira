@@ -3,8 +3,8 @@ package vaultproto
 import (
 	"testing"
 
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
-	"github.com/tpm2-trust/tpm2-kira/core/attest/attesttest"
+	"github.com/tpm2-trust/kira/core/attest"
+	"github.com/tpm2-trust/kira/core/attest/attesttest"
 )
 
 // The seed opens in the TPM for the release key alone, and makes the layout the vault shows.

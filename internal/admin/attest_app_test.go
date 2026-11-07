@@ -2,7 +2,7 @@
 
 package admin
 
-// TestAppMachine serves a tpm2-kira machine on a software TPM to the Android
+// TestAppMachine serves a kira machine on a software TPM to the Android
 // app's instrumented test (marify android/: SwtpmMachineSessionTest, run by
 // scripts/test-swtpm.sh). The machine side is the production code path —
 // tpmBackend with a real EK, AK, quotes, ActivateCredential and PolicySigned
@@ -43,11 +43,11 @@ import (
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpm2/transport"
 
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
-	"github.com/tpm2-trust/tpm2-kira/core/attest/attesttest"
-	"github.com/tpm2-trust/tpm2-kira/core/transport/frame"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
+	"github.com/tpm2-trust/kira/core/attest"
+	"github.com/tpm2-trust/kira/core/attest/attesttest"
+	"github.com/tpm2-trust/kira/core/transport/frame"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/phonegate"
 )
 
 func TestAppMachine(t *testing.T) {

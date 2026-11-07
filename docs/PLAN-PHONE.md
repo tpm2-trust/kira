@@ -22,7 +22,7 @@
 
 ## 1. Why add this at all
 
-tpm2-kira today proves boot integrity by *equality of a shared secret*: the TPM
+kira today proves boot integrity by *equality of a shared secret*: the TPM
 releases a TOTP seed only when the PCRs match, so a matching code means the PCRs
 matched. That is a real proof, and it stays (see §1.2). But it has four limits,
 and each one is a thing phone attestation fixes:
@@ -56,7 +56,7 @@ either is required, is per-machine configuration — see
 
 | Term | Meaning here |
 |---|---|
-| **Attester** | The machine with the TPM: tpm2-kira. Produces evidence. Never decides. |
+| **Attester** | The machine with the TPM: kira. Produces evidence. Never decides. |
 | **Verifier** | Whoever judges the evidence: the phone ([BLE](PLAN-BLE.md)) or the server ([the vault](PLAN-VAULT.md)). |
 | **Relying party** | Whoever acts on the verdict. Usually the attester itself (it opens or holds its own gate), sometimes the server (it releases or withholds a passphrase). |
 | **EK** | Endorsement Key. Unique per TPM, created from the Endorsement Primary Seed, often accompanied by a vendor certificate. The TPM's identity. |
@@ -114,7 +114,7 @@ flowchart TD
 | Auth | empty auth value, **no policy** | See §4 |
 
 The EK itself is created on demand with the TCG EK template and is never
-persisted by tpm2-kira. Note the trap: the standard EK template has an
+persisted by kira. Note the trap: the standard EK template has an
 `authPolicy` of `TPM2_PolicySecret(TPM_RH_ENDORSEMENT)`, so *using* the EK for
 `TPM2_ActivateCredential` requires a policy session satisfied by endorsement
 hierarchy auth — an empty auth value on a typical system, but a session, not a
@@ -220,7 +220,7 @@ on every boot. Both run over a `Transport` (§9) that the core does not define.
 
 ```mermaid
 sequenceDiagram
-    participant A as Attester (tpm2-kira)
+    participant A as Attester (kira)
     participant V as Verifier (phone / server)
 
     Note over A,V: channel established and confirmed out of band<br/>(BLE: numeric comparison — PLAN-BLE.md §5)
@@ -260,7 +260,7 @@ sequenceDiagram
     A->>V: Hello { device_id, schema, nonce_a, capabilities }
     V->>V: look up device; reject unknown device_id
     V->>A: Request { nonce_v, pcr_selection, want_eventlog, policy_id }
-    A->>A: qd = SHA-256("tpm2-kira/qd/v1" ‖ nonce_a ‖ nonce_v ‖ cb ‖ pcr_selection)
+    A->>A: qd = SHA-256("kira/qd/v1" ‖ nonce_a ‖ nonce_v ‖ cb ‖ pcr_selection)
     A->>A: TPM2_Quote(AK, qualifyingData = qd, pcr_selection)
     A->>V: Evidence { ... }  (§5)
     V->>V: Verify(evidence, policy, pinned) → Verdict   (§7)
@@ -288,7 +288,7 @@ Every signature in the protocol is over a domain-separated, length-prefixed
 byte string. No structure is ever signed via its transport encoding.
 
 ```
-receipt_tbs := "tpm2-kira/receipt/v1" ‖ u8(verdict) ‖
+receipt_tbs := "kira/receipt/v1" ‖ u8(verdict) ‖
                lp(device_id) ‖ lp(ak_name) ‖ lp(qd) ‖ lp(sha256(quoted)) ‖
                lp(policy_id) ‖ u64(issued_at) ‖ u64(expires_at) ‖ lp(verifier_id)
 
@@ -370,7 +370,7 @@ not a re-seal per transition.
 
 **Pre-registering the *next* state.** Before rebooting into a new kernel, the
 operator computes what PCR 11 will be from the unified kernel image on disk —
-tpm2-kira already does this natively in `internal/measure/ukipredict.go` — and registers it
+kira already does this natively in `internal/measure/ukipredict.go` — and registers it
 as a profile with `uses_left = 1` and a short `valid_until`. The machine then
 attests successfully on the first boot into the new image, with no human at the
 console. This is the mechanism that makes unattended reboots possible in
@@ -493,7 +493,7 @@ Two placements, with honestly different worth:
 
 | Placement | Where | Authenticated by | Survives a PCR change? | Verdict |
 |---|---|---|---|---|
-| **`image`** | a file inside the initramfs / UKI (`/etc/tpm2-kira/verifier.pub`) | Secure Boot's signature over the image, plus PCR 11 measuring it | **yes** | Required for enforced mode |
+| **`image`** | a file inside the initramfs / UKI (`/etc/kira/verifier.pub`) | Secure Boot's signature over the image, plus PCR 11 measuring it | **yes** | Required for enforced mode |
 | **`sealed`** | material in the attestation blob, its SHA-256 **inside the sealed object** next to the TOTP seed | the TPM's PolicyOR — a planted blob fails the digest check | no: unsealing needs matching PCRs | Fallback only |
 
 The `image` anchor is the right one. It is authenticated by the same signature
@@ -513,7 +513,7 @@ trusts.)
 There is no attestation setting to bind: a phone is served whenever one is
 enrolled for a slot, and `control.conf` does not go into the boot image
 (the image's parts carry the digests of the settings they were built with,
-`tpm2-kira initramfs plan`). The configuration digest in the sealed
+`kira initramfs plan`). The configuration digest in the sealed
 payload that this section once designed was not built (HISTORY.md).
 
 ---
@@ -578,12 +578,12 @@ pin public keys instead ([PLAN-BLE.md](PLAN-BLE.md) §5,
 ## 12. CLI surface
 
 ```
-tpm2-kira phone enrol      [--transport ble|tcp] [--nvram N] [--pcrs SPEC] [--name STR]
-tpm2-kira phone status     [--nvram N] [--json]
-tpm2-kira phone quote      [--nvram N] [--nonce HEX] [--out FILE]   # produce evidence, no peer
-tpm2-kira phone verify     --evidence FILE --policy FILE [--json]   # offline, no TPM
-tpm2-kira phone rotate-ak  [--nvram N]
-tpm2-kira phone unenrol    [--nvram N]
+kira phone enrol      [--transport ble|tcp] [--nvram N] [--pcrs SPEC] [--name STR]
+kira phone status     [--nvram N] [--json]
+kira phone quote      [--nvram N] [--nonce HEX] [--out FILE]   # produce evidence, no peer
+kira phone verify     --evidence FILE --policy FILE [--json]   # offline, no TPM
+kira phone rotate-ak  [--nvram N]
+kira phone unenrol    [--nvram N]
 ```
 
 `phone quote` and `phone verify` exist so evidence can be produced on one
@@ -592,7 +592,7 @@ corpus is generated and how a failing field deployment is debugged.
 
 ### 12.1 One documented exception to the exit-0 rule
 
-README.md states that tpm2-kira always exits 0, deliberately, so a TPM failure
+README.md states that kira always exits 0, deliberately, so a TPM failure
 cannot break a boot chain. That rule is right for a tool that *displays* a code
 and wrong for one that *gates* a boot: a gate that exits 0 on failure is not a
 gate.

@@ -1,4 +1,4 @@
-// Package vaultproto is the contract between tpm2-kira and tpm2-kira-vault
+// Package vaultproto is the contract between kira and kira-vault
 // (docs/VAULT.md): the messages of the vault's REST interface, and the
 // check the vault makes before it releases a machine's remote part.
 //
@@ -234,7 +234,7 @@ type ErrorResponse struct {
 // one device, one request and the vault's nonce.
 func QualifyingData(deviceID []byte, requestID string, nonce []byte) []byte {
 	h := sha256.New()
-	h.Write([]byte("tpm2-kira/vault/release/v1"))
+	h.Write([]byte("kira/vault/release/v1"))
 	for _, p := range [][]byte{deviceID, []byte(requestID), nonce} {
 		h.Write(binary.BigEndian.AppendUint32(nil, uint32(len(p))))
 		h.Write(p)

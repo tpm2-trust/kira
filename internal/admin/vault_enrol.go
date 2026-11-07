@@ -12,16 +12,16 @@ import (
 
 	"github.com/google/go-tpm/tpm2"
 	"github.com/tpm2-trust/go-tui-slim/secret"
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
-	"github.com/tpm2-trust/tpm2-kira/core/vaultproto"
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
-	"github.com/tpm2-trust/tpm2-kira/internal/sbstate"
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
-	"github.com/tpm2-trust/tpm2-kira/internal/untrusted"
-	"github.com/tpm2-trust/tpm2-kira/internal/vaultkey"
+	"github.com/tpm2-trust/kira/core/attest"
+	"github.com/tpm2-trust/kira/core/vaultproto"
+	"github.com/tpm2-trust/kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/phonegate"
+	"github.com/tpm2-trust/kira/internal/sbstate"
+	"github.com/tpm2-trust/kira/internal/signing"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/untrusted"
+	"github.com/tpm2-trust/kira/internal/vaultkey"
 )
 
 // VaultEnrolOptions is what 'vault enrol' and 'luks enrol --salt vault'
@@ -39,7 +39,7 @@ type VaultEnrolOptions struct {
 	Label         string
 	Name          string
 	PrivKeyPath   string
-	// CA is a file with the vault\'s root (\'tpm2-kira-vault tls root\'):
+	// CA is a file with the vault\'s root (\'kira-vault tls root\'):
 	// added to vaultkey.RootsPath when its key is the pin.
 	CA     string
 	Pepper bool   // the key needs an operator's pepper too, asked here once
@@ -87,9 +87,9 @@ func VaultEnrol(o VaultEnrolOptions) error {
 	if o.Keyboard {
 		recipe |= diskkey.Recipe(diskkey.FlagKeyboard)
 	}
-	fmt.Printf("    tpm2-kira luks mark <device> --keyslot <the new keyslot> %s --nvram %d\n", recipe.Words(), slot)
+	fmt.Printf("    kira luks mark <device> --keyslot <the new keyslot> %s --nvram %d\n", recipe.Words(), slot)
 	fmt.Printf("    rm %s\n", o.Out)
-	fmt.Printf("('tpm2-kira luks enrol <device> %s ...' does all of it at once.)\n", recipe.Words())
+	fmt.Printf("('kira luks enrol <device> %s ...' does all of it at once.)\n", recipe.Words())
 	return nil
 }
 
@@ -100,7 +100,7 @@ func vaultSecureBootNote(s sbstate.State) string {
 	if s.Risk() == "" {
 		return ""
 	}
-	return "WARNING: the vault releases nothing to this machine until Secure Boot is on (" + s.Risk() + "). Keep a recovery keyslot (tpm2-kira luks enrol DEVICE --salt typed) or the recovery passphrase: a keyslot of the vault alone opens nothing at boot before then."
+	return "WARNING: the vault releases nothing to this machine until Secure Boot is on (" + s.Risk() + "). Keep a recovery keyslot (kira luks enrol DEVICE --salt typed) or the recovery passphrase: a keyslot of the vault alone opens nothing at boot before then."
 }
 
 // ensureAttestation gives the slot what a part held for its TPM needs
@@ -186,7 +186,7 @@ func vaultEnrolKey(o VaultEnrolOptions) ([]byte, uint32, error) {
 		return nil, 0, err
 	}
 	if o.Token == "" {
-		return nil, 0, errors.New("--token: the one-time token from 'tpm2-kira-vault token create'")
+		return nil, 0, errors.New("--token: the one-time token from 'kira-vault token create'")
 	}
 	privKeyPath := o.PrivKeyPath
 	if privKeyPath == "" {
@@ -209,14 +209,14 @@ func vaultEnrolKey(o VaultEnrolOptions) ([]byte, uint32, error) {
 
 	raw, sealed, err := phonegate.ReadSlot(tpmDev, idx)
 	if err != nil {
-		return nil, 0, fmt.Errorf("slot %d holds no sealed blob (%v): seal first with 'tpm2-kira slot add --nvram %d'", slot, err, slot)
+		return nil, 0, fmt.Errorf("slot %d holds no sealed blob (%v): seal first with 'kira slot add --nvram %d'", slot, err, slot)
 	}
 	if err := nvslot.VerifyBlobSignature(raw, sealed, priv.Public()); err != nil {
 		return nil, 0, foreignSlotError(slot, err)
 	}
 	att := sealed.Payload.Attestation
 	if att != nil && att.Vault.Enabled() {
-		return nil, 0, fmt.Errorf("slot %d is enrolled with the vault at %s already; 'tpm2-kira vault unenrol --nvram %d' first", slot, att.Vault.URL, slot)
+		return nil, 0, fmt.Errorf("slot %d is enrolled with the vault at %s already; 'kira vault unenrol --nvram %d' first", slot, att.Vault.URL, slot)
 	}
 	if att, err = ensureAttestation(tpmDev, sealed, o.Name); err != nil {
 		return nil, 0, err
@@ -330,13 +330,13 @@ func vaultEnrolKey(o VaultEnrolOptions) ([]byte, uint32, error) {
 	}
 	if err := writeAttestBlob(tpmDev, idx, att, priv); err != nil {
 		return nil, 0, fmt.Errorf("the vault keeps the device, but the slot's blob was not written: %w\n"+
-			"Enrol again with a token made with 'tpm2-kira-vault token create --replace %x'", err, att.DeviceID)
+			"Enrol again with a token made with 'kira-vault token create --replace %x'", err, att.DeviceID)
 	}
 	fmt.Printf("Slot %d is enrolled with the vault at %s as device %x (release mode %s).\n", slot, att.Vault.URL, att.DeviceID, res.Mode)
 	fmt.Println("The local part is in the slot's blob, the remote part only with the vault; both")
 	fmt.Println("open at boot, in the initrd, in the boot state the signing key approved.")
 	if o.Keyboard {
-		fmt.Println("With every release the vault shows a one-time keyboard layout (tpm2-kira-vault")
+		fmt.Println("With every release the vault shows a one-time keyboard layout (kira-vault")
 		fmt.Println("requests, GET /v1/requests), different every time, to type your pepper through.")
 	}
 	if pepper != nil {
@@ -345,8 +345,8 @@ func vaultEnrolKey(o VaultEnrolOptions) ([]byte, uint32, error) {
 	}
 	if cfg, err := LoadControlConfig(controlConfigPath()); err == nil && cfg.Remote.Net.Mode == "off" {
 		fmt.Println()
-		fmt.Println("NOTE: the boot image has no network (TPM2_KIRA_NET=off), so it cannot reach the")
-		fmt.Println("      vault: turn it on in 'tpm2-kira control' (Network & SSH) and")
+		fmt.Println("NOTE: the boot image has no network (KIRA_NET=off), so it cannot reach the")
+		fmt.Println("      vault: turn it on in 'kira control' (Network & SSH) and")
 		fmt.Println("      rebuild the image.")
 	}
 	return key, slot, nil
@@ -462,8 +462,8 @@ func VaultUnenrol(tpmPath string, sealIndex uint32, privKeyPath string, debug bo
 		return err
 	}
 	fmt.Printf("Slot %d is no longer enrolled with the vault at %s; its local part is gone.\n", slot, url)
-	fmt.Println("Its vault keyslot opens no more: remove it with 'tpm2-kira luks remove'.")
-	fmt.Printf("On the vault: tpm2-kira-vault device revoke %x\n", id)
+	fmt.Println("Its vault keyslot opens no more: remove it with 'kira luks remove'.")
+	fmt.Printf("On the vault: kira-vault device revoke %x\n", id)
 	return nil
 }
 

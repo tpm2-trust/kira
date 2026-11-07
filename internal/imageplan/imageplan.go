@@ -13,7 +13,7 @@ import (
 const TPMWait = 5 * time.Second
 
 // ImagePlanDir is where the image names its parts.
-const Dir = "/etc/tpm2-kira/plan"
+const Dir = "/etc/kira/plan"
 
 // Planned is what 'run' starts, from the image's ImagePlanDir.
 type Planned struct {
@@ -47,7 +47,7 @@ const (
 	// while the code screen holds.
 	PartTPMSalt = "tpmsalt"
 	PartNet     = "net" // the image's network
-	PartSSH     = "ssh" // tpm2-kira's SSH server
+	PartSSH     = "ssh" // kira's SSH server
 	// PartTPM is derived: run waits for the TPM's device (TPMWait) when a
 	// part needs it. It is a marker, not a part of its own.
 	PartTPM = "tpm"

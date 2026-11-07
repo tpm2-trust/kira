@@ -13,11 +13,11 @@ import (
 	"strings"
 
 	"github.com/google/go-tpm/tpm2/transport"
-	"github.com/tpm2-trust/tpm2-kira/core/vaultproto"
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
+	"github.com/tpm2-trust/kira/core/vaultproto"
+	"github.com/tpm2-trust/kira/internal/measure"
 )
 
-// tpm2-kira's PCR key signs PCR 11 of a unified kernel image for the phase
+// kira's PCR key signs PCR 11 of a unified kernel image for the phase
 // enter-initrd (ukify, reading /etc/kernel/uki.conf), so that the slots and the
 // SSH CA take it signed: a kernel update needs no approval of 11. enter-initrd
 // alone: the slots are used in the initrd and closed before leave-initrd, and a
@@ -28,8 +28,8 @@ import (
 const (
 	// DefaultPCRKey and DefaultPCRPub are the PCR key, root's alone, and its
 	// public part.
-	DefaultPCRKey = "/etc/tpm2-kira/pcr.key"
-	DefaultPCRPub = "/etc/tpm2-kira/pcr.pem"
+	DefaultPCRKey = "/etc/kira/pcr.key"
+	DefaultPCRPub = "/etc/kira/pcr.pem"
 	// DefaultUKIConf is what mkinitcpio's ukify build reads.
 	DefaultUKIConf = "/etc/kernel/uki.conf"
 )
@@ -91,7 +91,7 @@ func readPCRPub() ([]byte, error) {
 
 // ukiConfBlock is what control asks to put into uki.conf.
 func ukiConfBlock() string {
-	return "[PCRSignature:tpm2-kira]\nPCRPrivateKey=" + pcrKeyPath + "\nPCRPublicKey=" + pcrPubPath + "\nPhases=enter-initrd\n"
+	return "[PCRSignature:kira]\nPCRPrivateKey=" + pcrKeyPath + "\nPCRPublicKey=" + pcrPubPath + "\nPhases=enter-initrd\n"
 }
 
 // ukiConfSigns says whether uki.conf has ukify sign with the PCR key, for

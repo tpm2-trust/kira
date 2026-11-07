@@ -19,8 +19,8 @@ const DefaultUKIPath = "/boot/EFI/Linux/arch-linux.efi"
 const TPM2PCRKernelBoot = 11
 
 // MeasurePointPhases are the boot phases systemd has already measured into
-// PCR 11 by the time tpm2-kira runs. systemd-pcrphase-initrd is ordered before
-// cryptsetup-pre.target, and tpm2-kira orders itself after it.
+// PCR 11 by the time kira runs. systemd-pcrphase-initrd is ordered before
+// cryptsetup-pre.target, and kira orders itself after it.
 var MeasurePointPhases = []string{EnterInitrdWord}
 
 // ukiSectionMeasurements returns, in order, the digests systemd-stub extends
@@ -117,7 +117,7 @@ func ukiChangedSinceBoot(ukiPath string) (bool, error) {
 	return info.ModTime().After(bootTime), nil
 }
 
-// VerifyUKIPredictionAgainstEventlog checks tpm2-kira's UKI measurement against
+// VerifyUKIPredictionAgainstEventlog checks kira's UKI measurement against
 // what the running systemd-stub actually recorded, comparing measurement by
 // measurement so a mismatch can be attributed.
 //
@@ -139,7 +139,7 @@ func VerifyUKIPredictionAgainstEventlog(ukiPath string, logDigests [][]byte, alg
 		}
 		if !rebuilt {
 			return fmt.Errorf("%s\n%s has NOT been modified since this system booted, so it should be the\n"+
-				"image that booted. tpm2-kira's model of systemd-stub's measurements is\n"+
+				"image that booted. kira's model of systemd-stub's measurements is\n"+
 				"therefore wrong. Sealing would bind PCR 11 to a value this machine will\n"+
 				"never produce. Pass --verify-uki=false to seal anyway.", reason, ukiPath)
 		}
@@ -154,7 +154,7 @@ func VerifyUKIPredictionAgainstEventlog(ukiPath string, logDigests [][]byte, alg
 			return fmt.Errorf(
 				"this image produces %d PCR 11 measurements but this boot's event log has only %d;\n"+
 					"the first unmatched one is %s (%s). systemd-stub's section set or order differs\n"+
-					"from what tpm2-kira models. Pass --verify-uki=false to seal anyway.",
+					"from what kira models. Pass --verify-uki=false to seal anyway.",
 				len(measurements), len(logDigests), m.Section, m.Kind)
 		}
 		if bytes.Equal(m.Digest, logDigests[i]) {
@@ -164,7 +164,7 @@ func VerifyUKIPredictionAgainstEventlog(ukiPath string, logDigests [][]byte, alg
 			return fmt.Errorf(
 				"PCR 11 measurement %d should be the name of section %s but the event log records\n"+
 					"a different digest. systemd-stub's section set or order differs from what\n"+
-					"tpm2-kira models. Pass --verify-uki=false to seal anyway.", i, m.Section)
+					"kira models. Pass --verify-uki=false to seal anyway.", i, m.Section)
 		}
 		return notApplicable(fmt.Sprintf(
 			"section %s of %s does not match what this boot measured", m.Section, ukiPath))
@@ -173,7 +173,7 @@ func VerifyUKIPredictionAgainstEventlog(ukiPath string, logDigests [][]byte, alg
 	if len(logDigests) > len(measurements) {
 		return fmt.Errorf(
 			"this boot's event log has %d PCR 11 measurements but this image produces only %d;\n"+
-				"systemd-stub measured sections that tpm2-kira does not model.\n"+
+				"systemd-stub measured sections that kira does not model.\n"+
 				"Pass --verify-uki=false to seal anyway.", len(logDigests), len(measurements))
 	}
 

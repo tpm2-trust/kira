@@ -7,11 +7,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/core/attest"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/phonegate"
+	"github.com/tpm2-trust/kira/internal/signing"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 )
 
 // AttestStatus shows the enrolment of one slot or all slots.
@@ -106,7 +106,7 @@ func AttestStatus(tpmPath string, sealIndex uint32, jsonOut bool, debug bool) er
 		return tamperedErr(invalid)
 	}
 	if len(out) == 0 {
-		fmt.Println("No slot is enrolled for attestation. Run: tpm2-kira phone enrol")
+		fmt.Println("No slot is enrolled for attestation. Run: kira phone enrol")
 		return nil
 	}
 	for _, s := range out {
@@ -324,7 +324,7 @@ func AttestUnenrol(tpmPath string, sealIndex uint32, privKeyPath string, debug b
 	priv, err := signing.LoadCheckedSigningPrivateKey(privKeyPath)
 	if err != nil {
 		return fmt.Errorf("removing the enrolment rewrites the slot's blob and needs the signing key: %w\n"+
-			"Without the key, 'tpm2-kira slot delete --nvram %d' removes the whole slot, TOTP key included", err, slot)
+			"Without the key, 'kira slot delete --nvram %d' removes the whole slot, TOTP key included", err, slot)
 	}
 	if err := signing.PrepareSigningKey(priv); err != nil {
 		return fmt.Errorf("the signing key is not usable: %w", err)

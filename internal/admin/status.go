@@ -8,18 +8,18 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/bootclose"
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
-	"github.com/tpm2-trust/tpm2-kira/internal/sbstate"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/bootclose"
+	"github.com/tpm2-trust/kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/phonegate"
+	"github.com/tpm2-trust/kira/internal/sbstate"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 )
 
-// 'tpm2-kira status' is the one page a person wants before a reboot: the
+// 'kira status' is the one page a person wants before a reboot: the
 // slots and what they are sealed to, the phones and the phone salt, the
-// LUKS keyslots that are tpm2-kira's with the mode of each - and the notes
+// LUKS keyslots that are kira's with the mode of each - and the notes
 // where these do not fit together (PLAN-LUKS.md §4). It reads; it changes
 // nothing. Without the TPM, or without root for the LUKS headers, it says
 // so for that part and shows the rest.
@@ -206,7 +206,7 @@ func statusNotes(r StatusReport) []string {
 		notes = append(notes, diskkey.TestBuildNote)
 	}
 	if r.TPMError == "" && len(r.Slots) == 0 {
-		notes = append(notes, "no slot is sealed: tpm2-kira slot add")
+		notes = append(notes, "no slot is sealed: kira slot add")
 	}
 	if r.ClosePCREvents > 0 {
 		notes = append(notes, closePCRWhy)
@@ -224,16 +224,16 @@ func statusNotes(r StatusReport) []string {
 			notes = append(notes, fmt.Sprintf("slot %d is not signed by this machine's key (%s): the hooks will not approve it and the gate serves no phone for it", s.Slot, s.SignReason))
 		}
 		if strings.Contains(s.GenState, "NOT") || strings.Contains(s.GenState, "unavailable") {
-			notes = append(notes, fmt.Sprintf("slot %d shows no code until it is approved: tpm2-kira slot approve --nvram %d", s.Slot, s.Slot))
+			notes = append(notes, fmt.Sprintf("slot %d shows no code until it is approved: kira slot approve --nvram %d", s.Slot, s.Slot))
 		}
 		if s.LoaderMoved {
-			notes = append(notes, fmt.Sprintf("slot %d's PCR 4 is not what the next boot will measure (an updated boot loader or image; risk: no slot 0 at the next boot, the fallback's purple): tpm2-kira slot approve", s.Slot))
+			notes = append(notes, fmt.Sprintf("slot %d's PCR 4 is not what the next boot will measure (an updated boot loader or image; risk: no slot 0 at the next boot, the fallback's purple): kira slot approve", s.Slot))
 		}
 		if s.ChannelMoved {
-			notes = append(notes, fmt.Sprintf("WARNING: slot %d's phone channel is sealed to another PCR %s than the next boot's (a db or dbx update, Secure Boot switched; risk: no gate, the phones find no machine at the next boot; no hook follows it): at a terminal, after looking at what moved it: sudo tpm2-kira slot approve --nvram %d", s.Slot, nvslot.ChannelPCRList(), s.Slot))
+			notes = append(notes, fmt.Sprintf("WARNING: slot %d's phone channel is sealed to another PCR %s than the next boot's (a db or dbx update, Secure Boot switched; risk: no gate, the phones find no machine at the next boot; no hook follows it): at a terminal, after looking at what moved it: sudo kira slot approve --nvram %d", s.Slot, nvslot.ChannelPCRList(), s.Slot))
 		}
 		if s.NoGRUBPCRs {
-			notes = append(notes, fmt.Sprintf("slot %d lacks PCR 8 or 9 (risk: %s): tpm2-kira slot delete --nvram %d", s.Slot, grubSelectionWhy, s.Slot))
+			notes = append(notes, fmt.Sprintf("slot %d lacks PCR 8 or 9 (risk: %s): kira slot delete --nvram %d", s.Slot, grubSelectionWhy, s.Slot))
 		}
 		remoteSalt = remoteSalt || s.PhoneSalt
 		fallback = fallback || s.Fallback
@@ -250,7 +250,7 @@ func statusNotes(r StatusReport) []string {
 		if r.GRUB {
 			sel = GRUBFallbackPCRSelection
 		}
-		notes = append(notes, fmt.Sprintf("no fallback slot (PCRs %s alone) for a boot whose firmware or option ROMs changed: tpm2-kira slot add --nvram %d --pcrs %s", sel, FallbackSlot, sel))
+		notes = append(notes, fmt.Sprintf("no fallback slot (PCRs %s alone) for a boot whose firmware or option ROMs changed: kira slot add --nvram %d --pcrs %s", sel, FallbackSlot, sel))
 	}
 
 	slotThere := map[int]bool{}
@@ -268,7 +268,7 @@ func statusNotes(r StatusReport) []string {
 			plain = plain || ks.Token == nil
 		}
 		if d.Error == "" && len(d.Keyslots) > 0 && !plain {
-			notes = append(notes, fmt.Sprintf("%s: every keyslot is tpm2-kira's - the operating system's own prompt, the last way in when tpm2-kira itself fails, opens nothing: add a plain passphrase (cryptsetup luksAddKey %s)", d.Device, d.Device))
+			notes = append(notes, fmt.Sprintf("%s: every keyslot is kira's - the operating system's own prompt, the last way in when kira itself fails, opens nothing: add a plain passphrase (cryptsetup luksAddKey %s)", d.Device, d.Device))
 		}
 		for _, o := range d.Orphans {
 			notes = append(notes, fmt.Sprintf("%s token %d (%s) points at no existing keyslot - a leftover: cryptsetup token remove --token-id %d %s", d.Device, o.ID, o.Type, o.ID, d.Device))
@@ -278,7 +278,7 @@ func statusNotes(r StatusReport) []string {
 				continue
 			}
 			if ks.Token.Obsolete {
-				notes = append(notes, fmt.Sprintf("%s keyslot %d carries another version's token (type %s): cryptsetup token remove --token-id %d %s, then enrol the keyslot again (tpm2-kira luks remove, luks enrol)", d.Device, ks.Keyslot, ks.Token.Type, ks.TokenID, d.Device))
+				notes = append(notes, fmt.Sprintf("%s keyslot %d carries another version's token (type %s): cryptsetup token remove --token-id %d %s, then enrol the keyslot again (kira luks remove, luks enrol)", d.Device, ks.Keyslot, ks.Token.Type, ks.TokenID, d.Device))
 				continue
 			}
 			marked[ks.Token.Recipe]++
@@ -286,7 +286,7 @@ func statusNotes(r StatusReport) []string {
 				continue // bound to no slot: nothing of the TPM to check
 			}
 			if !slotThere[*ks.Token.Slot] {
-				notes = append(notes, fmt.Sprintf("%s keyslot %d is bound to slot %d, which is gone - the slot is dirty: 'tpm2-kira control' (the slot's line) deletes what is left, or tpm2-kira luks remove %s --keyslot %d by hand", d.Device, ks.Keyslot, *ks.Token.Slot, d.Device, ks.Keyslot))
+				notes = append(notes, fmt.Sprintf("%s keyslot %d is bound to slot %d, which is gone - the slot is dirty: 'kira control' (the slot's line) deletes what is left, or kira luks remove %s --keyslot %d by hand", d.Device, ks.Keyslot, *ks.Token.Slot, d.Device, ks.Keyslot))
 				continue
 			}
 			if ks.Token.Recipe.FromVault() {
@@ -297,7 +297,7 @@ func statusNotes(r StatusReport) []string {
 					}
 				}
 				if !ok {
-					notes = append(notes, fmt.Sprintf("%s keyslot %d needs the vault of slot %d, which has none: tpm2-kira luks remove %s --keyslot %d, then luks enrol again", d.Device, ks.Keyslot, *ks.Token.Slot, d.Device, ks.Keyslot))
+					notes = append(notes, fmt.Sprintf("%s keyslot %d needs the vault of slot %d, which has none: kira luks remove %s --keyslot %d, then luks enrol again", d.Device, ks.Keyslot, *ks.Token.Slot, d.Device, ks.Keyslot))
 				}
 			}
 			if ks.Token.Recipe == diskkey.RecipeTPMSalt {
@@ -308,7 +308,7 @@ func statusNotes(r StatusReport) []string {
 					}
 				}
 				if !ok {
-					notes = append(notes, fmt.Sprintf("%s keyslot %d needs the TPM salt of slot %d, which has none: tpm2-kira luks remove %s --keyslot %d, then luks enrol again", d.Device, ks.Keyslot, *ks.Token.Slot, d.Device, ks.Keyslot))
+					notes = append(notes, fmt.Sprintf("%s keyslot %d needs the TPM salt of slot %d, which has none: kira luks remove %s --keyslot %d, then luks enrol again", d.Device, ks.Keyslot, *ks.Token.Slot, d.Device, ks.Keyslot))
 				}
 			}
 			if ks.Token.Recipe.FromPhone() {
@@ -319,7 +319,7 @@ func statusNotes(r StatusReport) []string {
 					}
 				}
 				if !ok {
-					notes = append(notes, fmt.Sprintf("%s keyslot %d needs the phone salt of slot %d, which has none: tpm2-kira luks remove %s --keyslot %d, then luks enrol again", d.Device, ks.Keyslot, *ks.Token.Slot, d.Device, ks.Keyslot))
+					notes = append(notes, fmt.Sprintf("%s keyslot %d needs the phone salt of slot %d, which has none: kira luks remove %s --keyslot %d, then luks enrol again", d.Device, ks.Keyslot, *ks.Token.Slot, d.Device, ks.Keyslot))
 				}
 			}
 		}
@@ -333,16 +333,16 @@ func statusNotes(r StatusReport) []string {
 		vaultMarked += marked[vr]
 	}
 	if vault && headersRead && vaultMarked == 0 {
-		notes = append(notes, "a slot is enrolled with a vault, but no LUKS keyslot is marked with a vault recipe: its key opens nothing (tpm2-kira luks mark <device> --keyslot N --salt vault ...)")
+		notes = append(notes, "a slot is enrolled with a vault, but no LUKS keyslot is marked with a vault recipe: its key opens nothing (kira luks mark <device> --keyslot N --salt vault ...)")
 	}
 	if remoteSalt && headersRead && marked[diskkey.RecipePhoneSalt]+marked[diskkey.RecipePhoneKeyboard] == 0 {
-		notes = append(notes, "a phone salt is enrolled, but no LUKS keyslot is marked with the phone's salt: the phone's salt opens nothing (tpm2-kira luks enrol <device> "+diskkey.RecipePhoneSalt.Words()+")")
+		notes = append(notes, "a phone salt is enrolled, but no LUKS keyslot is marked with the phone's salt: the phone's salt opens nothing (kira luks enrol <device> "+diskkey.RecipePhoneSalt.Words()+")")
 	}
 	return notes
 }
 
 func printStatus(r StatusReport) {
-	fmt.Printf("tpm2-kira %s\n\n", r.Version)
+	fmt.Printf("kira %s\n\n", r.Version)
 	if r.SecureBootWarning != "" {
 		fmt.Println(statusRed(r.SecureBootWarning))
 		fmt.Println()
@@ -419,7 +419,7 @@ func statusRed(s string) string {
 // shortKeyslot is describeKeyslot in a few words.
 func shortKeyslot(ks KeyslotStatus) string {
 	if ks.Token == nil {
-		return "not tpm2-kira's"
+		return "not kira's"
 	}
 	if ks.Token.Obsolete {
 		return "another version's token: enrol again (the notes say how)"

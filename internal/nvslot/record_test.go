@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/efivars"
+	"github.com/tpm2-trust/kira/internal/efivars"
 )
 
 // useVarDir points the EFI variables at a directory of the test's own.
@@ -21,7 +21,7 @@ func useVarDir(t *testing.T) string {
 	return dir
 }
 
-// A slot's record is KIRAslotN under tpm2-kira's GUID, for the 16 slots
+// A slot's record is KIRAslotN under kira's GUID, for the 16 slots
 // and nothing else.
 func TestRecordVar(t *testing.T) {
 	for n, want := range map[uint32]string{0: "KIRAslot0", 15: "KIRAslot15"} {

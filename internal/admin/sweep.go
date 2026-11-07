@@ -10,28 +10,28 @@ import (
 	"github.com/google/go-tpm/tpm2/transport"
 	"github.com/tpm2-trust/assh/hostkey"
 	"github.com/tpm2-trust/assh/persist"
-	"github.com/tpm2-trust/tpm2-kira/internal/efivars"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/efivars"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 )
 
 // The sweep (slot delete --yes --sweep, and control's "Delete everything"): what
-// this or any earlier version of tpm2-kira left in the TPM and the EFI
+// this or any earlier version of kira left in the TPM and the EFI
 // variables, by place - not by format: nothing found is read as a slot,
 // a blob or a record, it is only named where its place says what it is.
 //
-//   - every NV index in tpm2-kira's range (nvslot.AppNVRAMStart-End), of this
+//   - every NV index in kira's range (nvslot.AppNVRAMStart-End), of this
 //     version's layout, an earlier one's (the attestation blobs at
 //     0x01803020-2F before blob version 10, say), or another program's;
 //   - aSSH's NV indices of the SSH CA at their default handles - the counter,
 //     the PIN, the SHA-1 switch and the window index aSSH had before PCR 15
-//     closed the CA - which tpm2-kira's CA is the one user of on a machine of
-//     tpm2-kira's;
-//   - every EFI variable under tpm2-kira's GUID, and aSSH's KIRAasshCA, the
-//     variable tpm2-kira's SSH CA is kept in.
+//     closed the CA - which kira's CA is the one user of on a machine of
+//     kira's;
+//   - every EFI variable under kira's GUID, and aSSH's KIRAasshCA, the
+//     variable kira's SSH CA is kept in.
 //
 // What a person was shown and said to take goes, whatever its shape: the
-// one place where tpm2-kira removes an index of another shape without
+// one place where kira removes an index of another shape without
 // asking for it on its own (persist.Any, nvslot.RemoveSwept).
 
 // asshSweepHandles are aSSH's NV handles of an SSH CA, and the window index of
@@ -40,7 +40,7 @@ var asshSweepHandles = []uint32{
 	uint32(hostkey.DefaultCounterHandle), uint32(hostkey.DefaultPINHandle), uint32(hostkey.SHA1Handle), 0x01802915,
 }
 
-// sshCAVar is the EFI variable tpm2-kira's SSH CA is kept in (DefaultSSHCA).
+// sshCAVar is the EFI variable kira's SSH CA is kept in (DefaultSSHCA).
 const sshCAVar = "KIRAasshCA"
 
 // sweepItem is one thing the sweep found: an NV index or an EFI variable.
@@ -57,7 +57,7 @@ func (s sweepItem) String() string {
 	return fmt.Sprintf("NV index 0x%08X  %s", s.NV, s.What)
 }
 
-// sweepFindings is everything at tpm2-kira's places now.
+// sweepFindings is everything at kira's places now.
 func sweepFindings(tpmDev transport.TPM) ([]sweepItem, error) {
 	var out []sweepItem
 	all, err := tpmdev.NVIndices(tpmDev, uint32(tpm2.TPMHTNVIndex)<<24)
@@ -85,7 +85,7 @@ func isASSHSweepHandle(idx uint32) bool {
 	return false
 }
 
-// sweepRole names what an index in tpm2-kira's range is, by its place.
+// sweepRole names what an index in kira's range is, by its place.
 func sweepRole(idx uint32) string {
 	if r := kiraIndexRole(idx); r != "" {
 		return r
@@ -93,10 +93,10 @@ func sweepRole(idx uint32) string {
 	if idx >= nvslot.NVRAMSlotStart && idx <= nvslot.NVRAMSlotEnd {
 		return fmt.Sprintf("slot #%d's place (an earlier version's blob)", nvslot.SlotNumber(idx))
 	}
-	return "in tpm2-kira's range: an earlier version's layout, or another program's"
+	return "in kira's range: an earlier version's layout, or another program's"
 }
 
-// sweepVars are the EFI variables of tpm2-kira's GUID, and the SSH CA's.
+// sweepVars are the EFI variables of kira's GUID, and the SSH CA's.
 func sweepVars() ([]sweepItem, error) {
 	entries, err := os.ReadDir(efivars.Dir)
 	if os.IsNotExist(err) {
@@ -110,7 +110,7 @@ func sweepVars() ([]sweepItem, error) {
 		name := e.Name()
 		switch {
 		case strings.HasSuffix(name, "-"+efivars.GUIDText):
-			out = append(out, sweepItem{Var: name, What: "tpm2-kira's: " + varRole(strings.TrimSuffix(name, "-"+efivars.GUIDText))})
+			out = append(out, sweepItem{Var: name, What: "kira's: " + varRole(strings.TrimSuffix(name, "-"+efivars.GUIDText))})
 		case name == sshCAVar+"-"+persist.VarGUID:
 			out = append(out, sweepItem{Var: name, What: "the SSH CA (aSSH's variable)"})
 		}
@@ -119,7 +119,7 @@ func sweepVars() ([]sweepItem, error) {
 	return out, nil
 }
 
-// varRole names a variable of tpm2-kira's GUID.
+// varRole names a variable of kira's GUID.
 func varRole(name string) string {
 	switch {
 	case strings.HasPrefix(name, "KIRAslot"):

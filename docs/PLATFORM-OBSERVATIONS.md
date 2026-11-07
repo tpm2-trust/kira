@@ -1,6 +1,6 @@
 # Platform observations
 
-Measured facts about the two platforms tpm2-kira is developed against, with the
+Measured facts about the two platforms kira is developed against, with the
 commands that produced them. Recorded because several of these were rediscovered
 the hard way after a design decision had already been made on an assumption.
 
@@ -26,13 +26,13 @@ sbctl        0.18-2
 tpm2-tools   5.8-1
 UKI          /boot/EFI/Linux/arch-linux.efi (+ arch-linux-tmp.efi)
 HOOKS        base systemd autodetect microcode modconf kms keyboard block
-             sd-tpm2-kira sd-encrypt filesystems fsck
+             sd-kira sd-encrypt filesystems fsck
 SecureBoot   enabled (1)          SetupMode 0
 IMA          /sys/kernel/security/ima absent -> not enabled
 StartupLocality 3 (PCR 0 starts at 0x…03, not zeros)
 ```
 
-### systemd extends PCRs before tpm2-kira reads them
+### systemd extends PCRs before kira reads them
 
 `systemd-pcrosseparator.service` extends `os-separator` into PCRs 0–7, 9, 12–14
 and `systemd-pcrphase-initrd.service` extends `enter-initrd` into PCR 11, both
@@ -50,7 +50,7 @@ and 6 match the documented constants exactly — `3d458cfe…` replayed,
 
 PCR 11 reports `enter-initrd + leave-initrd + sysinit + ready` because the tool
 runs on the booted system, past the measure point. Only `enter-initrd` applies
-at the point tpm2-kira actually reads.
+at the point kira actually reads.
 
 PCR 9 shows `UNEXPLAINED` in the verdict table **by design**: it is extended
 after disk unlock by `systemd-tpm2-setup` with host-specific
@@ -141,7 +141,7 @@ grep -n run_scripts /usr/share/initramfs-tools/init
 ### The measure point is end-of-firmware
 
 With no systemd in the initrd, none of the `os-separator` / `enter-initrd`
-units exist, so nothing extends PCRs between firmware and tpm2-kira.
+units exist, so nothing extends PCRs between firmware and kira.
 `--measure-point=auto` correctly resolves to `off`.
 
 This follows from initramfs-tools, not from Debian. A Debian system using

@@ -10,15 +10,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/piv"
-	"github.com/tpm2-trust/tpm2-kira/internal/piv/pivtest"
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
+	"github.com/tpm2-trust/kira/internal/piv"
+	"github.com/tpm2-trust/kira/internal/piv/pivtest"
+	"github.com/tpm2-trust/kira/internal/signing"
 )
 
 const skippedApprovalHelper = "ADMIN_TEST_SKIPPED_APPROVAL"
 
 // runSkippedApproval is the approval as a hook meets it, this test binary in place of
-// tpm2-kira: a YubiKey (the emulator: no pcscd here) with no PIN at hand, the signer's own
+// kira: a YubiKey (the emulator: no pcscd here) with no PIN at hand, the signer's own
 // terminal prompt and the command's own handling of the variable. Under setsid, which is
 // what the hook runs it with, there is no terminal to ask on.
 func runSkippedApproval() int {
@@ -28,7 +28,7 @@ func runSkippedApproval() int {
 	signing.DialTokens = func(time.Duration) ([]*signing.TokenConn, func(), error) {
 		return []*signing.TokenConn{{Reader: "emulator", Transport: card, Close: func(bool) error { return nil }}}, func() {}, nil
 	}
-	dir, err := os.MkdirTemp("", "tpm2-kira-hook-")
+	dir, err := os.MkdirTemp("", "kira-hook-")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
@@ -57,7 +57,7 @@ func runSkippedApproval() int {
 	err = signing.PrepareSigningKey(signer)
 	var cause *signing.TokenUnavailableError
 	if !errors.As(err, &cause) {
-		fmt.Printf("tpm2-kira: FAILED: %v\n", err)
+		fmt.Printf("kira: FAILED: %v\n", err)
 		return 0
 	}
 	PrintResealSkipped(os.Stdout, []*ResealSkippedError{{NVIndex: 0x01803010, KeyFile: path, Cause: cause, SealedPCRs: testBlob().GetPCRSpecs()}})
@@ -65,7 +65,7 @@ func runSkippedApproval() int {
 	return 0
 }
 
-// TPM2_KIRA_PIN=... mkinitcpio -P: each hook captures the approval and shows what it
+// KIRA_PIN=... mkinitcpio -P: each hook captures the approval and shows what it
 // chooses. What it shows has the reason, the variable named and its value nowhere, in
 // Arch's SKIPPED block as well, which leaves the warning line out. Without the variable,
 // nothing of it.
@@ -95,10 +95,10 @@ case "$1 $2" in
 "slot approve") exec %q ;;
 esac
 `, self)
-	if err := os.WriteFile(filepath.Join(binDir, "tpm2-kira"), []byte(wrapper), 0o755); err != nil {
+	if err := os.WriteFile(filepath.Join(binDir, "kira"), []byte(wrapper), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	for _, hook := range []string{"initramfs/mkinitcpio/post/sd-tpm2-kira", "initramfs/initramfs-tools/post-update.d/tpm2-kira", "initramfs/initramfs-tools/kernel/zzz-tpm2-kira"} {
+	for _, hook := range []string{"initramfs/mkinitcpio/post/sd-kira", "initramfs/initramfs-tools/post-update.d/kira", "initramfs/initramfs-tools/kernel/zzz-kira"} {
 		t.Run(filepath.Base(filepath.Dir(hook))+"/"+filepath.Base(hook), func(t *testing.T) {
 			src, err := os.ReadFile(filepath.Join(root, hook))
 			if err != nil {
@@ -106,34 +106,34 @@ esac
 			}
 			copyPath := filepath.Join(dir, "hook")
 			os.Remove(copyPath)
-			if err := os.WriteFile(copyPath, []byte(strings.ReplaceAll(string(src), "/etc/tpm2-kira/keys", keys)), 0o755); err != nil {
+			if err := os.WriteFile(copyPath, []byte(strings.ReplaceAll(string(src), "/etc/kira/keys", keys)), 0o755); err != nil {
 				t.Fatal(err)
 			}
 			run := func(extra ...string) string {
 				cmd := exec.Command(copyPath, "6.1", "/boot/image")
 				var env []string
 				for _, e := range os.Environ() {
-					if !strings.HasPrefix(e, "TPM2_KIRA_PIN=") {
+					if !strings.HasPrefix(e, "KIRA_PIN=") {
 						env = append(env, e)
 					}
 				}
 				cmd.Env = append(append(env, "PATH="+binDir+":"+os.Getenv("PATH"), skippedApprovalHelper+"=1",
-					"TPM2_KIRA_CONTROL_CONF="+filepath.Join(dir, "absent-control.conf")), extra...)
+					"KIRA_CONTROL_CONF="+filepath.Join(dir, "absent-control.conf")), extra...)
 				out, err := cmd.CombinedOutput()
 				if err != nil {
 					t.Fatalf("%v:\n%s", err, out)
 				}
 				return string(out)
 			}
-			got := run("TPM2_KIRA_PIN=secret-1234")
-			if !strings.Contains(got, "SKIPPED:") || !strings.Contains(got, "TPM2_KIRA_PIN is set and ignored: it gives no PIN") {
+			got := run("KIRA_PIN=secret-1234")
+			if !strings.Contains(got, "SKIPPED:") || !strings.Contains(got, "KIRA_PIN is set and ignored: it gives no PIN") {
 				t.Errorf("the reason is not shown:\n%s", got)
 			}
 			if strings.Contains(got, "secret-1234") {
 				t.Errorf("the value is shown:\n%s", got)
 			}
 			got = run()
-			if !strings.Contains(got, "SKIPPED:") || !strings.Contains(got, "no PIN:") || strings.Contains(got, "TPM2_KIRA_PIN") {
+			if !strings.Contains(got, "SKIPPED:") || !strings.Contains(got, "no PIN:") || strings.Contains(got, "KIRA_PIN") {
 				t.Errorf("without the variable:\n%s", got)
 			}
 		})

@@ -11,10 +11,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/phonegate"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 )
 
 // A phone is enrolled only in a boot that the slot's code verified: one
@@ -57,7 +57,7 @@ func TestEnrolmentNeedsAVerifiedBoot(t *testing.T) {
 	}
 
 	// Before the code screen ran: nothing verified this boot.
-	if _, err := requireVerifiedBoot(tpm, sealed, 0); err == nil || !strings.Contains(err.Error(), "did not pass tpm2-kira's code screen") {
+	if _, err := requireVerifiedBoot(tpm, sealed, 0); err == nil || !strings.Contains(err.Error(), "did not pass kira's code screen") {
 		t.Fatalf("a boot that was not closed was taken: %v", err)
 	}
 

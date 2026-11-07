@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """The phone and the machine on one simulated Bluetooth: Marify on the Android emulator, its real
-BLE code, against a local test VM with the real tpm2-kira package, with nobody at the keyboard.
+BLE code, against a local test VM with the real kira package, with nobody at the keyboard.
 
     tools/phone-vm-test.py --target arch            # one machine
     tools/phone-vm-test.py --target both --fast-kdf # both, one after the other; no final proof
@@ -163,7 +163,7 @@ def build_app(run_dir):
     except OSError:
         pass
     if have != props.get("kira.commit"):
-        say(f"building the core of tpm2-kira {props.get('kira.commit', '?')[:7]} (log: {log})")
+        say(f"building the core of kira {props.get('kira.commit', '?')[:7]} (log: {log})")
         if run([os.path.join(MARIFY, "scripts", "build-core.sh")], log, cwd=MARIFY) != 0:
             raise Fail(f"the core does not build: {log}")
     say(f"building Marify's debug app and its instrumented tests (log: {log})")

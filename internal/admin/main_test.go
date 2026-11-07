@@ -7,9 +7,9 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/efivars"
-	"github.com/tpm2-trust/tpm2-kira/internal/machineid"
-	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
+	"github.com/tpm2-trust/kira/internal/efivars"
+	"github.com/tpm2-trust/kira/internal/machineid"
+	"github.com/tpm2-trust/kira/internal/phonegate"
 )
 
 // The tests make key directories and files with the modes they state;
@@ -28,7 +28,7 @@ func TestMain(m *testing.M) {
 	syscall.Umask(0o22)
 	// The EFI variables and the machine-id the tests seal are theirs: never
 	// the host's efivarfs or /etc/machine-id.
-	dir, err := os.MkdirTemp("", "tpm2-kira-admin-tests-")
+	dir, err := os.MkdirTemp("", "kira-admin-tests-")
 	if err != nil {
 		panic(err)
 	}

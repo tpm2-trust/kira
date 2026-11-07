@@ -7,32 +7,32 @@
 # put in - the initrd just written, a new kernel, grub.cfg - so no boot
 # without a code is needed (README.md, "Choosing PCRs on Debian").
 # A kernel install runs update-grub after this; the kernel hook
-# (/etc/kernel/postinst.d/zzz-tpm2-kira) approves again then, with the
+# (/etc/kernel/postinst.d/zzz-kira) approves again then, with the
 # final grub.cfg.
 
 set -e
 
-# make install puts tpm2-kira in /usr/local/bin, which the PATH this runs
+# make install puts kira in /usr/local/bin, which the PATH this runs
 # with may leave out.
 PATH=$PATH:/usr/local/bin
 
-command -v tpm2-kira >/dev/null 2>&1 || exit 0
-[ -d /etc/tpm2-kira/keys ] || exit 0
+command -v kira >/dev/null 2>&1 || exit 0
+[ -d /etc/kira/keys ] || exit 0
 # Something to approve: a sealed slot, or the SSH CA (its EFI variable).
-tpm2-kira slot list 2>/dev/null | grep -q '^Slots:' || [ -e /sys/firmware/efi/efivars/KIRAasshCA-24415b90-39be-45c0-a9a3-d547ebe28ea0 ] || exit 0
+kira slot list 2>/dev/null | grep -q '^Slots:' || [ -e /sys/firmware/efi/efivars/KIRAasshCA-24415b90-39be-45c0-a9a3-d547ebe28ea0 ] || exit 0
 
-echo "tpm2-kira: initramfs rebuilt ($1); approving for the next boot" >&2
-# No terminal (setsid): a PIN it cannot read from /etc/tpm2-kira/pin ends the
-# approve with the reason (an ignored TPM2_KIRA_PIN is in it) instead of a prompt
+echo "kira: initramfs rebuilt ($1); approving for the next boot" >&2
+# No terminal (setsid): a PIN it cannot read from /etc/kira/pin ends the
+# approve with the reason (an ignored KIRA_PIN is in it) instead of a prompt
 # that would hold the update.
 # --unattended: a moved phone channel stays as it is, and it says so. The image's
 # hook has said what is wrong with Secure Boot in this same build.
-# A failure of tpm2-kira is its status and its words; the update goes on with them. A
+# A failure of kira is its status and its words; the update goes on with them. A
 # refused memory lock (a container's root, a unit without CAP_IPC_LOCK under a limit) is such a failure.
 rc=0
-output=$(setsid -w tpm2-kira slot approve --unattended </dev/null 2>&1) || rc=$?
+output=$(setsid -w kira slot approve --unattended </dev/null 2>&1) || rc=$?
 printf '%s\n' "$output" | grep -v '^WARNING: Secure Boot' || true
 if [ "$rc" -ne 0 ] || printf '%s\n' "$output" | grep -q 'FAILED:'; then
-    echo "tpm2-kira: the approval did not succeed; the next boot shows no code until 'tpm2-kira slot approve' does" >&2
+    echo "kira: the approval did not succeed; the next boot shows no code until 'kira slot approve' does" >&2
 fi
 exit 0

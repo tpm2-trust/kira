@@ -1,5 +1,5 @@
 #!/bin/sh
-# initramfs-tools hook: place tpm2-kira into the initramfs image - the disk
+# initramfs-tools hook: place kira into the initramfs image - the disk
 # unlock always, and what the machine uses besides, by the boot plan.
 #
 # No key material is copied. 'run' reads the sealed blob from TPM NVRAM and
@@ -25,38 +25,38 @@ esac
 
 # The binaries: the package's in /usr/bin, or make install's in
 # /usr/local/bin, which mkinitramfs' PATH (/usr/bin:/sbin:/bin) leaves out.
-# tpm2-kira decides the plan here; the image carries tpm2-kira-boot alone,
-# as /usr/bin/tpm2-kira-boot, where the scripts run it.
-kira=$(PATH="$PATH:/usr/local/bin" command -v tpm2-kira || true)
-kira_boot=$(PATH="$PATH:/usr/local/bin" command -v tpm2-kira-boot || true)
+# kira decides the plan here; the image carries kira-boot alone,
+# as /usr/bin/kira-boot, where the scripts run it.
+kira=$(PATH="$PATH:/usr/local/bin" command -v kira || true)
+kira_boot=$(PATH="$PATH:/usr/local/bin" command -v kira-boot || true)
 if [ -z "$kira" ] || [ -z "$kira_boot" ]; then
-    echo "tpm2-kira: tpm2-kira and tpm2-kira-boot are not both installed (/usr/bin or /usr/local/bin); refusing to build an initramfs" >&2
-    echo "tpm2-kira: that silently shows no TOTP code at boot" >&2
+    echo "kira: kira and kira-boot are not both installed (/usr/bin or /usr/local/bin); refusing to build an initramfs" >&2
+    echo "kira: that silently shows no TOTP code at boot" >&2
     exit 1
 fi
 
-copy_exec "$kira_boot" /usr/bin/tpm2-kira-boot
+copy_exec "$kira_boot" /usr/bin/kira-boot
 
-# The devices with a keyslot of tpm2-kira's: does /etc/crypttab route each
+# The devices with a keyslot of kira's: does /etc/crypttab route each
 # through the keyscript, and if not, what the line should read
-# ('tpm2-kira luks route'; it edits nothing).
+# ('kira luks route'; it edits nothing).
 if advice=$("$kira" luks route 2>&1); then
-    [ -n "$advice" ] && echo "tpm2-kira: $advice"
+    [ -n "$advice" ] && echo "kira: $advice"
 else
-    echo "tpm2-kira: the disk's key is not routed through tpm2-kira everywhere - /etc/crypttab is not edited; change it as shown and run update-initramfs -u:" >&2
+    echo "kira: the disk's key is not routed through kira everywhere - /etc/crypttab is not edited; change it as shown and run update-initramfs -u:" >&2
     echo "$advice" | sed 's/^/    /' >&2
 fi
 
 # The boot plan (internal/admin/bootplan.go): what this image carries besides the disk
-# unlock, decided by 'tpm2-kira initramfs plan' from what the machine uses -
+# unlock, decided by 'kira initramfs plan' from what the machine uses -
 # the slots in the TPM and what they are enrolled with, the signing key,
 # the Bluetooth adapter, the network and SSH settings of
-# /etc/tpm2-kira/control.conf. Each part is in only when something uses it,
+# /etc/kira/control.conf. Each part is in only when something uses it,
 # and the output says why one is out. The plan writes the image's own
 # files (the signing public key, the adapter's module list and udev rule,
 # remote.conf, assh.conf and the keys that may log in, udhcpc's script) and
 # names its parts in
-# /etc/tpm2-kira/plan, which the boot scripts read; this hook adds the
+# /etc/kira/plan, which the boot scripts read; this hook adds the
 # drivers and firmware it lists. control.conf never goes into the image.
 # The network needs busybox (ip, and udhcpc for DHCP with the running
 # system's client identifier).
@@ -65,7 +65,7 @@ if [ "${BUSYBOX:-auto}" = n ] || ! command -v busybox >/dev/null 2>&1; then
     nobusybox=--no-busybox
 fi
 if ! plan=$("$kira" initramfs plan --format initramfs-tools --buildroot "$DESTDIR" $nobusybox); then
-    echo "tpm2-kira: the installed tpm2-kira made no boot plan: the image unlocks the disk and carries nothing else" >&2
+    echo "kira: the installed kira made no boot plan: the image unlocks the disk and carries nothing else" >&2
     exit 0
 fi
 nbt=0
@@ -74,8 +74,8 @@ nnet=""
 # A here-document keeps the loop in this shell, so the counters survive it.
 while read -r kind value; do
     case "$kind" in
-    say) echo "tpm2-kira: $value" ;;
-    warning) echo "tpm2-kira: WARNING: $value" >&2 ;;
+    say) echo "kira: $value" ;;
+    warning) echo "kira: WARNING: $value" >&2 ;;
     bt-module)
         # Loaded by the image's init before init-premount, as
         # systemd-modules-load does under mkinitcpio.
@@ -103,10 +103,10 @@ PLAN
 # mounts (the premount script mounts it).
 force_load efivarfs
 # The TPM's drivers: built in on most kernels, but modules on some machines.
-if [ -d "$DESTDIR/etc/tpm2-kira/plan/tpm" ]; then
+if [ -d "$DESTDIR/etc/kira/plan/tpm" ]; then
     manual_add_modules tpm_tis
     manual_add_modules tpm_crb
 fi
-[ -d "$DESTDIR/etc/tpm2-kira/plan/phone" ] && echo "tpm2-kira: Bluetooth: $nbt modules, $nfw firmware files"
-[ -n "$nnet" ] && echo "tpm2-kira: network drivers:$nnet"
+[ -d "$DESTDIR/etc/kira/plan/phone" ] && echo "kira: Bluetooth: $nbt modules, $nfw firmware files"
+[ -n "$nnet" ] && echo "kira: network drivers:$nnet"
 exit 0

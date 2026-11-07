@@ -15,7 +15,7 @@ import (
 
 // btModulesLoadConf is mkinitcpio's list of the adapter's modules, loaded
 // by systemd-modules-load in the image.
-const btModulesLoadConf = "etc/modules-load.d/tpm2-kira-bluetooth.conf"
+const btModulesLoadConf = "etc/modules-load.d/kira-bluetooth.conf"
 
 // listImage lists an image's files; a var for the tests.
 var listImage = func(img string) ([]string, error) {

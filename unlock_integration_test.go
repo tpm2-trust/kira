@@ -14,18 +14,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/admin"
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/admin"
+	"github.com/tpm2-trust/kira/internal/diskkey"
 )
 
 // The real systemd-cryptsetup unlocks a LUKS2 volume with the key it reads
-// from tpm2-kira's socket, exactly as the initrd will: the volume's key
-// file is the socket, the connection names the volume, tpm2-kira asks at
+// from kira's socket, exactly as the initrd will: the volume's key
+// file is the socket, the connection names the volume, kira asks at
 // its prompt and answers. Needs root (loop device, device-mapper),
 // cryptsetup and systemd-cryptsetup; skipped otherwise:
 //
-//	sudo -E go test -tags integration -count=1 -run TestSystemdCryptsetupUnlocksThroughTpm2Kira .
-func TestSystemdCryptsetupUnlocksThroughTpm2Kira(t *testing.T) {
+//	sudo -E go test -tags integration -count=1 -run TestSystemdCryptsetupUnlocksThroughKira .
+func TestSystemdCryptsetupUnlocksThroughKira(t *testing.T) {
 	if os.Geteuid() != 0 {
 		t.Skip("needs root for a loop device and device-mapper")
 	}
@@ -77,7 +77,7 @@ func TestSystemdCryptsetupUnlocksThroughTpm2Kira(t *testing.T) {
 		t.Fatalf("luks mark: %v", err)
 	}
 
-	// tpm2-kira-boot run without a TPM: nothing to show, the hold ends at once,
+	// kira-boot run without a TPM: nothing to show, the hold ends at once,
 	// the key socket is served. The prompt goes to a socket the test answers.
 	sock := filepath.Join(dir, "unlock.sock")
 	console := filepath.Join(dir, "console.sock")
@@ -130,7 +130,7 @@ func TestSystemdCryptsetupUnlocksThroughTpm2Kira(t *testing.T) {
 		}
 	}()
 	answer(password, salt)
-	volume := "tpm2kira-test-" + strings.ToLower(t.Name()[len(t.Name())-6:])
+	volume := "kira-test-" + strings.ToLower(t.Name()[len(t.Name())-6:])
 	crypttab := filepath.Join(dir, "crypttab")
 	if err := os.WriteFile(crypttab, []byte(volume+" "+loop+" none luks\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -139,8 +139,8 @@ func TestSystemdCryptsetupUnlocksThroughTpm2Kira(t *testing.T) {
 	// plan names the disk unlock and nothing else.
 	plan := filepath.Join(dir, "plan")
 	os.MkdirAll(filepath.Join(plan, "unlock"), 0o755)
-	run := exec.Command("./tpm2-kira-boot", "run", "--plan", plan, "--tpm", filepath.Join(dir, "no-tpm"), "--hold", "0", "--unlock", sock)
-	run.Env = append(os.Environ(), "TPM2_KIRA_CONSOLE="+console, "TPM2_KIRA_CONTROL_CONF="+conf, "TPM2_KIRA_CRYPTTAB="+crypttab)
+	run := exec.Command("./kira-boot", "run", "--plan", plan, "--tpm", filepath.Join(dir, "no-tpm"), "--hold", "0", "--unlock", sock)
+	run.Env = append(os.Environ(), "KIRA_CONSOLE="+console, "KIRA_CONTROL_CONF="+conf, "KIRA_CRYPTTAB="+crypttab)
 	var runOut bytes.Buffer
 	run.Stdout, run.Stderr = &runOut, &runOut
 	if err := run.Start(); err != nil {
@@ -153,7 +153,7 @@ func TestSystemdCryptsetupUnlocksThroughTpm2Kira(t *testing.T) {
 		select {
 		case <-done:
 		case <-time.After(5 * time.Second):
-			t.Errorf("tpm2-kira-boot run did not end on SIGINT within 5 s; killed. Its output:\n%s", runOut.String())
+			t.Errorf("kira-boot run did not end on SIGINT within 5 s; killed. Its output:\n%s", runOut.String())
 			run.Process.Kill()
 			<-done
 		}
@@ -168,7 +168,7 @@ func TestSystemdCryptsetupUnlocksThroughTpm2Kira(t *testing.T) {
 	attach := exec.Command(sdc, "attach", volume, loop, sock)
 	out, err := attach.CombinedOutput()
 	if err != nil {
-		t.Fatalf("systemd-cryptsetup attach: %v\n%s\ntpm2-kira:\n%s", err, out, runOut.String())
+		t.Fatalf("systemd-cryptsetup attach: %v\n%s\nkira:\n%s", err, out, runOut.String())
 	}
 	defer exec.Command(sdc, "detach", volume).Run()
 	if _, err := os.Stat("/dev/mapper/" + volume); err != nil {
@@ -199,7 +199,7 @@ func TestSystemdCryptsetupUnlocksThroughTpm2Kira(t *testing.T) {
 		t.Fatalf("a token request was served: %s", out)
 	}
 
-	// A wrong passphrase at tpm2-kira's prompt is a wrong key file:
+	// A wrong passphrase at kira's prompt is a wrong key file:
 	// systemd-cryptsetup drops the key file and asks for a passphrase
 	// itself (its password agent) for the remaining tries. headless=true
 	// makes that step fail with a message instead of a prompt, which is
@@ -219,7 +219,7 @@ func TestSystemdCryptsetupUnlocksThroughTpm2Kira(t *testing.T) {
 		<-prompts
 	}
 
-	// No answer at all (the prompt cancelled: tpm2-kira closes without a
+	// No answer at all (the prompt cancelled: kira closes without a
 	// key) reads as an empty key file, and the fallback is the same prompt.
 	answer("", "")
 	none := exec.Command(sdc, "attach", volume, loop, sock, "headless=true")
@@ -243,8 +243,8 @@ func TestRunStartsWhatThePlanNames(t *testing.T) {
 	plan := filepath.Join(dir, "plan")
 	os.MkdirAll(filepath.Join(plan, "unlock"), 0o755)
 	runIt := func(args ...string) string {
-		run := exec.Command("./tpm2-kira-boot", append([]string{"run", "--tpm", filepath.Join(dir, "no-tpm"), "--hold", "0"}, args...)...)
-		run.Env = append(os.Environ(), "TPM2_KIRA_UNPRIVILEGED=1")
+		run := exec.Command("./kira-boot", append([]string{"run", "--tpm", filepath.Join(dir, "no-tpm"), "--hold", "0"}, args...)...)
+		run.Env = append(os.Environ(), "KIRA_UNPRIVILEGED=1")
 		out, err := run.CombinedOutput()
 		if err != nil {
 			t.Fatalf("run %v: %v\n%s", args, err, out)

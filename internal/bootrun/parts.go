@@ -4,19 +4,19 @@ import (
 	"context"
 	"fmt"
 	"github.com/tpm2-trust/go-tui-slim/secret"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 	"os"
 	"slices"
 	"sync"
 	"time"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
-	"github.com/tpm2-trust/tpm2-kira/internal/imageplan"
-	"github.com/tpm2-trust/tpm2-kira/internal/netstate"
-	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
-	"github.com/tpm2-trust/tpm2-kira/internal/screen"
-	"github.com/tpm2-trust/tpm2-kira/internal/sshscreen"
-	"github.com/tpm2-trust/tpm2-kira/internal/vaultkey"
+	"github.com/tpm2-trust/kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/imageplan"
+	"github.com/tpm2-trust/kira/internal/netstate"
+	"github.com/tpm2-trust/kira/internal/phonegate"
+	"github.com/tpm2-trust/kira/internal/screen"
+	"github.com/tpm2-trust/kira/internal/sshscreen"
+	"github.com/tpm2-trust/kira/internal/vaultkey"
 )
 
 // A part is one part of the boot image that run starts when the image's
@@ -250,7 +250,7 @@ func (p *phonePart) end(*board) {
 // netPart watches the image's network: its state is the code screen's
 // line, a change of it is said on the console at once - and, while it
 // waits, again every netRemind - until the hold ends; each new address is
-// announced to the neighbours (TPM2_KIRA_NET_ANNOUNCE). networkd or the
+// announced to the neighbours (KIRA_NET_ANNOUNCE). networkd or the
 // image's scripts bring the network up; this part configures nothing.
 type netPart struct {
 	conf    string // the image's settings
@@ -361,7 +361,7 @@ func (p *sshPart) start(bd *board) {
 	}
 	srv, err := sshscreen.Start(p.opts, os.Stdout, diskkey.UnlockLogger(bd.debug))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "tpm2-kira: the SSH server is not started: %v - the code screen is at the console\n", err)
+		fmt.Fprintf(os.Stderr, "kira: the SSH server is not started: %v - the code screen is at the console\n", err)
 		return
 	}
 	p.srv = srv
@@ -528,7 +528,7 @@ type unlockPart struct {
 func (p *unlockPart) start(bd *board) {
 	l, err := diskkey.ListenUnlock(p.socket)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "tpm2-kira: the disk unlock is not served: %v\n", err)
+		fmt.Fprintf(os.Stderr, "kira: the disk unlock is not served: %v\n", err)
 		return
 	}
 	if l == nil {

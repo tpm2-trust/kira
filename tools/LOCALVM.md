@@ -52,10 +52,10 @@ Snapshots in use:
 | Tag | State |
 |---|---|
 | `export` | the disk as exported, fresh OVMF variables, a fresh TPM; nothing changed in the guest |
-| `fresh` | the serial console enabled (below), no tpm2-kira installed: what every test starts from |
+| `fresh` | the serial console enabled (below), no kira installed: what every test starts from |
 | `setup` | a run's own, and yours while iterating: the steps up to the first reboot (`--save-setup`, docs/TESTING.md) |
 | `hibernated` | a run's own: boot 1 hibernated, what V2 and V4 resume from; gone at the run's end |
-| `secureboot` | Secure Boot really on, no tpm2-kira: made from `fresh` by `tools/secureboot-vm.py`, and again by every run of the scenario `secure-boot`; a run leaves it |
+| `secureboot` | Secure Boot really on, no kira: made from `fresh` by `tools/secureboot-vm.py`, and again by every run of the scenario `secure-boot`; a run leaves it |
 | `setup-secure` | a run's own, and yours while iterating: the steps up to the first reboot on `secureboot` (`--only secure-boot --keep-setup`) |
 
 `export` and `fresh` are not replaced without `snapshot --overwrite`, and no
@@ -118,7 +118,7 @@ These are the points that matter, and why. The full command line is in
 - **The MAC comes from the export's XML.** DHCP leases and the
   configuration in the guests may depend on it.
 - **User networking with host forwards:** `127.0.0.1:<ssh_port>` goes to
-  the guest's port 22, and `127.0.0.1:<boot_port>` to port 2222 (tpm2-kira's
+  the guest's port 22, and `127.0.0.1:<boot_port>` to port 2222 (kira's
   boot SSH server). The guests reach the host at `10.0.2.2`, which makes
   the vault's url `https://10.0.2.2`. Docker publishes the vault on the
   host's port, and that port is reachable through 10.0.2.2.
@@ -198,7 +198,7 @@ boot loader to be told about it.
    mkinitcpio -P
    ```
    `console=ttyS0` comes last because the last console is the one systemd's
-   password agent and tpm2-kira's boot screen use.
+   password agent and kira's boot screen use.
 4. **Debian (GRUB, separate /boot).** GRUB draws its menu graphically
    only. Nothing appears on the serial port, so you cannot edit it there.
    The first boot's `grub.cfg` was therefore edited offline, on the
@@ -263,7 +263,7 @@ console, and waits for an SSH banner.
 #   [arch]   host = 127.0.0.1, ssh_port = 10022, boot_port = 12222, user = ...,
 #            reset = tools/localvm.py reset arch
 #   [debian] the same with 20022 / 22222
-#   [vault]  src = ../tpm2-kira-vault, url = https://10.0.2.2, port = 443
+#   [vault]  src = ../kira-vault, url = https://10.0.2.2, port = 443
 tools/vmtest.py --config ../.local/vms/vmtest-local.conf --target both
 tools/serialtest.py --target both                 # every case: totp, hashpwd2, tpmsalt, lostrecord
 tools/serialtest.py --target arch --case totp
@@ -287,15 +287,15 @@ with `--build`. It writes its reports and each case's console transcript to
 - **The passphrase prompt** carries a suffix on Arch ("(press TAB for no
   echo)"), so the pattern matches up to the end of the line, not up to a
   fixed text.
-- **The serial console and tpm2-kira's boot screen share one tty.** If
-  the volume is not routed to tpm2-kira's key (`luks route`), Debian's
+- **The serial console and kira's boot screen share one tty.** If
+  the volume is not routed to kira's key (`luks route`), Debian's
   askpass and the code screen both read the console. `serialtest.py`
   applies the route first.
 - **Arch's `HOOKS`:** after installing the package, the initrd needs
-  `sd-tpm2-kira` in `/etc/mkinitcpio.conf`'s `HOOKS`, as control would
+  `sd-kira` in `/etc/mkinitcpio.conf`'s `HOOKS`, as control would
   put it. `serialtest.py` does this before rebuilding.
 - **A fallback to the system's prompt** (a wrong password, or no salt):
-  on Debian, tpm2-kira asks again first, and Ctrl-C hands over to
+  on Debian, kira asks again first, and Ctrl-C hands over to
   askpass.
 - **Do not build in the workspace with `go.work`** while another session
   changes `../assh`. Build the packages the way the release build does

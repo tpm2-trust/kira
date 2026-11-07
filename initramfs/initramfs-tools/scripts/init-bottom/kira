@@ -1,7 +1,7 @@
 #!/bin/sh
 # Stop run and close the boot (PCR 15: every slot and the SSH CA) before the
-# real root takes over: what systemd's stop of tpm2-kira.service and
-# tpm2-kira-close.service do in the initrd.
+# real root takes over: what systemd's stop of kira.service and
+# kira-close.service do in the initrd.
 #
 # run-init wipes the initramfs, so a process still running from it has to go.
 
@@ -25,9 +25,9 @@ esac
 # told and its unprivileged half relays that and ends with it (the server
 # waits for that up to 3 s); its children end with it. After 5 s it is
 # killed.
-if [ -r /run/tpm2-kira.pid ]; then
-    read -r pid < /run/tpm2-kira.pid
-    rm -f /run/tpm2-kira.pid
+if [ -r /run/kira.pid ]; then
+    read -r pid < /run/kira.pid
+    rm -f /run/kira.pid
     if [ -n "$pid" ] && kill -TERM "$pid" 2>/dev/null; then
         i=0
         while kill -0 "$pid" 2>/dev/null && [ "$i" -lt 50 ]; do
@@ -39,18 +39,18 @@ if [ -r /run/tpm2-kira.pid ]; then
 fi
 
 # The network's setup, if still at it: nothing to flush or save.
-if [ -r /run/tpm2-kira-net.pid ]; then
-    read -r pid < /run/tpm2-kira-net.pid
-    rm -f /run/tpm2-kira-net.pid
+if [ -r /run/kira-net.pid ]; then
+    read -r pid < /run/kira-net.pid
+    rm -f /run/kira-net.pid
     [ -n "$pid" ] && kill -9 "$pid" 2>/dev/null || true
 fi
 
 # The image's network goes down: the running system configures the
 # interface itself (ifupdown, NetworkManager), and an address left from
 # here would stay beside its own.
-if [ -r /run/tpm2-kira/net-device ]; then
-    read -r dev < /run/tpm2-kira/net-device
-    rm -f /run/tpm2-kira/net-device
+if [ -r /run/kira/net-device ]; then
+    read -r dev < /run/kira/net-device
+    rm -f /run/kira/net-device
     killall -q ipconfig 2>/dev/null || true
     if [ -n "$dev" ] && command -v ip >/dev/null 2>&1; then
         ip address flush dev "$dev" 2>/dev/null || true
@@ -71,8 +71,8 @@ fi
 # shell with PCR 15 at zero (initramfs-tools' rescue shell), and the reboot starts
 # the PCRs afresh. docs/SSH.md, "The close". The real root never runs with them
 # open: should the reboot itself fail, this script does not end.
-if [ -d /etc/tpm2-kira/plan/tpm ] && ! /usr/bin/tpm2-kira-boot close >/dev/console 2>&1; then
-    echo "tpm2-kira: the boot is not closed (PCR 15): rebooting" >/dev/console
+if [ -d /etc/kira/plan/tpm ] && ! /usr/bin/kira-boot close >/dev/console 2>&1; then
+    echo "kira: the boot is not closed (PCR 15): rebooting" >/dev/console
     reboot -f || true
     echo b >/proc/sysrq-trigger || true
     while :; do sleep 60; done

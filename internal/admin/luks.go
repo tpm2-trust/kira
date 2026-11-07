@@ -14,16 +14,16 @@ import (
 	"time"
 
 	"github.com/tpm2-trust/go-tui-slim/secret"
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/phonegate"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 
 	"golang.org/x/sys/unix"
 )
 
-// tpm2-kira's keyslots in a LUKS2 header (PLAN-LUKS.md §2): a token of
-// type "tpm2-kira-XXXX" bound to the keyslot names the recipe its key is
+// kira's keyslots in a LUKS2 header (PLAN-LUKS.md §2): a token of
+// type "kira-XXXX" bound to the keyslot names the recipe its key is
 // made by (diskkey.Recipe, XXXX its number). No key material is in it; cryptsetup needs no handler for
 // it, since the key comes through the socket or the keyscript, not
 // through the token. Read with luksDump --dump-json-metadata, written
@@ -118,7 +118,7 @@ type OrphanToken struct {
 // KeyslotStatus is one keyslot of a device as luks status reports it.
 type KeyslotStatus struct {
 	Keyslot int                `json:"keyslot"`
-	Token   *diskkey.LuksToken `json:"token,omitempty"` // nil: not tpm2-kira's
+	Token   *diskkey.LuksToken `json:"token,omitempty"` // nil: not kira's
 	TokenID int                `json:"token_id,omitempty"`
 	Salt    string             `json:"-"` // the KDF's salt: new with every passphrase the keyslot gets
 }
@@ -190,7 +190,7 @@ func parseLuksMetadata(out []byte) ([]KeyslotStatus, []OrphanToken, error) {
 }
 
 // LuksStatus prints which keyslots of the given devices (all LUKS devices
-// when none is given) are tpm2-kira's, and how their key is made.
+// when none is given) are kira's, and how their key is made.
 func LuksStatus(devices []string, jsonOut bool) error {
 	if len(devices) == 0 {
 		var err error
@@ -226,13 +226,13 @@ func LuksStatus(devices []string, jsonOut bool) error {
 
 func describeKeyslot(s KeyslotStatus) string {
 	if s.Token == nil {
-		return "not tpm2-kira's (a passphrase, or a key enrolled by other means)"
+		return "not kira's (a passphrase, or a key enrolled by other means)"
 	}
 	t := s.Token
 	if t.Obsolete {
-		return fmt.Sprintf("tpm2-kira, another version's token (type %s): enrol the keyslot again - tpm2-kira luks remove, then tpm2-kira luks enrol", t.Type)
+		return fmt.Sprintf("kira, another version's token (type %s): enrol the keyslot again - kira luks remove, then kira luks enrol", t.Type)
 	}
-	d := "tpm2-kira, " + t.Recipe.Describe()
+	d := "kira, " + t.Recipe.Describe()
 	if t.Slot != nil {
 		d += fmt.Sprintf(", bound to slot %d, label %q", *t.Slot, t.Label)
 	} else {
@@ -276,7 +276,7 @@ type LuksMarkOptions struct {
 // errNoPhoneSalt: the phone's salt is only ever available with an
 // attestation set up: a verifier enrolled for the slot, and the slot's
 // phone salt enrolled with it.
-var errNoPhoneSalt = errors.New("the phone's salt needs an attestation: a phone enrolled for the slot ('tpm2-kira phone enrol') and the phone salt enrolled with it ('tpm2-kira phonesalt enrol')")
+var errNoPhoneSalt = errors.New("the phone's salt needs an attestation: a phone enrolled for the slot ('kira phone enrol') and the phone salt enrolled with it ('kira phonesalt enrol')")
 
 // boundSlotIndex resolves the slot a keyslot is bound to - a slot number or
 // a blob index - to the blob index, refusing anything outside the sixteen
@@ -317,7 +317,7 @@ func checkVaultReady(tpmPath string, sealIndex uint32, recipe diskkey.Recipe) (s
 	defer tpmDev.Close()
 	_, sb, err := phonegate.ReadSlot(tpmDev, sealIndex)
 	if err != nil || sb.Payload.Attestation == nil || !sb.Payload.Attestation.Vault.Enabled() {
-		return "", fmt.Errorf("slot %d is not enrolled with a vault: tpm2-kira vault enrol first, or luks enrol %s", nvslot.AttestSlot(sealIndex), recipe.Words())
+		return "", fmt.Errorf("slot %d is not enrolled with a vault: kira vault enrol first, or luks enrol %s", nvslot.AttestSlot(sealIndex), recipe.Words())
 	}
 	v := &sb.Payload.Attestation.Vault
 	if have := vaultRecipeOf(v); have != recipe {
@@ -336,7 +336,7 @@ func LuksMark(o LuksMarkOptions) error {
 		return err
 	}
 	if recipe == diskkey.RecipeTPMSalt {
-		return fmt.Errorf("recipe %s's salt is made in the TPM at its enrolment, and no key of it is made by hand: tpm2-kira luks enrol %s %s", recipe, device, recipe.Words())
+		return fmt.Errorf("recipe %s's salt is made in the TPM at its enrolment, and no key of it is made by hand: kira luks enrol %s %s", recipe, device, recipe.Words())
 	}
 	slot := 0
 	if recipe.Bound() {
@@ -371,7 +371,7 @@ func LuksMark(o LuksMarkOptions) error {
 		return fmt.Errorf("keyslot %d carries another version's token (type %s): cryptsetup token remove --token-id %d %s, then mark it anew", keyslot, have.Token.Type, have.TokenID, device)
 	}
 	if have.Token != nil {
-		return fmt.Errorf("keyslot %d is marked already (token %d, %s); remove it first: tpm2-kira luks remove", keyslot, have.TokenID, have.Token.Recipe)
+		return fmt.Errorf("keyslot %d is marked already (token %d, %s); remove it first: kira luks remove", keyslot, have.TokenID, have.Token.Recipe)
 	}
 	if recipe.Bound() && label == "" {
 		label = "luks"
@@ -412,7 +412,7 @@ var terminalAskExisting = func(prompt string) ([]byte, error) {
 	return pw, err
 }
 
-// LuksEnrol adds a keyslot whose key tpm2-kira makes at boot (PLAN-LUKS.md
+// LuksEnrol adds a keyslot whose key kira makes at boot (PLAN-LUKS.md
 // §3): the password (and the salt, or the phone salt's round trip with
 // the phone), the derivation, 'cryptsetup luksAddKey' with the key on its
 // stdin and an existing passphrase, asked at the prompt, in a memfd - the
@@ -433,7 +433,7 @@ func LuksEnrol(o LuksEnrolOptions) error {
 		}
 	}
 	if !recovery {
-		return fmt.Errorf("%s has no keyslot that is not tpm2-kira's: add a recovery passphrase first (cryptsetup luksAddKey %s)", o.Device, o.Device)
+		return fmt.Errorf("%s has no keyslot that is not kira's: add a recovery passphrase first (cryptsetup luksAddKey %s)", o.Device, o.Device)
 	}
 
 	var key []byte
@@ -538,7 +538,7 @@ func LuksEnrol(o LuksEnrolOptions) error {
 		return err
 	}
 	if _, err := cryptsetup(b, "token", "import", "--json-file", "-", o.Device); err != nil {
-		return fmt.Errorf("the keyslot %d is added, but its token is not: %w (tpm2-kira luks mark %s --keyslot %d %s)", newSlot, err, o.Device, newSlot, o.Recipe.Words())
+		return fmt.Errorf("the keyslot %d is added, but its token is not: %w (kira luks mark %s --keyslot %d %s)", newSlot, err, o.Device, newSlot, o.Recipe.Words())
 	}
 	fmt.Printf("%s keyslot %d added: %s\n", o.Device, newSlot, describeKeyslot(KeyslotStatus{Keyslot: newSlot, Token: &tok}))
 	// Nothing is configured: at boot the key provider reads the token just
@@ -577,7 +577,7 @@ func LuksEnrol(o LuksEnrolOptions) error {
 		fmt.Println("recovery passphrase stays the way in at cryptsetup's own prompt.")
 		return nil
 	}
-	fmt.Println("The next boot asks at tpm2-kira's prompt; the recovery passphrase stays the")
+	fmt.Println("The next boot asks at kira's prompt; the recovery passphrase stays the")
 	fmt.Println("way in at cryptsetup's own.")
 	return nil
 }
@@ -624,7 +624,7 @@ func existingPassphrase(device, file string) ([]byte, error) {
 // existingFile is the existing passphrase as a memfd read from its start
 // (existingFD says why not a pipe).
 func existingFile(existing []byte) (*os.File, error) {
-	fd, err := unix.MemfdCreate("tpm2-kira-existing", unix.MFD_CLOEXEC)
+	fd, err := unix.MemfdCreate("kira-existing", unix.MFD_CLOEXEC)
 	if err != nil {
 		return nil, fmt.Errorf("memfd_create: %w", err)
 	}
@@ -695,10 +695,10 @@ type LuksRemoveOptions struct {
 	ExistingKeyFile string
 }
 
-// LuksRemove takes one of tpm2-kira's keyslots out of the header, with its
+// LuksRemove takes one of kira's keyslots out of the header, with its
 // token: 'cryptsetup luksKillSlot', authorised by a remaining passphrase
 // (the recovery keyslot's, asked at the prompt), then 'token remove'.
-// A keyslot that is not tpm2-kira's is refused - that is cryptsetup's to
+// A keyslot that is not kira's is refused - that is cryptsetup's to
 // remove by hand - and so is the last keyslot of the device.
 func LuksRemove(o LuksRemoveOptions) error {
 	st := readLuksStatus(o.Device)
@@ -715,7 +715,7 @@ func LuksRemove(o LuksRemoveOptions) error {
 		return fmt.Errorf("%s has no keyslot %d", o.Device, o.Keyslot)
 	}
 	if have.Token == nil {
-		return fmt.Errorf("keyslot %d is not tpm2-kira's; tpm2-kira removes only the keyslots it marked (cryptsetup luksKillSlot %s %d by hand)", o.Keyslot, o.Device, o.Keyslot)
+		return fmt.Errorf("keyslot %d is not kira's; kira removes only the keyslots it marked (cryptsetup luksKillSlot %s %d by hand)", o.Keyslot, o.Device, o.Keyslot)
 	}
 	if len(st.Keyslots) == 1 {
 		return fmt.Errorf("keyslot %d is the last keyslot of %s; removing it would make the device unopenable", o.Keyslot, o.Device)
@@ -736,7 +736,7 @@ func LuksRemove(o LuksRemoveOptions) error {
 		}
 		if !others {
 			if err := removeTPMSalt(o.TPMPath, uint32(*t.Slot), o.PrivKeyPath); err != nil {
-				fmt.Printf("The TPM salt of slot %d stays in its blob (%v): 'tpm2-kira slot delete --nvram %d' takes it with the slot.\n", *t.Slot, err, *t.Slot)
+				fmt.Printf("The TPM salt of slot %d stays in its blob (%v): 'kira slot delete --nvram %d' takes it with the slot.\n", *t.Slot, err, *t.Slot)
 			} else {
 				fmt.Printf("Slot %d's TPM salt is gone with its last keyslot.\n", *t.Slot)
 			}
@@ -749,13 +749,13 @@ func LuksRemove(o LuksRemoveOptions) error {
 		}
 	}
 	if left == 0 {
-		fmt.Printf("No keyslot of %s is tpm2-kira's now: the next boot goes to cryptsetup's own\n", o.Device)
+		fmt.Printf("No keyslot of %s is kira's now: the next boot goes to cryptsetup's own\n", o.Device)
 		fmt.Println("prompt for it - the provider reads that from the header, nothing to set.")
 	}
 	return nil
 }
 
-// killKeyslot takes one keyslot of tpm2-kira's out of the header with its
+// killKeyslot takes one keyslot of kira's out of the header with its
 // token: 'cryptsetup luksKillSlot', authorised by a remaining passphrase on
 // existing, then 'token remove'.
 func killKeyslot(device string, ks KeyslotStatus, existing []byte) error {

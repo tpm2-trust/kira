@@ -10,12 +10,12 @@ import (
 	"github.com/google/go-tpm/tpm2/transport"
 	"github.com/tpm2-trust/assh/hostkey"
 	"github.com/tpm2-trust/assh/persist"
-	"github.com/tpm2-trust/tpm2-kira/internal/bootclose"
-	"github.com/tpm2-trust/tpm2-kira/internal/efivars"
-	"github.com/tpm2-trust/tpm2-kira/internal/machineid"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/bootclose"
+	"github.com/tpm2-trust/kira/internal/efivars"
+	"github.com/tpm2-trust/kira/internal/machineid"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/phonegate"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 )
 
 // NVRAMList lists all defined NVRAM indices in the TPM
@@ -95,7 +95,7 @@ func NVRAMList(tpmPath string, nvramIndex uint32, debug bool) error {
 
 		fmt.Printf("Index: 0x%08X\n", handle)
 		if role := kiraIndexRole(uint32(handle)); role != "" {
-			fmt.Printf("  tpm2-kira: %s\n", role)
+			fmt.Printf("  kira: %s\n", role)
 		}
 		fmt.Printf("  Size: %d bytes\n", nvPublic.DataSize)
 		fmt.Printf("  Name Algorithm: %v\n", nvPublic.NameAlg)
@@ -152,7 +152,7 @@ func NVRAMDelete(tpmPath string, nvramIndex uint32, take nvslot.TakeForeign, deb
 	// generation index and record counter. Without its counter no record of
 	// the slot is accepted by the gate again, and a new counter starts above
 	// every value this one had. A companion index named by itself goes
-	// alone. What has tpm2-kira's shape is taken; another shape at its own
+	// alone. What has kira's shape is taken; another shape at its own
 	// places on take's word.
 	var removed []nvslot.Removed
 	if nvslot.ValidateBlobIndex(nvramIndex) == nil && nvramIndex != nvslot.BootSettingsIndex {
@@ -162,7 +162,7 @@ func NVRAMDelete(tpmPath string, nvramIndex uint32, take nvslot.TakeForeign, deb
 		if ok {
 			what := kiraIndexRole(nvramIndex)
 			if what == "" {
-				what = "an index of tpm2-kira's"
+				what = "an index of kira's"
 			}
 			removed = append(removed, nvslot.Removed{Index: nvramIndex, What: what})
 		}
@@ -191,7 +191,7 @@ func NVRAMDelete(tpmPath string, nvramIndex uint32, take nvslot.TakeForeign, deb
 	return nil
 }
 
-// kiraIndexRole says what tpm2-kira keeps at an NV index, or "" for an
+// kiraIndexRole says what kira keeps at an NV index, or "" for an
 // index that is not one of its own.
 func kiraIndexRole(index uint32) string {
 	switch {
@@ -232,11 +232,11 @@ func kiraLeftovers(tpmDev transport.TPM, debug bool) []uint32 {
 // blob holds the TOTP key and the phone enrolment, and its generation index
 // and record counter go with it. With an index that slot is deleted;
 // without one, every slot and whatever an interrupted command left behind.
-// An index of another shape at tpm2-kira's own places is shown; force removes
+// An index of another shape at kira's own places is shown; force removes
 // it, a terminal asks, and yes alone (the whole of it asked for, not this)
 // leaves it.
 //
-// sweep takes, besides, everything else at tpm2-kira's places (sweep.go): other
+// sweep takes, besides, everything else at kira's places (sweep.go): other
 // indices in its range, aSSH's SSH CA indices, the variables of its GUID - shown
 // first, whatever their shape. Without it they are shown and left.
 func NVRAMDeleteCommand(tpmPath string, nvramIndex uint32, yes, force, sweep, debug bool) error {
@@ -270,7 +270,7 @@ func NVRAMDeleteCommand(tpmPath string, nvramIndex uint32, yes, force, sweep, de
 	leftovers := kiraLeftovers(tpmDev, debug)
 	extra, sweepErr := sweepFindings(tpmDev)
 	tpmDev.Close()
-	// The SSH CA is tpm2-kira's too: everything of tpm2-kira takes it.
+	// The SSH CA is kira's too: everything of kira takes it.
 	caPath := ""
 	if conf, err := loadSSHConf(sshConfPath(controlConfigPath()), controlConfigPath()); err == nil && sshCAThere(conf.CA) {
 		caPath = conf.CA
@@ -293,7 +293,7 @@ func NVRAMDeleteCommand(tpmPath string, nvramIndex uint32, yes, force, sweep, de
 		fmt.Printf("The sweep cannot look at everything: %v\n", sweepErr)
 	}
 	if total == 0 && len(extra) == 0 {
-		return fmt.Errorf("nothing of tpm2-kira found: no sealed secrets in NVRAM slots 0x%08X – 0x%08X, no leftover indices, no SSH CA, no sealed machine-id",
+		return fmt.Errorf("nothing of kira found: no sealed secrets in NVRAM slots 0x%08X – 0x%08X, no leftover indices, no SSH CA, no sealed machine-id",
 			nvslot.NVRAMSlotStart, nvslot.NVRAMSlotEnd)
 	}
 
@@ -321,16 +321,16 @@ func NVRAMDeleteCommand(tpmPath string, nvramIndex uint32, yes, force, sweep, de
 	}
 	if len(extra) > 0 {
 		if sweep {
-			fmt.Printf("Found %d more at tpm2-kira's places, swept whatever their shape:\n", len(extra))
+			fmt.Printf("Found %d more at kira's places, swept whatever their shape:\n", len(extra))
 		} else {
-			fmt.Printf("Found %d more at tpm2-kira's places, left (--sweep takes them):\n", len(extra))
+			fmt.Printf("Found %d more at kira's places, left (--sweep takes them):\n", len(extra))
 		}
 		for _, it := range extra {
 			fmt.Printf("  %s\n", it)
 		}
 	}
 	if total == 0 {
-		return fmt.Errorf("nothing of tpm2-kira's but the above: 'tpm2-kira slot delete --yes --sweep' takes it")
+		return fmt.Errorf("nothing of kira's but the above: 'kira slot delete --yes --sweep' takes it")
 	}
 	if err := confirmDeleteAll(len(slots), enrolled, len(leftovers), caPath != "", yes); err != nil {
 		return err
@@ -408,7 +408,7 @@ func NVRAMDeleteCommand(tpmPath string, nvramIndex uint32, yes, force, sweep, de
 
 	fmt.Println()
 	if foreignLeft {
-		return fmt.Errorf("%d of %d item(s) failed to delete. An index of another shape stays until a person says so: 'tpm2-kira slot delete' at a terminal shows it and asks; 'tpm2-kira slot delete --yes --force' removes it without asking", failed, total)
+		return fmt.Errorf("%d of %d item(s) failed to delete. An index of another shape stays until a person says so: 'kira slot delete' at a terminal shows it and asks; 'kira slot delete --yes --force' removes it without asking", failed, total)
 	}
 	if failed > 0 {
 		return fmt.Errorf("%d of %d item(s) failed to delete", failed, total)
@@ -466,7 +466,7 @@ func confirmDeleteAll(slots, enrolled, leftovers int, ca, yes bool) error {
 		return fmt.Errorf("refusing to delete all %d item(s) without confirmation; nothing was deleted.\n"+
 			"  Each deleted slot means re-enrolling its authenticator and its phones.\n"+
 			"  To go ahead, run:\n"+
-			"      tpm2-kira slot delete --yes\n"+
+			"      kira slot delete --yes\n"+
 			"  or delete one slot with --nvram <slot>", total)
 	}
 	if slots > 0 {
@@ -530,12 +530,12 @@ func slotStatus(tpmDev transport.TPM, idx uint32, debug bool) error {
 	return nil
 }
 
-// kiraIndexRoleOr is kiraIndexRole, or "not tpm2-kira's" for any other.
+// kiraIndexRoleOr is kiraIndexRole, or "not kira's" for any other.
 func kiraIndexRoleOr(idx uint32) string {
 	if r := kiraIndexRole(idx); r != "" {
 		return r
 	}
-	return "not tpm2-kira's"
+	return "not kira's"
 }
 
 // NVRAMStatus shows detailed status of the specified NVRAM index

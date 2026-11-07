@@ -12,9 +12,9 @@ import (
 
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpm2/transport"
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 )
 
 // ErrPhoneSlot: the slot is attested by its phones and has no TOTP code.
@@ -136,7 +136,7 @@ type NVRAMSlot struct {
 	Available  bool   // Whether the slot has data (even if no code could be computed)
 
 	// AfterSeparator marks a slot that got its first code only after the
-	// boot display released the boot (tpm2-kira-boot run), i.e. a blob whose
+	// boot display released the boot (kira-boot run), i.e. a blob whose
 	// policy holds after the OS separator: its codes are computed live for
 	// as long as the policy holds, and the display says so.
 	AfterSeparator bool
@@ -252,7 +252,7 @@ func SlotErrorLine(err error) string {
 		return fmt.Sprintf("Approval revoked (blob generation %d, slot at %d) - slot approve", genErr.BlobGeneration, genErr.IndexGeneration)
 	}
 	if bve, ok := nvslot.IsBlobVersionError(err); ok {
-		return fmt.Sprintf("Incompatible blob version (found v%d, requires v%d) - re-seal with: tpm2-kira slot add", bve.FoundVersion, bve.RequiredVersion)
+		return fmt.Sprintf("Incompatible blob version (found v%d, requires v%d) - re-seal with: kira slot add", bve.FoundVersion, bve.RequiredVersion)
 	}
 	if _, ok := err.(*measure.PCRMismatchError); ok || tpmdev.IsTPMPolicyFailure(err) {
 		return ""
@@ -404,7 +404,7 @@ func totpKeyTemplate(alg tpm2.TPMAlgID, authPolicy []byte) tpm2.TPMTPublic {
 			SignEncrypt: true,
 			NoDA:        true,
 			// UserWithAuth deliberately NOT set: policy only.
-			// SensitiveDataOrigin is clear because tpm2-kira supplies the
+			// SensitiveDataOrigin is clear because kira supplies the
 			// key, which it must show once for enrolment.
 		},
 		AuthPolicy: tpm2.TPM2BDigest{Buffer: authPolicy},

@@ -14,11 +14,11 @@ import (
 	"github.com/tpm2-trust/assh/hostkey"
 	"github.com/tpm2-trust/assh/persist"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 )
 
-// A removal takes only what has tpm2-kira's shape: an index of another
+// A removal takes only what has kira's shape: an index of another
 // kind at a slot's handle is left and named, the slot's own indices go
 // whole, and none there is no error of the primitive.
 func TestRemovalTakesOnlyOurs(t *testing.T) {
@@ -44,7 +44,7 @@ func TestRemovalTakesOnlyOurs(t *testing.T) {
 	}
 
 	// A slot is its record and its indices above the slots' numbers: an
-	// index at a slot's number is nobody's of tpm2-kira's, and stays.
+	// index at a slot's number is nobody's of kira's, and stays.
 	removed, err := nvslot.RemoveSlot(tpm, foreign, nil)
 	if len(removed) != 0 || err != nil {
 		t.Fatalf("another's index at slot 3's number: %v %v", removed, err)
@@ -82,7 +82,7 @@ func TestRemovalTakesOnlyOurs(t *testing.T) {
 	}
 }
 
-// slot delete without --nvram is everything of tpm2-kira: the slots and
+// slot delete without --nvram is everything of kira: the slots and
 // the SSH CA that assh.conf names, with its public key.
 func TestSlotDeleteTakesTheSSHCA(t *testing.T) {
 	sock := startSWTPM(t)
@@ -109,7 +109,7 @@ func TestSlotDeleteTakesTheSSHCA(t *testing.T) {
 	if err := os.WriteFile(sshConfPath(conf), []byte("ASSH_CA="+caPath+"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("TPM2_KIRA_CONTROL_CONF", conf)
+	t.Setenv("KIRA_CONTROL_CONF", conf)
 
 	if err := NVRAMDeleteCommand(sock, 0, true, false, false, false); err != nil {
 		t.Fatal(err)
@@ -119,7 +119,7 @@ func TestSlotDeleteTakesTheSSHCA(t *testing.T) {
 			t.Errorf("%s left: %v", p, err)
 		}
 	}
-	if err := NVRAMDeleteCommand(sock, 0, true, false, false, false); err == nil || !strings.Contains(err.Error(), "nothing of tpm2-kira") {
+	if err := NVRAMDeleteCommand(sock, 0, true, false, false, false); err == nil || !strings.Contains(err.Error(), "nothing of kira") {
 		t.Fatalf("again: %v", err)
 	}
 }

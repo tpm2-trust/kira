@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-const none = "/dev/tpm2-kira-test-none"
+const none = "/dev/kira-test-none"
 
 func setup(t *testing.T) {
 	t.Helper()

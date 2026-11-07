@@ -9,12 +9,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/piv"
-	"github.com/tpm2-trust/tpm2-kira/internal/piv/pivtest"
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/piv"
+	"github.com/tpm2-trust/kira/internal/piv/pivtest"
+	"github.com/tpm2-trust/kira/internal/signing"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 )
 
 // The reseal the hooks run after a kernel update, with the signing key on
@@ -28,7 +28,7 @@ func TestResealThroughTokenWithStoredPIN(t *testing.T) {
 	fake := &fakeTokens{cards: []*pivtest.Card{card}} // typed "": no terminal
 	fake.install(t)
 	conf := filepath.Join(t.TempDir(), "control.conf")
-	t.Setenv("TPM2_KIRA_CONTROL_CONF", conf)
+	t.Setenv("KIRA_CONTROL_CONF", conf)
 	pinFile := signing.PINPath()
 	os.WriteFile(pinFile, []byte("123456\n"), 0o600)
 

@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/tpm2-trust/go-tui-slim/secret"
-	"github.com/tpm2-trust/tpm2-kira/internal/journal"
+	"github.com/tpm2-trust/kira/internal/journal"
 
 	"golang.org/x/sys/unix"
 )
@@ -410,7 +410,7 @@ func TestConsolePassphraseOnASocket(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer l.Close()
-	t.Setenv("TPM2_KIRA_CONSOLE", path)
+	t.Setenv("KIRA_CONSOLE", path)
 	go func() {
 		c, err := l.Accept()
 		if err != nil {
@@ -446,7 +446,7 @@ func TestDiskKeyCombinesWithTheFactor(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer l.Close()
-	t.Setenv("TPM2_KIRA_CONSOLE", path)
+	t.Setenv("KIRA_CONSOLE", path)
 	prompts := make(chan string, 16)
 	go func() {
 		for {
@@ -605,7 +605,7 @@ func TestDiskKeyPasswordSaltMode(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer l.Close()
-	t.Setenv("TPM2_KIRA_CONSOLE", path)
+	t.Setenv("KIRA_CONSOLE", path)
 	prompts := make(chan string, 8)
 	go func() {
 		for {

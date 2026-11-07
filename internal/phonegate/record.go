@@ -38,14 +38,14 @@ import (
 
 	"github.com/google/go-tpm/tpm2/transport"
 
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/core/attest"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/signing"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 )
 
 // DefaultAttestSignerPath is the signing public key inside the initramfs.
-const DefaultAttestSignerPath = "/etc/tpm2-kira/attest-signer.pem"
+const DefaultAttestSignerPath = "/etc/kira/attest-signer.pem"
 
 // VerifyAttestBlobSignature checks the signature of a slot's blob (the raw
 // NV contents), which covers the phone enrolment in it, against pubKey.
@@ -116,32 +116,32 @@ func (e *recordError) Error() string {
 func SignerForImage(tpmDev transport.TPM, pubKeyPath string, errOut io.Writer, debug bool) ([]byte, int) {
 	found := EnrolledSlots(tpmDev, debug)
 	if len(found) == 0 {
-		fmt.Fprintln(errOut, "tpm2-kira: no phone is enrolled for attestation")
+		fmt.Fprintln(errOut, "kira: no phone is enrolled for attestation")
 		return nil, ExitUsage
 	}
 	pub, path, err := AttestPublicKey(pubKeyPath)
 	if err != nil {
-		fmt.Fprintf(errOut, "tpm2-kira: no signing public key at %s: %v\n", path, err)
+		fmt.Fprintf(errOut, "kira: no signing public key at %s: %v\n", path, err)
 		return nil, ExitInternal
 	}
 	for _, idx := range found {
 		slot := nvslot.AttestSlot(idx)
 		raw, err := nvslot.ReadRecord(idx)
 		if err != nil {
-			fmt.Fprintf(errOut, "tpm2-kira: slot %d: cannot read the attestation record: %v\n", slot, err)
+			fmt.Fprintf(errOut, "kira: slot %d: cannot read the attestation record: %v\n", slot, err)
 			return nil, ExitInternal
 		}
 		if err := checkAttestRecord(tpmDev, idx, raw, pub); err != nil {
-			fmt.Fprintf(errOut, "tpm2-kira: slot %d: TAMPERED: the attestation record is not accepted:\n", slot)
-			fmt.Fprintf(errOut, "tpm2-kira:   %v.\n", err)
-			fmt.Fprintf(errOut, "tpm2-kira:   Signing key: %s. Inspect the record with 'tpm2-kira phone status';\n", path)
-			fmt.Fprintf(errOut, "tpm2-kira:   to start over: 'tpm2-kira phone unenrol --nvram %d', then enrol again.\n", slot)
+			fmt.Fprintf(errOut, "kira: slot %d: TAMPERED: the attestation record is not accepted:\n", slot)
+			fmt.Fprintf(errOut, "kira:   %v.\n", err)
+			fmt.Fprintf(errOut, "kira:   Signing key: %s. Inspect the record with 'kira phone status';\n", path)
+			fmt.Fprintf(errOut, "kira:   to start over: 'kira phone unenrol --nvram %d', then enrol again.\n", slot)
 			return nil, ExitTampered
 		}
 	}
 	pemBytes, err := signing.PublicKeyToPEM(pub)
 	if err != nil {
-		fmt.Fprintf(errOut, "tpm2-kira: cannot encode the signing public key: %v\n", err)
+		fmt.Fprintf(errOut, "kira: cannot encode the signing public key: %v\n", err)
 		return nil, ExitInternal
 	}
 	return pemBytes, 0
@@ -260,7 +260,7 @@ func ReadSealedSlot(tpmDev transport.TPM, sealIndex uint32) *nvslot.SealedBlob {
 }
 
 func GateFail(format string, args ...any) {
-	fmt.Fprintf(os.Stderr, "tpm2-kira: FAILED: "+format+"\n", args...)
+	fmt.Fprintf(os.Stderr, "kira: FAILED: "+format+"\n", args...)
 }
 
 // GateRecordCheck checks the record in the TPM before anything is
@@ -284,7 +284,7 @@ func GateRecordCheck(tpmDev transport.TPM, idx uint32, signerPath string) (bool,
 		return false, ExitInternal
 	}
 	if _, err := os.Stat(signerPath); os.IsNotExist(err) {
-		fmt.Printf("tpm2-kira: no signing public key at %s to check the attestation record (in an initramfs: rebuild it)\n", signerPath)
+		fmt.Printf("kira: no signing public key at %s to check the attestation record (in an initramfs: rebuild it)\n", signerPath)
 		return false, 0
 	}
 	pub, _, err := signing.LoadSigningPublicKeyFromPEM(signerPath)
@@ -294,10 +294,10 @@ func GateRecordCheck(tpmDev transport.TPM, idx uint32, signerPath string) (bool,
 	}
 	if err := checkAttestRecord(tpmDev, idx, raw, pub); err != nil {
 		GateFail("the attestation record in the TPM (slot %d) is not accepted:\n"+
-			"tpm2-kira:   %v.\n"+
-			"tpm2-kira:   It was replaced, or an older one was put back: no phone is served, and a\n"+
-			"tpm2-kira:   verdict from any phone means nothing for this boot. To start over, run\n"+
-			"tpm2-kira:   'tpm2-kira phone unenrol' on the unlocked system and enrol again.",
+			"kira:   %v.\n"+
+			"kira:   It was replaced, or an older one was put back: no phone is served, and a\n"+
+			"kira:   verdict from any phone means nothing for this boot. To start over, run\n"+
+			"kira:   'kira phone unenrol' on the unlocked system and enrol again.",
 			nvslot.AttestSlot(idx), err)
 		return false, ExitTampered
 	}

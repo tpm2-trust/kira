@@ -1,7 +1,7 @@
-# Guided: `tpm2-kira control`
+# Guided: `kira control`
 
 For a person rather than a script. It starts by checking
-`/etc/tpm2-kira/control.conf`: a file that does not load is not worked on
+`/etc/kira/control.conf`: a file that does not load is not worked on
 - control lists every line it refuses, with its number and what to do, and
 quits before anything is asked or written. Otherwise control writes the
 file itself, every setting it keeps; you do not edit it.
@@ -23,12 +23,12 @@ says "checking" until it is done.
   Phone           │ ✓ Slot 1 ⚠  - the fallback, sealed to 7e,11s, a TOTP code
   Disk unlock     │ • Seal another slot (2-15) to PCRs you choose
   Network & SSH   │ • Approve the slots for the next boot now
-  Boot image      │ • Delete everything of tpm2-kira's in the TPM ⚠
+  Boot image      │ • Delete everything of kira's in the TPM ⚠
   Tools           │ ───────────────────────────────────────────────────
   Reference       │ Slot 0
                   │ Done: sealed to 0e,2e,4u,7e,11s, a TOTP code
                   │ ⚠ Destroys: slot 0 whole: its TOTP key, its phones, ...
-                  │ The command: tpm2-kira slot delete --nvram 0
+                  │ The command: kira slot delete --nvram 0
 ─────────────────────────────────────────────────────────────────────
 ↑↓ move  ←→ in/out  Enter run  / search  ? keys  r again  q quit
 ```
@@ -61,7 +61,7 @@ with the machine looked at again.
 
 **Destroying asks for its word.** Deleting a slot, removing a keyslot, a
 slot's phones or phone salt, the vault, the SSH CA, or everything of
-tpm2-kira's in the TPM shows what goes and asks for the slot's or the
+kira's in the TPM shows what goes and asks for the slot's or the
 keyslot's number, or `delete`, to be typed. Enter alone, `y` or a typo
 keep it.
 
@@ -72,15 +72,15 @@ terminal control prints everything and leaves (a script's look).
 
 ## The sections
 
-**Boot chain** - what tpm2-kira needs of the machine to be in its boot at
+**Boot chain** - what kira needs of the machine to be in its boot at
 all. The **prerequisites**, each a line, green when met and red with what
-to do when not: a usable TPM, mkinitcpio or initramfs-tools, tpm2-kira's
+to do when not: a usable TPM, mkinitcpio or initramfs-tools, kira's
 hook files installed, systemd and sd-encrypt in HOOKS, the LUKS devices, a
-recovery passphrase (a keyslot that is not tpm2-kira's) on each, and no
+recovery passphrase (a keyslot that is not kira's) on each, and no
 keyslot that opens with an **empty passphrase** - such a disk is
-encrypted, yet anybody with it opens it, so it is red; tpm2-kira still
+encrypted, yet anybody with it opens it, so it is red; kira still
 takes the empty passphrase where it asks for the recovery one. The steps:
-**mkinitcpio adoption** (sd-tpm2-kira into HOOKS), **kernel command line
+**mkinitcpio adoption** (sd-kira into HOOKS), **kernel command line
 adoption** (the key's route: `rd.luks.key=` naming the socket, crypttab on
 Debian), the **PCR key** in uki.conf - each shows the line as it should
 read and writes it only when you say so. The other sections open once the
@@ -93,7 +93,7 @@ builds on still missing:
 
 | Section | Steps |
 |---|---|
-| Keys & slots | the signing key (and a YubiKey's PIN, stored); the standard sealing - slot 0 to the evaluated PCR selection, acknowledged or custom, and slot 1 the fallback; every slot a line, **picking it deletes the slot whole**; another slot (2-15) to PCRs you choose; approve the slots now; **delete everything** - in three parts, each listed and asked for `delete`: tpm2-kira's LUKS keyslots, the TPM and the EFI variables (`slot delete --yes --sweep`: every slot, the boot settings, the machine-id, the SSH CA, and whatever this or an earlier version left in tpm2-kira's NV range, at aSSH's SSH CA handles or under its EFI GUID), `/etc/tpm2-kira` and `/var/lib/tpm2-kira`; the recovery passphrase stays, the package and its hook too |
+| Keys & slots | the signing key (and a YubiKey's PIN, stored); the standard sealing - slot 0 to the evaluated PCR selection, acknowledged or custom, and slot 1 the fallback; every slot a line, **picking it deletes the slot whole**; another slot (2-15) to PCRs you choose; approve the slots now; **delete everything** - in three parts, each listed and asked for `delete`: kira's LUKS keyslots, the TPM and the EFI variables (`slot delete --yes --sweep`: every slot, the boot settings, the machine-id, the SSH CA, and whatever this or an earlier version left in kira's NV range, at aSSH's SSH CA handles or under its EFI GUID), `/etc/kira` and `/var/lib/kira`; the recovery passphrase stays, the package and its hook too |
 | Phone | enrol a phone; Bluetooth in every boot image; remove a slot's phones |
 | Disk unlock | password + salt; password + phone salt (the phone); this TPM + a vault, or the password + the vault's salt and a pepper typed through its one-time keyboard; password + phone salt + a pepper typed through the phone's one-time keyboard - each a keyslot of its own, enrolled it offers the removal; remove a slot's phone salt |
 | Network & SSH | the image's network (DHCP or static, proposed from the running system; whether the boot announces its address, on by default); the SSH server with the code screen |
@@ -131,7 +131,7 @@ SHA-1 bank in use (orange: a warning on a machine with nothing better), Secure B
 without the kernel measured, a TPM whose endorsement key no known vendor
 vouches for (a phone then trusts it on first use, as it would a software
 TPM), a loose file holding the PIN, an empty passphrase, a vault that
-does not answer. `tpm2-kira status`, `slot add`, `slot approve`, the image's hooks and,
+does not answer. `kira status`, `slot add`, `slot approve`, the image's hooks and,
 at boot, the code screen, every SSH session and the boot's log say the same of Secure
 Boot on their own (a `WARNING:` line, never a stop). Beside the firmware's variable
 stands the **proof**: the phone's and the vault's own check on the live PCR 7 and the event
@@ -150,7 +150,7 @@ the **boot plan** says so: the image carries the disk unlock always, and
 each other part - the TOTP codes, the phone's Bluetooth gate, the vault,
 the network, the SSH server - only while something uses it (a sealed
 slot, an enrolled phone, the settings in `control.conf`), and names its
-parts with the digest of their settings (`tpm2-kira help initramfs`). A
+parts with the digest of their settings (`kira help initramfs`). A
 part in use now and not in the image - the first sealed slot, the first
 phone, SSH switched on - or in it with other settings - another port,
 another login key - makes the image out of date; the status' "Boot
@@ -171,15 +171,15 @@ Every step runs with the same functions the commands use; run
 `control` again later and it shows the state and what is left. The
 commands are for specific settings, and they touch no configuration
 file: `control` alone writes the two configuration files.
-`/etc/tpm2-kira/control.conf` is tpm2-kira's - the radio settings and the
+`/etc/kira/control.conf` is kira's - the radio settings and the
 image's network and SSH server, what the image is built with and nothing
 else (nothing of it goes into the image but the network and SSH settings,
-as files of their own). `/etc/tpm2-kira/assh.conf` beside it is
+as files of their own). `/etc/kira/assh.conf` beside it is
 [aSSH](../assh/README.md)'s: the SSH CA and its slots, the port, the keys
 that may log in ([SSH.md](SSH.md)).
 Beside it `control` keeps the YubiKey's PIN, checked on the token, in
-`/etc/tpm2-kira/pin` (root's alone, never in the image), and the keys
-that may log in at boot in `/etc/tpm2-kira/authorized_keys` (root's
+`/etc/kira/pin` (root's alone, never in the image), and the keys
+that may log in at boot in `/etc/kira/authorized_keys` (root's
 keys copied there when asked; edit it for others). A command that signs
 takes the PIN from `--pin-fd N` if a script gives it (a systemd unit: its
 credential, `--pin-fd 3 3<"$CREDENTIALS_DIRECTORY/pin"`, through a shell; a bad
@@ -187,7 +187,7 @@ descriptor exits 2 on every command, and a regular file others can read is one),
 that file, else from the terminal; never from argv or the environment. The two wiring steps of the
 boot chain are checks, green and no longer pickable once in place. Every other file
 is advised, never edited, with three exceptions, each asked for every
-time: the PCR key's lines in `/etc/kernel/uki.conf`, the mkinitcpio step writes sd-tpm2-kira into the HOOKS of
+time: the PCR key's lines in `/etc/kernel/uki.conf`, the mkinitcpio step writes sd-kira into the HOOKS of
 `/etc/mkinitcpio.conf` when you say so (editing it yourself works just as
 well), and the route step writes the line it shows into
 `/etc/kernel/cmdline` (or the cmdline.d file, a boot entry's options
@@ -217,7 +217,7 @@ from the Overview:
     1 not met: the steps that need them say so.
   The boot chain
   Recommended next: Kernel command line adoption (the key's route)
-  1. ✓ mkinitcpio adoption  - sd-tpm2-kira in HOOKS of /etc/mkinitcpio.conf
+  1. ✓ mkinitcpio adoption  - sd-kira in HOOKS of /etc/mkinitcpio.conf
   2. • Kernel command line adoption (the key's route)
   3. - Continue to the overview  - first: Kernel command line adoption (the key's route)
   4.   Quit

@@ -1,9 +1,9 @@
-# TPM2-KIRA Security Background
+# KIRA Security Background
 
-How tpm2-kira protects its secrets, where data is stored, how authentication
+How kira protects its secrets, where data is stored, how authentication
 works and where the trust boundaries are; then what has been tested on what,
 what is not proven, and which risks are accepted and why. It describes the code
-of branch `feat/close-pcr15` (tpm2-kira `f0965aa`).
+of branch `feat/close-pcr15` (kira `f0965aa`).
 
 | For | Read |
 |---|---|
@@ -21,7 +21,7 @@ of branch `feat/close-pcr15` (tpm2-kira `f0965aa`).
 
 ## 1. Purpose
 
-tpm2-kira gives a machine secrets that its TPM uses only in a boot state the
+kira gives a machine secrets that its TPM uses only in a boot state the
 owner approved, and only until the code screen in the boot image is over: the
 key behind the TOTP codes, the sealed machine-id, the phone's boot key, the
 release key that opens the TPM's and the vault's parts of a disk key. aSSH's SSH
@@ -35,7 +35,7 @@ boot image extends PCR 15, **the close**: every one of these objects reads PCR 1
 in its own policy, so from then on nothing opens until the next boot, root
 included, whatever has been approved (§14).
 
-tpm2-kira adds ways to unlock and informs. It does not withhold systemd's own
+kira adds ways to unlock and informs. It does not withhold systemd's own
 passphrase prompt; the one exception is a TPM that answers and refuses every
 way of closing (§14).
 
@@ -50,11 +50,11 @@ flowchart TB
     GEN["NV 0x01803810 + n: generation G (noDA)<br/>NV 0x01803820 + n: record counter<br/>NV 0x01803000: boot settings"]
     USE["Keys used while loaded, never read out:<br/>TOTP key, boot key, release key, attestation key,<br/>sealed machine-id, SSH CA, host key"]
   end
-  subgraph EFI["EFI variables, tpm2-kira's GUID"]
+  subgraph EFI["EFI variables, kira's GUID"]
     REC["KIRAslotN: the record (wrapped objects, PCR values,<br/>generation, approval, signature)"]
     OTHER["KIRAmachineID, KIRAasshCA, KIRAcloseReboot"]
   end
-  subgraph FS["/etc/tpm2-kira on the encrypted root"]
+  subgraph FS["/etc/kira on the encrypted root"]
     SIGN["keys/seal.key, seal.pub: the signing key,<br/>or a YubiKey reference"]
     PCRK["pcr.key, pcr.pem: the PCR key (a UKI's PCR 11)"]
   end
@@ -74,7 +74,7 @@ flowchart TB
 
 Each slot (0-15; its number is also written as `0x01803010` + *n*) keeps
 one serialised `SealedBlob` (format version 20, §10), its **record**, in
-the EFI variable `KIRAslotN` under tpm2-kira's vendor GUID
+the EFI variable `KIRAslotN` under kira's vendor GUID
 (`67f474ef-94a1-4412-88df-d62349d430a9`), at most 8 KiB. In the TPM a
 slot keeps only what a TPM policy reads or nobody may turn back: its
 generation index (§3.2), which also says that the slot exists, and its
@@ -88,7 +88,7 @@ key); which recipe needs which method is not the format's to say. Today
 phones still retire the TOTP key (*TOTP key or phones*, below).
 Phone attestation is an optional part of the same blob,
 and within that part the way a verifier reaches the machine is a typed
-*method*: phones over Bluetooth LE, and tpm2-kira-vault over HTTPS
+*method*: phones over Bluetooth LE, and kira-vault over HTTPS
 (VAULT.md). The blob contains:
 
 | Field               | Content                                                         | Sensitive? |
@@ -135,12 +135,12 @@ Method 1, phones over Bluetooth LE (`Phone`):
 | `ChannelPCRs`   | The registers its first branch reads besides PCR 15 (today PCR 7) and their values⁵ | No |
 | `Verifiers`     | Up to 8 phones: id, anchor public key (signs the phone's verdicts), channel public key, policy id; no name | No |
 
-Method 2, tpm2-kira-vault (`Vault`, VAULT.md), created by `vault enrol`:
+Method 2, kira-vault (`Vault`, VAULT.md), created by `vault enrol`:
 
 | Field           | Content                                                              | Sensitive? |
 |-----------------|----------------------------------------------------------------------|------------|
 | `URL`           | The vault, `https://host:port`                                       | No         |
-| `Pin`           | SHA-256 of the vault's TLS root's key (SubjectPublicKeyInfo): a key of the vault's verified chain must be it - the chain itself is verified against `/etc/tpm2-kira/vault-ca.pem` | No |
+| `Pin`           | SHA-256 of the vault's TLS root's key (SubjectPublicKeyInfo): a key of the vault's verified chain must be it - the chain itself is verified against `/etc/kira/vault-ca.pem` | No |
 | `Label`         | The vault keyslot's label in the key's derivation                    | No         |
 | `Local`         | The local part L, the unattended recipes' password, wrapped (TPM2_MakeCredential) for this TPM's EK and the slot's release key: it opens only through the release key's policy; empty with a typed password | No⁶ |
 | `Pepper`        | The salt is made with an operator's pepper                            | No⁶ |
@@ -175,7 +175,7 @@ tampered with before the enrolment would be pinned as good. Only a check
 made before the phone existed can say it, so the order is fixed:
 
 1. The slot is sealed with a TOTP key (`control`, "Keys & slots", or `slot add`).
-2. The machine boots through tpm2-kira's code screen. The code exists only
+2. The machine boots through kira's code screen. The code exists only
    while the PCRs are the ones the signing key approved, and the person
    compares it with the authenticator: this boot is verified.
 3. In that boot the phone is enrolled (`control`, "Phone", or `phone enrol`), and with
@@ -210,7 +210,7 @@ signing key, or phones beside the rest. The variable against an NV index:
 
 | | an NV index | EFI variable `KIRAslotN` |
 |---|---|---|
-| Size | `TPM2_PT_NV_INDEX_MAX`, often 2048 | 8 KiB (tpm2-kira's limit; firmware stores are small) |
+| Size | `TPM2_PT_NV_INDEX_MAX`, often 2048 | 8 KiB (kira's limit; firmware stores are small) |
 | Write | the signing key alone (PolicySigned) | root |
 | Replaced by an attacker | refused: signature, counter | refused: signature, counter |
 | Deleted | the owner's authorisation (empty on most machines) | root; also a firmware reset of its variables |
@@ -250,7 +250,7 @@ each through its own record.
 ¹ The `Private` field is encrypted by the TPM's storage hierarchy. It cannot be
 decrypted outside the TPM that created it, and the key in it can only be
 *used* by that TPM, under the object's policy. It is never decrypted for
-tpm2-kira: there is no `TPM2_Unseal` of a key. The same holds for `AKPrivate`,
+kira: there is no `TPM2_Unseal` of a key. The same holds for `AKPrivate`,
 `BootKeyPrivate` and `ReleaseKeyPrivate`.
 
 ² The key object's policy binds the signing key's **Name**, so a substituted
@@ -264,7 +264,7 @@ describes how it was made (the tool's version, the event log's path, the time
 of the calculation, the key files' paths): what is not needed to compute a
 code, to approve or to attest is not stored, since every byte counts against
 the record's limit (§10, *Size*). The signing key's files are found at
-tpm2-kira's default paths or the ones given on the command line, never from
+kira's default paths or the ones given on the command line, never from
 the blob (§5.5).
 
 ⁴ The blob carries a detached signature over `[version ‖ payloadLen ‖ payload]`,
@@ -328,7 +328,7 @@ while it is defined. Attributes:
   it.
 - `NoDA`: `PolicyNV` reads it with an empty password, and a dictionary-attack
   lockout must not stop the slots at boot (the storage primary and every slot
-  object are noDA too; tpm2-kira holds no PIN in the TPM, so nothing of its own
+  object are noDA too; kira holds no PIN in the TPM, so nothing of its own
   loses protection, but anything else sealed under that primary with a password
   would).
 
@@ -432,7 +432,7 @@ which never leaves the chip. Nobody can read the private key out of those bytes,
 and no other TPM can use them (`fixedTPM`, `fixedParent`). To use the key,
 software hands both areas back with `TPM2_Load`, uses the temporary handle
 (`TPM2_HMAC`, `TPM2_Sign`, `TPM2_ECDH_ZGen`, `TPM2_ActivateCredential`) and
-flushes it. tpm2-kira never sees a private key.
+flushes it. kira never sees a private key.
 
 ```
 EFI variable KIRAslotN   (bytes, under one signature by the signing key)
@@ -473,13 +473,13 @@ What the TPM itself keeps, and never gives out:
   with `TPM2_CreatePrimary` from a fixed template; parent of the key objects and
   the salt key for the session that carries the TOTP key in at seal time.
 - **The keys while loaded**: the TOTP key, a keyed-hash object with the HMAC
-  scheme (the TPM computes `HMAC(key, counter)` in `TPM2_HMAC`; tpm2-kira
+  scheme (the TPM computes `HMAC(key, counter)` in `TPM2_HMAC`; kira
   receives only the 20- or 32-byte result and truncates it to six digits,
   RFC 4226); the attestation key; the boot key; the release key.
 
 ### 3.6 Filesystem (signing key pair)
 
-`tpm2-kira setup` generates an ECDSA P-256 pair, or records a key in a YubiKey
+`kira setup` generates an ECDSA P-256 pair, or records a key in a YubiKey
 PIV slot. Any RSA-2048 or ECC P-256/P-384 key works instead, including the
 sbctl Secure Boot DB key, via `--pubkey` / `--privkey`.
 
@@ -488,7 +488,7 @@ key file only through `ReadSigningKeyFile` (`internal/signing/keyfile.go`), whic
 
 - a symlink (the file is opened with `O_NOFOLLOW`),
 - anything but a regular file with exactly mode `0400`,
-- a file not owned by root or by the user running tpm2-kira,
+- a file not owned by root or by the user running kira,
 - a file in a directory that is group- or world-writable, or owned by
   someone else.
 
@@ -585,7 +585,7 @@ Every decision is made **inside the TPM**. `TPM2_PolicyPCR` derives the PCR
 digest from its own registers; `TPM2_PolicyNV` reads the index itself;
 `TPM2_VerifySignature` checks the approval; `TPM2_PolicyAuthorize` accepts
 only the signing key whose Name is bound in the object. If any of these
-differ by one bit, `TPM2_HMAC` is refused. The software comparisons tpm2-kira
+differ by one bit, `TPM2_HMAC` is refused. The software comparisons kira
 makes first (PCR values, generation) only produce readable errors.
 
 ### 4.5 What the parts buy
@@ -606,7 +606,7 @@ makes first (PCR values, generation) only produce readable errors.
   key approves. PCR 15 cannot be reset; the SSH CA's policy reads it too. §14.
 - **noDA everywhere it matters.** The generation index, the storage primary and
   the slot objects are noDA, and `PolicyPCR` has no DA: a lockout never stops the
-  slots at boot. Only a PIN counts; tpm2-kira keeps none in the TPM.
+  slots at boot. Only a PIN counts; kira keeps none in the TPM.
 - **The generation index's Name.** Deleting and recreating the index does
   not help: the policy binds the index's Name, and a recreated index has a
   different Name until it is written, which needs the signing key.
@@ -621,7 +621,7 @@ makes first (PCR values, generation) only produce readable errors.
 > any other state the signing key approves, before the close.
 
 Anyone holding the signing private key can approve any state. The key is as
-security-critical as the TPM policy. `/etc/tpm2-kira/keys/seal.key` sits on
+security-critical as the TPM policy. `/etc/kira/keys/seal.key` sits on
 the encrypted root filesystem, so it is not reachable in the initrd; with a
 YubiKey, it is never on disk. §19 has what follows for root on the running system.
 
@@ -668,10 +668,10 @@ comparison, not a false pass.
 Step 8 is where the disk's key enters, and on Arch it is deliberately
 systemd-cryptsetup's own mechanism (crypttab(5), AF_UNIX key files, the
 socket named as the volume's key file by `rd.luks.key=`) rather than a prompt of
-tpm2-kira's that systemd knows nothing about: the volume is activated by
+kira's that systemd knows nothing about: the volume is activated by
 systemd-cryptsetup with its crypttab options, and only the source of the key
 moves. On Debian cryptroot's keyscript `unlock-key` asks the same provider. The
-request waits for as long as tpm2-kira takes, which is what makes a hold real
+request waits for as long as kira takes, which is what makes a hold real
 without a unit that refuses to start; and a wrong or missing answer sends
 systemd-cryptsetup to its own prompt for the remaining tries, so the passphrase
 can be entered by hand (DISK-KEY.md, "When the answer is wrong"; the one exception:
@@ -681,44 +681,44 @@ such keys.
 
 #### Disk unlock: who does what
 
-tpm2-kira does not open the disk. It reads the volume's LUKS2 header for its
+kira does not open the disk. It reads the volume's LUKS2 header for its
 token, which names the recipe (DISK-KEY.md, "The token"), makes the key (§5.9) and
 never speaks to device-mapper; it hands over bytes when asked, in the place a key
 file would be. The transfer on Arch, step by step:
 
 ```
-1.  tpm2-kira-unlock.socket creates /run/tpm2-kira/unlock.sock (root, 0600)
-    before cryptsetup-pre.target; tpm2-kira.service adopts it (Sockets=,
+1.  kira-unlock.socket creates /run/kira/unlock.sock (root, 0600)
+    before cryptsetup-pre.target; kira.service adopts it (Sockets=,
     LISTEN_FDS).
 2.  The kernel command line names that path as the volume's key file
-    (rd.luks.key=<UUID>=/run/tpm2-kira/unlock.sock; or an x-initrd.attach
+    (rd.luks.key=<UUID>=/run/kira/unlock.sock; or an x-initrd.attach
     line of /etc/crypttab does, in its key field), and the generator made
     systemd-cryptsetup@<volume>.service from it before any unit ran.
 3.  systemd-cryptsetup@<volume>.service runs
-      systemd-cryptsetup attach <volume> <device> /run/tpm2-kira/unlock.sock
+      systemd-cryptsetup attach <volume> <device> /run/kira/unlock.sock
     The key "file" is a socket: it binds an abstract client socket named
     NUL ‖ random ‖ "/cryptsetup/" ‖ <volume> and connects.
-4.  tpm2-kira checks the peer's uid (its own: root) and reads the volume
+4.  kira checks the peer's uid (its own: root) and reads the volume
     out of the peer name. Any other peer, and the token kinds
     (/cryptsetup-tpm2/, -fido2-salt/, -pkcs11/, which want a saved token
     key), are closed without data.
 5.  The request waits until the hold has ended (READY), then, one at a
     time, the volume's recipe runs: what it needs is asked at the prompt
     on /dev/console or in the SSH session.
-6.  tpm2-kira writes the raw bytes - no newline, no length, no framing;
+6.  kira writes the raw bytes - no newline, no length, no framing;
     EOF ends the key - wipes its copy and closes.
 7.  systemd-cryptsetup unlocks the keyslot with those bytes and maps the
     volume. A wrong passphrase is a wrong key file: systemd-cryptsetup
     drops the key file and asks for a passphrase itself, through its
     password agent on the console, for the remaining tries (3 in all);
-    tpm2-kira is not told. Only then the unit fails. No answer at all
+    kira is not told. Only then the unit fails. No answer at all
     (the connection closed without data) is treated the same.
 ```
 
 What is systemd's, used as installed by sd-encrypt: `systemd-cryptsetup`,
 its generator, `cryptsetup.target` and `cryptsetup-pre.target`, the
 generated `systemd-cryptsetup@*.service` units, the dm-crypt modules and
-udev rules, the crypttab in the image. What is tpm2-kira's: the socket
+udev rules, the crypttab in the image. What is kira's: the socket
 unit and the provider (`internal/diskkey/unlock.go`), whose key source is one function
 of the volume name. The configuration is the administrator's `rd.luks.key=`
 on the kernel command line. Both channels - the password agent's on
@@ -726,7 +726,7 @@ on the kernel command line. Both channels - the password agent's on
 touch a file or the kernel keyring.
 
 Memory. Both sides lock what holds the key and erase it: `systemd-cryptsetup` by
-`mlockall` and guarded buffers, tpm2-kira by `mlockall` too (at boot best effort, on the
+`mlockall` and guarded buffers, kira by `mlockall` too (at boot best effort, on the
 installed system a stop if it is refused) and one fixed buffer of cryptsetup's limit,
 overwritten after the answer, in a process that is not dumpable. What neither can do: the kernel's socket buffer holds the bytes between write and read, and a hibernation
 image would hold all of RAM; neither exists in the initrd, which has no swap. The whole of
@@ -768,7 +768,7 @@ Name as it is.
 ### 5.5 Key resolution in slot approve
 
 ```
-Private key = --privkey flag  →  /etc/tpm2-kira/keys/seal.key
+Private key = --privkey flag  →  /etc/kira/keys/seal.key
 Public key  = --pubkey flag (must match)  →  derived from the private key
 ```
 
@@ -776,7 +776,7 @@ The blob names no key file. The blob is what the key is about to verify, and
 anyone with TPM access can replace it (§9): a planted blob signed by its
 author's key and naming that key would otherwise verify against itself, and
 approve would report success instead of tampering. So the key comes from the
-command line or tpm2-kira's default location, and a slot sealed with a
+command line or kira's default location, and a slot sealed with a
 non-default key always needs `--privkey` on approve.
 
 `resolveResealKeys` in `internal/admin/reseal.go` implements this.
@@ -784,8 +784,8 @@ non-default key always needs `--privkey` on approve.
 ### 5.6 The measure point
 
 A PCR policy is checked against **live registers at the instant a code is computed**.
-For tpm2-kira that instant is one specific point in the boot: the moment
-`tpm2-kira-boot run` reads the TPM in the initrd, before the LUKS passphrase prompt.
+For kira that instant is one specific point in the boot: the moment
+`kira-boot run` reads the TPM in the initrd, before the LUKS passphrase prompt.
 Everything sealing does must answer one question:
 
 > What will PCR *i* be at the measure point of the *next* boot?
@@ -798,7 +798,7 @@ sequenceDiagram
     participant FW as Firmware
     participant STUB as systemd-stub / EFI stub
     participant SD as systemd (initrd)
-    participant KIRA as tpm2-kira
+    participant KIRA as kira
     participant OS as systemd (real root)
 
     FW->>FW: PCR 0-7 firmware events, then EV_SEPARATOR
@@ -810,7 +810,7 @@ sequenceDiagram
 
     KIRA-->>KIRA: MEASURE POINT: a fresh code per 30 s until Enter or 90 s
     KIRA->>KIRA: the close, assh-close into PCR 15, then READY=1
-    KIRA->>KIRA: tpm2-kira-close.service, assh-close into PCR 15 again
+    KIRA->>KIRA: kira-close.service, assh-close into PCR 15 again
 
     SD->>SD: os-separator into PCR 0-7, 9, 12, 13, 14
     Note over SD: one-way, on top of the close
@@ -857,7 +857,7 @@ Per source:
 > SHA-256 PCR bank but a firmware event log that only carries SHA-1 digests.
 > The `e` source then has nothing to replay in the selected bank, and a naive
 > replay returns the PCR's all-zero reset value — a plausible-looking digest
-> that the machine will never produce. tpm2-kira counts the extends applied per
+> that the machine will never produce. kira counts the extends applied per
 > PCR and refuses in that case rather than sealing it.
 >
 > The SHA-256 value cannot be derived from a SHA-1 log: PCR values in different
@@ -917,7 +917,7 @@ which is the event payload — but the measured digest is over the ASCII form.
 > `Section.VirtualSize`. Measuring the padded length yields a PCR 11 value the
 > machine will never present. See `docs/UKI-PCR11-PADDING.issue`.
 
-`tpm2-kira slot add` guards this by recomputing PCR 11 from the image and comparing
+`kira slot add` guards this by recomputing PCR 11 from the image and comparing
 it against the current boot's event log, refusing to seal on mismatch
 (`--verify-uki=false` overrides). `slot approve` skips the check because it runs
 when the image on disk is legitimately not the one that booted.
@@ -959,23 +959,23 @@ Three properties make this safe:
   boot, so `auto` errors out instead.
 - **Build-time beats run-time for the transition.** The mkinitcpio install
   hook inspects the image being built and records the verdict
-  (`/run/tpm2-kira/measure-point.state`, read by its post hook for `slot approve
+  (`/run/kira/measure-point.state`, read by its post hook for `slot approve
   --measure-point`), because probing the *current* boot cannot know what the
   *next* one will do — exactly the case where these units first appear in the
   initramfs.
 - **The blob is self-describing.** What was applied is stored, so verification
   recomputes the sealed values rather than re-deriving them from a system that
-  may have changed. `tpm2-kira slot info` shows it.
+  may have changed. `kira slot info` shows it.
 
 Ordering is enforced so the measure point is deterministic:
-`tpm2-kira.service` declares `After=systemd-pcrphase-initrd.service` and
+`kira.service` declares `After=systemd-pcrphase-initrd.service` and
 `Before=systemd-pcrosseparator.service systemd-pcrnvdone.service`, and is
 `Type=notify`. Without those edges the measure point could land on either side of
 the extends, which would make an identical machine pass or fail across identical
 boots.
 
 Running *before* the separator is what makes the codes boot-time codes.
-`tpm2-kira-boot run` shows a fresh code every 30 seconds and asks whether it
+`kira-boot run` shows a fresh code every 30 seconds and asks whether it
 matches the authenticator; Enter, or the end of the 90-second hold, ends the code
 screen: `run` closes the boot (§14), sends `READY=1`, and the display exits; the
 separator runs after READY. The key never left the TPM, the display only ever held
@@ -1011,7 +1011,7 @@ offline at Argon2id's cost, and its strength is the limit. The
 parameters are a contract with every enrolled keyslot and do not change.
 The bytes are fixed by a known answer in a test (taken from the earlier
 separate combiner, hashpwd2): a keyslot enrolled with it opens with
-tpm2-kira's recovery recipe, and the other way round.
+kira's recovery recipe, and the other way round.
 
 ---
 
@@ -1118,7 +1118,7 @@ protective but are not, and `slot add`/`slot approve` warn about each:
 | PCR 7 with Secure Boot disabled, or the platform in Setup Mode | PCR 7 records the Secure Boot state and policy. With Secure Boot off it faithfully records "disabled", and nothing verifies which bootloader or kernel runs — a matching PCR 7 does not mean the boot chain was checked. In Setup Mode the keys can be replaced without physical presence, so the attested policy is one any root user can rewrite. `control` judges both red. |
 
 On the machine, the Secure Boot state is read from `/sys/firmware/efi/efivars`. When it
-cannot be read at all, tpm2-kira says so rather than staying silent. A phone and the vault
+cannot be read at all, kira says so rather than staying silent. A phone and the vault
 do not take that word: they establish it from the quote (§13.5).
 
 ### Trust boundaries
@@ -1182,12 +1182,12 @@ What this means in practice:
 3. **Deleting a record, or a slot's indices, is a denial of service.** Root
    removes the variable; a firmware reset of its variables may too;
    `TPM2_NV_UndefineSpace` takes an index with the owner hierarchy, whose
-   auth value tpm2-kira presents empty throughout (`TPM2_CreatePrimary`,
+   auth value kira presents empty throughout (`TPM2_CreatePrimary`,
    defining the indices, `slot delete`). The slot's methods then fail at
    boot and the fallbacks unlock: the password and salt typed (recipe
    0x1100), then the operating system's recovery passphrase. `status` and
    `control` name what is left of the slot, and why, and remove it.
-   tpm2-kira itself removes an index when it has the public area tpm2-kira
+   kira itself removes an index when it has the public area kira
    defines at that place, or, at one of its own places, when root saw another
    one and said so (aSSH's `persist`, `nvslot.RemoveIndex`).
 4. **The real access control is on the key objects**, not on where the
@@ -1200,7 +1200,7 @@ What this means in practice:
    there, so a failed write leaves the record as it was.
 
 An owner-hierarchy password would close the delete path for the indices, but
-tpm2-kira always presents an empty owner auth value, so it would stop working on
+kira always presents an empty owner auth value, so it would stop working on
 such a system, and it takes the close's step 2 away (§14). Supporting owner auth is
 outside the current design.
 
@@ -1221,7 +1221,7 @@ blob
     ├── identity, attestation key, quoted PCRs, count
     └── methods                typed blocks; who may ask for a quote, and how
         ├── 1  phones over Bluetooth LE
-        └── 2  tpm2-kira-vault over HTTPS
+        └── 2  kira-vault over HTTPS
 ```
 
 The attestation part is the same for every method: one attestation key, one
@@ -1300,7 +1300,7 @@ Offset  Field                   Type        Notes
 ?         Method count          uint8       Each type at most once
           For each method:
             Method type         uint8       1 = phones over Bluetooth LE
-                                            2 = tpm2-kira-vault over HTTPS
+                                            2 = kira-vault over HTTPS
             Method length       uint32
             Method data         []byte      By type, below; must fill the length
           Method type 1, phones over Bluetooth LE:
@@ -1319,7 +1319,7 @@ Offset  Field                   Type        Notes
               NoisePub          [32]byte    X25519 static key of the phone
               PolicyID length   uint16      ≤ 64
               PolicyID          string
-          Method type 2, tpm2-kira-vault over HTTPS:
+          Method type 2, kira-vault over HTTPS:
             URL length          uint16      ≤ 512
             URL                 string      https://host:port
             Pin                 [32]byte    SHA-256 of the vault's TLS root's SPKI (tokens and the
@@ -1330,7 +1330,7 @@ Offset  Field                   Type        Notes
                                                   unattended recipes' password); empty with a typed password
             Local secret        uint32 + []byte   ≤ 1024: TPM2B_ENCRYPTED_SECRET
             Pepper              uint8       1: the salt is made with an operator's pepper
-            PepperCheck         uint16 + []byte   0 or 16: HMAC-SHA256(key, "tpm2-kira/vault/pepper-check/v1"),
+            PepperCheck         uint16 + []byte   0 or 16: HMAC-SHA256(key, "kira/vault/pepper-check/v1"),
                                             its first 16 bytes
                                             for an unattended recipe with a pepper
 ─────────────────────── end of signed region ───────────────────────
@@ -1391,7 +1391,7 @@ terminators.
 
 ## 11. Why No Password Fallback
 
-tpm2-kira has no password-based recovery for a slot; the signing key is the
+kira has no password-based recovery for a slot; the signing key is the
 only way back in, because:
 
 1. **Passwords are weak.** A password stored alongside the blob (or memorised
@@ -1428,12 +1428,12 @@ only way back in, because:
    passwords until the TOTP code is verified.
 6. **Approve after planned changes.** The hooks approve after an image rebuild and,
    on Arch, after `bootctl update`. After firmware updates, Secure Boot key rotations,
-   and on Debian a shim or GRUB package, run `tpm2-kira slot approve`; `status` says
+   and on Debian a shim or GRUB package, run `kira slot approve`; `status` says
    when PCR 4 is due.
 7. **Read `control`'s status when something looks wrong.** Whatever the close came to
-   other than PCR 15 is red there until the next boot, and `tpm2-kira slot info`
+   other than PCR 15 is red there until the next boot, and `kira slot info`
    reports a slot as closed until the next boot (PCR 15) in the running system.
-8. **NV index range.** tpm2-kira uses `0x01803000` (the boot settings),
+8. **NV index range.** kira uses `0x01803000` (the boot settings),
    the generation indices `0x01803810–0x0180381F` and the record counters
    `0x01803820–0x0180382F` (TPM2 owner-defined NV range); the slots' records
    are EFI variables. Avoid conflicts with other applications using the
@@ -1673,7 +1673,7 @@ the outcome. Every slot object carries `PolicyPCR(15 == zero)` after
 PolicyPCR(15 == its open value)`, in the object itself: no approval can leave it out,
 no NV index holds it, nothing can reopen it but `TPM2_Startup(CLEAR)`, the next boot.
 A once-approved CA made with `--open-events` (safearch) has a non-zero open value;
-tpm2-kira's are open at zero and closed in the boot that makes them.
+kira's are open at zero and closed in the boot that makes them.
 
 ### 14.1 When it runs
 
@@ -1681,16 +1681,16 @@ tpm2-kira's are open at zero and closed in the boot that makes them.
    (the vault's part, the phone's salt, the TPM salt, the machine-id before them),
    before READY. Its failure is said; the next point decides.
 2. The image, whatever `run` did, with the TPM in the plan (a sealed slot, or an SSH
-   CA, also one kept while SSH is off): Arch `tpm2-kira-close.service` (after
-   `tpm2-kira.service`, before `cryptsetup-pre.target`, required by `initrd.target`),
-   Debian `scripts/local-top/tpm2-kira-close`, before cryptroot, once `run` has made its
+   CA, also one kept while SSH is off): Arch `kira-close.service` (after
+   `kira.service`, before `cryptsetup-pre.target`, required by `initrd.target`),
+   Debian `scripts/local-top/kira-close`, before cryptroot, once `run` has made its
    READY file or is gone. Both before any volume is opened. Debian's
-   `scripts/init-bottom/tpm2-kira` closes once more: a root that is not local has no
+   `scripts/init-bottom/kira` closes once more: a root that is not local has no
    `local-top`, and a TPM may have come by then.
 3. Right before a resume from hibernation, which starts the TPM afresh (PCR 15 back
    to zero) and runs no code screen: Arch a drop-in on
-   `systemd-hibernate-resume.service`, Debian `scripts/local-top/tpm2-kira-close`, both
-   `tpm2-kira-boot close --resume`.
+   `systemd-hibernate-resume.service`, Debian `scripts/local-top/kira-close`, both
+   `kira-boot close --resume`.
 
 An extend more changes nothing: PCR 15 never goes back. Its value says how many closes
 ran (§17.2). `TPM2_PCR_Event(15, "assh-close")` gives the same digest in every bank as
@@ -1700,7 +1700,7 @@ is said and is never the close's.
 
 PCR 15 must be zero at the code screen. `slot add`, `slot approve`, the CA's approvals
 refuse an event in PCR 15 in the firmware's log, and `status` and `control` say so in
-red: nothing of tpm2-kira's would open on such a machine. On Arch nothing in the initrd
+red: nothing of kira's would open on such a machine. On Arch nothing in the initrd
 measures into it before the close (systemd-pcrmachine and -pcrfs run in the root alone;
 systemd-cryptsetup's `tpm2-measure-pcr=` is off unless crypttab says so, and runs after
 the close); on Debian nothing measures into it at all.
@@ -1715,12 +1715,12 @@ Numbered as in docs/SSH.md, which has the operator's view.
 | 2 | it did not move, the TPM answers: the kill switch. `TPM2_HierarchyControl` clears `shEnable` with the owner's empty authorization (the platform's where that is refused), then `ehEnable` and `phEnable` with the platform's; the platform's authorization goes random before `phEnable` | closed, degraded: nothing under the owner answers, however the PCRs stand: no slot object, no SSH CA, no owner NV index. NULL-hierarchy keys and extends work. A firmware that locked the platform refuses `ehEnable` and `phEnable`: said, no failure | goes on: the passphrase and a temporary host key; console, `status`, `control` red |
 | 3 | `shEnable` stayed set (an owner password, the platform locked or set): PCR 7 extended, read back | closed, degraded: every slot of the rule (§15) reads PCR 7, so every approval is out. A slot chosen by hand without 7, and an aSSH CA without it, stay open | as 2 |
 | 5 | no device after the wait (30 s from the boot's first wait for it, `internal/bootwait`), and no firmware sign of a TPM: no TPM2 or TCPA ACPI table, no event log, nothing the stub measured | nothing to close | goes on, no error |
-| 6 | a firmware sign and no answer | one hard reboot, counted in the EFI variable `KIRAcloseReboot`. The next time in a row, or where the count cannot be written: no reboot, the next time in a row with no wait for the device either, `/run/tpm2-kira/close-pending`, and `tpm2-kira-late-close.service` asks every 2 s and closes the moment the TPM answers. A close that holds, some way, removes the count | goes on: the passphrase alone; console, `status`, `control` red |
+| 6 | a firmware sign and no answer | one hard reboot, counted in the EFI variable `KIRAcloseReboot`. The next time in a row, or where the count cannot be written: no reboot, the next time in a row with no wait for the device either, `/run/kira/close-pending`, and `kira-late-close.service` asks every 2 s and closes the moment the TPM answers. A close that holds, some way, removes the count | goes on: the passphrase alone; console, `status`, `control` red |
 | 7 | the TPM answers and refuses all of 1-3 | hard reboot, not counted: Arch `FailureAction=reboot-force`; Debian `reboot -f`, then SysRq `b`, then an endless loop | stops as long as that lasts: the one exception to "the passphrase can always be entered by hand" |
 
 ```mermaid
 flowchart TD
-  A["tpm2-kira-boot close"] --> D{"device within what is left of the boot's 30 s? none after the counted reboot"}
+  A["kira-boot close"] --> D{"device within what is left of the boot's 30 s? none after the counted reboot"}
   D -->|no| F{"firmware sign of a TPM?"}
   F -->|no| S5["5: nothing to close, go on"]
   F -->|yes| C{"reboot counted?"}
@@ -1756,19 +1756,19 @@ the image runs: `control` shows it red.
 A TPM in that state keeps the machine rebooting until the person takes one of these:
 
 - **Arch (UKI):** Secure Boot off in the firmware, which moves PCR 7, then at
-  systemd-boot's menu `e` and the word `tpm2-kira.noclose`. The stub ignores a passed
+  systemd-boot's menu `e` and the word `kira.noclose`. The stub ignores a passed
   command line while Secure Boot is on (systemd-stub(7)). The word is
-  `ConditionKernelCommandLine` on `tpm2-kira-close.service` alone; masking the unit does
+  `ConditionKernelCommandLine` on `kira-close.service` alone; masking the unit does
   not do, because `initrd.target` requires it and systemd freezes. Secure Boot on again
   afterwards.
 - **Debian (GRUB):** at GRUB's menu `e` (the superuser password `control` advises),
   `break=premount` on the `linux` line, which moves PCR 8. A shell comes before anything
-  of tpm2-kira's runs; there `rm -r /etc/tpm2-kira/plan/tpm` and `exit`, and the disk's
+  of kira's runs; there `rm -r /etc/kira/plan/tpm` and `exit`, and the disk's
   prompts follow.
 - **Either:** rescue media with the LUKS passphrase.
 
 In both boots no slot answers, the command line being outside every approval. Should
-the TPM mend in that boot: `tpm2-kira-boot close` by hand, and reboot.
+the TPM mend in that boot: `kira-boot close` by hand, and reboot.
 
 ---
 
@@ -1827,7 +1827,7 @@ Why these and not others:
   with addons an owner adds 12 by hand); 14 (shim's MOK list: a MOK that verifies a kernel
   is recorded in 7 as well).
 
-**The PCR key is a file**, `/etc/tpm2-kira/pcr.key`, root's alone. Holding it in the TPM
+**The PCR key is a file**, `/etc/kira/pcr.key`, root's alone. Holding it in the TPM
 instead would keep a stolen disk or backup from carrying it away, not root on this machine
 from using it: a non-exportable key with no PCR 15 in its policy, as the UKI is built after
 the close (ukify's `--signing-provider=tpm2`, a new dependency `tpm2-openssl` on Arch). An
@@ -1846,28 +1846,28 @@ arguments (docs/BOOT-INTEGRATION.md, "Arch and Debian"). What differs:
 | Secure Boot on (VM) | the owner's keys, by sbctl: loader and UKI signed; its post hook signs a rebuild. The kernel does not lock itself down | Microsoft's certificates in db: shim, then Debian's GRUB and kernel. The kernel locks itself down (`integrity`) and refuses hibernation |
 | The initrd on the phone (§13.5a) | PCR 11: the hash of `.initrd\0` among its events | PCR 8: the hash of GRUB's `initrd` command, with 9 quoted |
 | A volume | after the close: `cryptsetup-pre.target` is in the image, which the hook adds | after the close: cryptroot runs last in `local-top` (its prerequisites name the others), the close before it waits for `run`'s READY file or `run` gone |
-| Secure Boot checks | loader and the UKI: kernel, initrd, command line. The UKI's db signature comes from outside tpm2-kira (§18). systemd-boot refuses its editor and the stub a passed command line with Secure Boot on | GRUB and the kernel; not GRUB's command line, not the initrd |
+| Secure Boot checks | loader and the UKI: kernel, initrd, command line. The UKI's db signature comes from outside kira (§18). systemd-boot refuses its editor and the stub a passed command line with Secure Boot on | GRUB and the kernel; not GRUB's command line, not the initrd |
 | The image in a slot | PCR 11, signed (`11s`) | PCR 8, 9, approved (`8e,9e`), and no slot without them |
 | A kernel update | the hook approves PCR 4 and the plain PCRs; 11 needs no approval; skipped, slot 1 still holds | the hook approves 8 and 9 in both slots, 4 in slot 0; skipped, the next boot has no slot and a temporary host key |
 | A loader update | a drop-in on `systemd-boot-update.service`: `slot approve --if-moved` | no hook for a shim or GRUB package (§19) |
-| The PCR key | `/etc/tpm2-kira/pcr.key`, `uki.conf` | none: GRUB signs nothing |
+| The PCR key | `/etc/kira/pcr.key`, `uki.conf` | none: GRUB signs nothing |
 | Measure point | after `enter-initrd`, before `systemd-pcrosseparator` | before cryptroot; no systemd in the image, so no separator and no phase word |
-| Who starts `run` | `tpm2-kira.service` | `scripts/init-premount/tpm2-kira` |
+| Who starts `run` | `kira.service` | `scripts/init-premount/kira` |
 | The disk's key | `systemd-cryptsetup` reads the socket (`rd.luks.key=`) | cryptroot's keyscript `unlock-key` asks the socket |
-| The image's close | `tpm2-kira-close.service`, a failure `FailureAction=reboot-force` | `scripts/local-top/tpm2-kira-close`, then `scripts/init-bottom/tpm2-kira`; a failure `reboot -f`, SysRq `b`, a loop |
+| The image's close | `kira-close.service`, a failure `FailureAction=reboot-force` | `scripts/local-top/kira-close`, then `scripts/init-bottom/kira`; a failure `reboot -f`, SysRq `b`, a loop |
 | The late closer | in the image and the root | in the root; the image has no systemd to start it |
-| Before a resume | drop-in on `systemd-hibernate-resume.service` | `scripts/local-top/tpm2-kira-close` |
-| The way out of step 7 | `tpm2-kira.noclose`, Secure Boot off | `break=premount`, the plan's TPM part removed |
+| Before a resume | drop-in on `systemd-hibernate-resume.service` | `scripts/local-top/kira-close` |
+| The way out of step 7 | `kira.noclose`, Secure Boot off | `break=premount`, the plan's TPM part removed |
 | A console edit | refused with Secure Boot on | possible without a GRUB password, red in `control`; moves PCR 8 |
-| The log | `journalctl -b -u tpm2-kira.service` | `/run/initramfs/tpm2-kira.log` |
+| The log | `journalctl -b -u kira.service` | `/run/initramfs/kira.log` |
 
 Which key does what:
 
 | Key | Type, where it lives | Made by | What it does | Taken or lost |
 |---|---|---|---|---|
-| Secure Boot db key | the owner's (sbctl's layout, e.g.), outside tpm2-kira on this branch (§18); on Debian the distribution's chain of shim, GRUB and the kernel | the owner | has the firmware start the loader and the UKI (a changed one: `Access Denied`, §17.2); PCR 7 records it | any image it signs starts; a slot still needs PCR 11 signed by the PCR key |
-| PCR key | RSA-2048, `/etc/tpm2-kira/pcr.key` (0400), `pcr.pem`; a copy of the public part in the record | `setup`, not on GRUB | signs PCR 11 at `enter-initrd` through ukify | with the db key: an image slot 1 trusts (§19). Revocation: a new key and the slots approved again |
-| Signing key | ECDSA P-256 by default, `/etc/tpm2-kira/keys/seal.key` (0400), or a YubiKey PIV key; or any RSA-2048, P-256, P-384 | `setup` | approves PCR states for the slots and the CA, writes the generation and boot settings indices, signs the record | its holder approves any state, for the next boot on (§19). Lost: no approvals; slots go when the boot state moves, set up again |
+| Secure Boot db key | the owner's (sbctl's layout, e.g.), outside kira on this branch (§18); on Debian the distribution's chain of shim, GRUB and the kernel | the owner | has the firmware start the loader and the UKI (a changed one: `Access Denied`, §17.2); PCR 7 records it | any image it signs starts; a slot still needs PCR 11 signed by the PCR key |
+| PCR key | RSA-2048, `/etc/kira/pcr.key` (0400), `pcr.pem`; a copy of the public part in the record | `setup`, not on GRUB | signs PCR 11 at `enter-initrd` through ukify | with the db key: an image slot 1 trusts (§19). Revocation: a new key and the slots approved again |
+| Signing key | ECDSA P-256 by default, `/etc/kira/keys/seal.key` (0400), or a YubiKey PIV key; or any RSA-2048, P-256, P-384 | `setup` | approves PCR states for the slots and the CA, writes the generation and boot settings indices, signs the record | its holder approves any state, for the next boot on (§19). Lost: no approvals; slots go when the boot state moves, set up again |
 | SSH CA | ECDSA P-256 or RSA-2048, in the TPM, wrapped in the EFI variable `KIRAasshCA`, noDA | `control` | certifies this boot's host key, while PCR 15 is zero and a slot's PCRs are approved | never leaves. A TPM clear or variable wipe loses it: a new CA, the clients' line again |
 | Host key | the CA's type, in the TPM under the NULL hierarchy; its authorization value only in `run`'s memory | `run`, at every boot | signs every key exchange of this boot, after the close too | gone at the next reboot; stored nowhere |
 | Temporary host key | as the host key, not certified | `run`, when no slot certifies or the CA is closed | lets the server serve; fingerprint on the console | as the host key; not checkable from afar (§19) |
@@ -1875,13 +1875,13 @@ Which key does what:
 | Attestation key | restricted signing, wrapped in the record | `phone enrol`, a vault enrolment | signs quotes; certifies the boot key | a quote says what the registers are, no more |
 | Boot key | ECC P-256, wrapped in the record, slot policy, noDA | enrolment | sign and ECDH for the phone (§3.4) | useless outside the slot's policy |
 | Release key | ECC P-256, wrapped in the record, slot policy + `PolicyCommandCode(ActivateCredential)`, noDA | enrolment | is what the wrapped TPM salt and vault part open for (§3.7) | as the boot key |
-| LUKS volume key and keyslots | in the LUKS2 header; the key tried is `Combine(password, salt)` (§5.9) | `luks enrol`, the OS's own passphrase keyslot | the disk. At boot tpm2-kira reads the header's tpm2-kira token, answers with the key, and never speaks to device-mapper | the recovery passphrase is always there; a typed password's strength is the limit offline |
+| LUKS volume key and keyslots | in the LUKS2 header; the key tried is `Combine(password, salt)` (§5.9) | `luks enrol`, the OS's own passphrase keyslot | the disk. At boot kira reads the header's kira token, answers with the key, and never speaks to device-mapper | the recovery passphrase is always there; a typed password's strength is the limit offline |
 
 ---
 
 ## 17. What Has Been Tested
 
-**The code:** tpm2-kira `b4fd6ba` (blob 20, schema 4; what came after it: test tools, documentation and, at `7891c05`, `status` and `slot info` reading the public key, by `make test-all` alone), vault `c33cfce`, Marify `0615597`, aSSH `8c18175`, safearch `f9c8745`, go-uefi-slim `8f7d9c7`. Rows at another commit say so.
+**The code:** kira `b4fd6ba` (blob 20, schema 4; what came after it: test tools, documentation and, at `7891c05`, `status` and `slot info` reading the public key, by `make test-all` alone), vault `c33cfce`, Marify `0615597`, aSSH `8c18175`, safearch `f9c8745`, go-uefi-slim `8f7d9c7`. Rows at another commit say so.
 **Date:** 2026-11-03.
 
 **The machines:** the VMs are QEMU with OVMF and swtpm as their TPM. The proof's first part runs in
@@ -1904,10 +1904,10 @@ Logs: `.local/runs/` of the workspace.
 | `tools/hibernatetest.py --target both --no-build`, in parallel | f0965aa | VM | Arch 163, Debian 152, 0 failed, with the "not tested" items in §18 (`l/final/hib`) |
 | A resumed guest, `--only V2` with a wait added | 75121e2 | VM | Arch: slot 0's TOTP key refuses after the resume, same boot_id 75 s after the first login, with `ICH9-LPC.noreboot` (`g5/resume-uptime.out`) |
 | `make test-all` | 7891c05 | unit, swtpm | 785 `--- PASS` lines, 5 skipped, 0 failed, no `(cached)`, alone, after the proof (`m/test-all-final.log`) |
-| A failing `tpm2.Policy` callback at go-tpm `c395998`, repeated on one open file (the probe `h2/leakprobe`) | - | Arch VM, kernel 7.2.9, swtpm behind it | `/dev/tpmrm0` and `/dev/tpm0`: the 4th is `TPM_RC_SESSION_MEMORY`. Closing the file clears `tpmrm0`; on `tpm0` the three sessions stay (`h2/probe.log`). tpm2-kira's sessions are explicit now (`TestFailuresLeaveNoSession`) |
+| A failing `tpm2.Policy` callback at go-tpm `c395998`, repeated on one open file (the probe `h2/leakprobe`) | - | Arch VM, kernel 7.2.9, swtpm behind it | `/dev/tpmrm0` and `/dev/tpm0`: the 4th is `TPM_RC_SESSION_MEMORY`. Closing the file clears `tpmrm0`; on `tpm0` the three sessions stay (`h2/probe.log`). kira's sessions are explicit now (`TestFailuresLeaveNoSession`) |
 | aSSH `go test ./...` | 8c18175 | unit, swtpm | 89 passed, 1 skipped (the lock as root: on the VMs, above), 0 failed (`l/final/assh.log`) |
 | go-uefi-slim `go test ./...` | 8f7d9c7 | unit | 46 passed, 1 skipped, 0 failed (`g5/go-uefi-slim.log`); `uki`'s three fuzz targets 40 s each (`g3/fuzz.log`) |
-| tpm2-kira-vault's tests | c33cfce, at the pin b4fd6ba | its suite, with and without go.work | all pass (`m/proof/vault.log`) |
+| kira-vault's tests | c33cfce, at the pin b4fd6ba | its suite, with and without go.work | all pass (`m/proof/vault.log`) |
 | safearch `tests/run.sh` | f9c8745 | stubs | 335 passed, 0 failed, 1 skipped (`l/final/safearch-run.log`) |
 | Marify `android/scripts/test-emulator.sh` | 0615597, core b4fd6ba; the instrumented tests again at cf9a966 | JVM, emulator, swtpm | first run: 59 JVM, 45 of 47 instrumented, 9 swtpm; the 2 were the tests' own (`m/marify-emulator.log`). After their fix, without swtpm and with the same core: 59, 47, 0 failed (`m/marify-emulator-2.log`) |
 | safearch `tests/vm.sh` | f9c8745, aSSH 8c18175 | VM (a fresh build, swtpm) | 48 checks passed, 0 failed (96 PASS lines in the log, each written twice; `l/final/safearch-vm.log`, `mkosi.test/vm/run-20261102-171448`) |
@@ -1919,16 +1919,16 @@ Both machines unless it says otherwise; step names (V2, V4, ...) are hibernatete
 | Scenario | What the checks saw | Ran on |
 |---|---|---|
 | A normal boot | code screen over SSH with slot 0's and slot 1's codes equal to the authenticator's; host key certified by the CA (strict `known_hosts`); password and salt asked in the session; the key answered; the system up. Twice, and again after the hibernation steps | Arch, Debian |
-| After the code screen | every slot reports closed, slot 0's TOTP key refuses, PCR 15 extended in the running system; `run` logged its close; no late closer, no reboot counted. The image's `tpm2-kira-close.service` ran (Arch) | Arch, Debian |
+| After the code screen | every slot reports closed, slot 0's TOTP key refuses, PCR 15 extended in the running system; `run` logged its close; no late closer, no reboot counted. The image's `kira-close.service` ran (Arch) | Arch, Debian |
 | PCR 4 | the value predicted before each boot is the register in that boot | Arch, Debian |
 | `ssh-child` confined | each boot's log: uid 2147352576 of aSSH's range, namespaces of its own, no new privileges, not dumpable, no executable memory, Landlock (ABI 10 on Arch, ABI 6 on Debian), 70 system calls refused | Arch, Debian |
-| The image's contents | `tpm2-kira-boot`, not `tpm2-kira`; no control.conf; the plan names `unlock`, `codes`, `net`, `ssh`, `tpm`; no unit or script starts a gate | Arch, Debian |
+| The image's contents | `kira-boot`, not `kira`; no control.conf; the plan names `unlock`, `codes`, `net`, `ssh`, `tpm`; no unit or script starts a gate | Arch, Debian |
 | Signed PCR 11 | ukify signs through `uki.conf` (`enter-initrd`), the PCR key mode 0400, slot 0's PCR 11 is signed; the CA's slots 0,2,4,7 and 7, each with 11 signed | Arch |
 | A kernel not approved | image built without the hook: slot 0 no code (PCR 4 moved), slot 1's code right, host key certified through slot 1, system up; `slot approve` brings slot 0 back | Arch |
 | GRUB selection | `slot add` refuses a slot without 8 and 9; fallback `7e,8e,9e`, slot 0 `0e,2e,4u,7e,8e,9e`; every slot and the CA's slots (`0,2,4,7,8,9`, `7,8,9`) include them | Debian |
 | TPM salt | recipe 0x1200 enrolled; opened while the code screen held; unlock with the password alone; removed with its last keyslot | Arch, Debian |
 | Vault, unattended | recipe 0x2400 enrolled (refused without a root of the vault); the system up with nobody at console or SSH; on Arch by a slot whose PCR 11 is signed, its selection taken from the slot | Arch, Debian |
-| Vault, revoked | the vault refuses, tpm2-kira says so and asks the typed keyslot; unlock with password and salt | Arch, Debian |
+| Vault, revoked | the vault refuses, kira says so and asks the typed keyslot; unlock with password and salt | Arch, Debian |
 | Vault, pepper | a wrong pepper refused by the pepper check, a new approval asked; the right one over the operator interface makes the key; the audit log holds no pepper | Arch, Debian |
 | Vault, typed recipe with pepper | recipe 0x1401, salt released during the hold, the password asked with it | Arch, Debian |
 | Removal | `slot delete` names the CA and takes every index, the CA's variable, the machine-id's, `ssh_ca.pub`. `control` asks before removing the CA with SSH off; No keeps it | Arch, Debian |
@@ -1936,7 +1936,7 @@ Both machines unless it says otherwise; step names (V2, V4, ...) are hibernatete
 | Secure Boot really on | Arch by sbctl with Microsoft's certificates, the loader and the UKI signed; Debian by go-uefi-slim's `vmcheck`, shim from Microsoft's db, nothing signed by us. The typed boot: codes right, certified host key, the slots' PCR 7 as approved from the log, nothing said of Secure Boot anywhere | Arch, Debian |
 | The vault with Secure Boot on | the machine's real PCR 7 quoted, the real event log's digests: `on` in the devices table, the device's view and the audit; established in Debian's initrd; releases with a pepper, a revoked device's refusal and the fallback | Arch, Debian |
 | The firmware refuses a changed image | one byte changed. Arch's UKI: `Error loading EFI binary \EFI\Linux\arch-linux.efi: Access denied`; Debian's shim: `failed to load Boot0008 ... Access Denied -- rejected probably by Secure Boot` | Arch, Debian |
-| A volume after the close | Arch: the journal of each typed boot and of the silent TPM's second boot: the close finished before `Cryptography Setup` starts, no ordering cycle in PID 1's lines; `systemd-analyze verify` on the image's units; the silent TPM's first boot shows no volume's unit and no prompt before its reboot. Debian: the image's `ORDER` has `tpm2-kira-close` before `cryptroot`, cryptroot last, no `tsort` loop in the build; the boot's log of each typed boot has `run`'s close, then the image's, then the first key request; the silent TPM's first boot has no prompt before its reboot, the second says it before the prompt | Arch, Debian |
+| A volume after the close | Arch: the journal of each typed boot and of the silent TPM's second boot: the close finished before `Cryptography Setup` starts, no ordering cycle in PID 1's lines; `systemd-analyze verify` on the image's units; the silent TPM's first boot shows no volume's unit and no prompt before its reboot. Debian: the image's `ORDER` has `kira-close` before `cryptroot`, cryptroot last, no `tsort` loop in the build; the boot's log of each typed boot has `run`'s close, then the image's, then the first key request; the silent TPM's first boot has no prompt before its reboot, the second says it before the prompt | Arch, Debian |
 | A refused lock | `setup`, `slot add`, `slot approve --unattended` and the image's post hook as root without `CAP_IPC_LOCK` under a limit: stopped before a key is read, the hook says the approval did not succeed and ends 0 | Arch, Debian |
 | Hibernation risk (V6) | no risk with encrypted swap; red with a swap file on Debian's unencrypted /boot | both; the swap file Debian |
 | Suspend (V5) | after S3 the CA is still closed (restartCount 0 → 1) | Arch, Debian |
@@ -1945,7 +1945,7 @@ Both machines unless it says otherwise; step names (V2, V4, ...) are hibernatete
 | Step 5 (V4) | no device, no TPM2 table, nothing measured: no reboot, no failed close, the machine up from the passphrase's recipe | Arch, Debian |
 | Step 6 (V4 on Arch, from the hibernated state; V9 on Debian, a boot of its own) | `initcall_blacklist=crb_acpi_driver_init`: one hard reboot, no shell on the way, the passphrase, a fresh boot with no resume, no TPM device, state `pending`, the late closer active, the reboot counted, `status` red | Arch, Debian |
 | A holding close clears the count (V9) | the count gone, state `closed`, nothing pending | Debian; Arch on swtpm only |
-| The way out's mechanics (V8) | no TPM in the boot. Arch: Secure Boot off (the VM's Setup Mode), `tpm2-kira.noclose` at systemd-boot's editor, the close unit left out by its condition. Debian: `break=bottom` written into grub.cfg, the `(initramfs)` shell, the plan's TPM part removed. Up from the passphrase's recipe | Arch, Debian |
+| The way out's mechanics (V8) | no TPM in the boot. Arch: Secure Boot off (the VM's Setup Mode), `kira.noclose` at systemd-boot's editor, the close unit left out by its condition. Debian: `break=bottom` written into grub.cfg, the `(initramfs)` shell, the plan's TPM part removed. Up from the passphrase's recipe | Arch, Debian |
 
 ### 17.3 On swtpm only
 
@@ -1961,7 +1961,7 @@ transport that refuses named commands.
 | The late closer closes the moment the TPM answers, and leaves no count | `TestLate` |
 | A close that holds clears the count | `TestClosedClearsTheCount` |
 | S3 keeps `shEnable` and `ehEnable` clear, sets `phEnable` again; the empty platform authorization cannot set `shEnable` back; PCR 15 kept | aSSH `TestCloseAcrossSuspend` |
-| The close ends every slot object in both banks; the TPM refuses past tpm2-kira's own check (`TPM_RC_POLICY_FAIL`); the next boot works | `TestTheCloseEndsEverySlotObject` |
+| The close ends every slot object in both banks; the TPM refuses past kira's own check (`TPM_RC_POLICY_FAIL`); the next boot works | `TestTheCloseEndsEverySlotObject` |
 | A lockout does not stop the slots | `TestSlotsWorkInLockout` |
 | The SSH CA after the close: past the software's check, the TPM refuses | aSSH `TestClose`; `TestHostKeyClose` |
 | Signed PCR 11: the image approved with works, another signed image needs no approval, past `enter-initrd` and an unsigned image are refused, the close ends it | `TestSlotWithSignedPCR11` |
@@ -1983,13 +1983,13 @@ with an event in PCR 15), `TestNoTPMAtAll` and `TestSilentTPM` (steps 5 and 6's 
 
 ## 18. What Failed or Is Not Proven
 
-**WARNING, a gap between this code and tpm2-kira/AGENTS.md.** AGENTS.md says tpm2-kira
+**WARNING, a gap between this code and kira/AGENTS.md.** AGENTS.md says kira
 manages Secure Boot itself: its keys, the enrolment, the image signed with the db key
 before `slot approve`, `control` naming foreign certificates. On this branch none of that
 exists: `internal/secureboot` is on `exp/debian-uki` alone. The code here only reads the
 Secure Boot state (`sbstate.Read`), judges it in `control` and `status`, says it at boot,
 and uses go-uefi-slim for EFI variables and PCR 4's Authenticode hashes. On Arch the UKI's
-db signature comes from outside, from sbctl or whatever the owner runs; tpm2-kira neither
+db signature comes from outside, from sbctl or whatever the owner runs; kira neither
 makes nor checks it.
 
 **WARNING, what still can reach swap.** `secret.LockProcess` (go-tui-slim) covers what holds a
@@ -2021,7 +2021,7 @@ VM's initrd.
 |---|---|
 | safearch's failed `sealed` extend | `tests/vm.sh` passes but forces no failed extend, so safearch's ladder and reboot are `tests/run.sh` stubs only |
 | Debian's resume itself | "Hibernate inconsistent memory map detected": the firmware's e820 differs between boots (OVMF, an ACPI data region moving; `*-memmap.diff`), so the kernel refuses the image. Reported as the test machine's defect. The close before it ran (§17.2); a resume after it has not been seen |
-| Arch V3, a resume with tpm2-kira masked, the close alone | the same refusal, in the five Arch runs of 2026-11-01 that got that far. V2 and V4-reverted resumed |
+| Arch V3, a resume with kira masked, the close alone | the same refusal, in the five Arch runs of 2026-11-01 that got that far. V2 and V4-reverted resumed |
 | GRUB `break=` gives a shell in which no slot opens | not shown end to end. There is the reasoning (PCR 8), `slot add`'s refusal (VM, unit) and PolicyPCR's refusal of moved PCRs in general (swtpm). V8's `break=bottom` shell ran with no TPM at all |
 | The kill switch on a booting system | steps 2 and 3 run on swtpm only; a full system on a VM has not gone through it. systemd's own TPM units may fail then |
 | Real firmware (platform authorization locked or empty) | none; `TestCloseKillSwitchPlatformLocked` is what stands in |
@@ -2056,7 +2056,7 @@ Each is taken knowingly: why the design still works, and how far.
 | Secure Boot on costs Debian its hibernation | Debian's kernel locks itself down under Secure Boot (`integrity`), and refuses hibernation (`Lockdown: ... hibernation is restricted`, seen on the VM; `/sys/power/disk` shows `[disabled]`). A vault's `on` and hibernation exclude each other there | Suspend to RAM stays. Arch's kernel does not lock down, and hibernates with it on, though no resume with Secure Boot on has been run (§18). An owner on Debian picks: a vault, or hibernation |
 | A hook's approval needs the memory lock | An approval that cannot lock stops before it reads the key, and the build goes on and says so | An image built in a container or a unit without `CAP_IPC_LOCK` under a limit is not approved: the next boot's slots are down until a `slot approve` where the lock holds |
 | An approved image with a root shell before the close | PCR 15 is zero there, and every other PCR as approved. Keep such images unapproved and unsigned | Codes and a certificate in that boot, not the keys. On a UKI with Secure Boot on the shell cannot come from an edited command line; a signed addon could add to it, so keep those unsigned |
-| An image without tpm2-kira under the same keys | The close is software in the approved image; the TPM cannot tell. It needs the PCR key's signature (or an approval) too | That one boot, with PCR 15 at zero |
+| An image without kira under the same keys | The close is software in the approved image; the TPM cannot tell. It needs the PCR key's signature (or an approval) too | That one boot, with PCR 15 at zero |
 | An early extend of PCR 15 (`tpm2-measure-pcr=` before the code screen) | It closes early | A denial of service only: a temporary key and no codes, never an open CA |
 | A TPM silent in the initrd, answering later in the same boot (step 6) | The late closer closes the moment it answers; `control` is red meanwhile | Root can kill the closer. Whoever can silence the TPM for the initrd alone and has root afterwards gets that one boot, if the PCRs hold an approved state. `KIRAcloseReboot` is plain: writing it spares a boot the reboot, not a close |
 | What boots under the same Secure Boot state reads the channel's secrets before the close | The gate must start in a boot nobody approved, or the phone could not show it as changed. So the object's first branch reads PCR 7 and PCR 15, no approval. A Microsoft-signed live USB and Secure Boot off are out (PCR 7). What stays: an image signed by the owner's db key, and on Debian an edited GRUB entry (`break=`, `rdinit=`): GRUB's command line is PCR 8, PCR 7 does not move | That machine can recognise the advertisements and imitate the Bluetooth endpoint, and keeps that ability once it has read them: an enrolment again makes new ones. It cannot produce a quote of a good state: quotes come from the TPM's registers as they are, the phone says changed. On Debian a GRUB superuser password closes the edited entry (`control` judges its absence red) |
@@ -2066,7 +2066,7 @@ Each is taken knowingly: why the design still works, and how far.
 | A temporary host key cannot be checked from afar | Its fingerprint is on the console; it lets the server run when no slot certifies | Whoever logs in remotely after a firmware update accepts an unknown key for that boot; never with `StrictHostKeyChecking=accept-new` |
 | A reboot loop with a broken TPM (step 7) | Booting on with an open CA is worse, and the way out exists (§14.3) | The one exception to the passphrase by hand; a person at the console needed |
 | A shim or GRUB package on Debian moves PCR 4 with no hook | `status` and `control` say it is due; slot 1 does not read 4 | Slot 0 is down until approved. A dpkg trigger would approve it |
-| Step 3 closes only what reads PCR 7 | Every slot of the rule, tpm2-kira's and safearch's, reads it | A slot chosen by hand without 7 and an aSSH CA of another selection stay open; `control` says so |
-| An owner password removes step 2 unless the platform's authorization is empty | Step 3 is left | PCR 7 alone closes then; tpm2-kira itself does not work with an owner password (§9) |
-| `tpm2-kira.noclose` | Honoured on a UKI only with Secure Boot off, which moves PCR 7, so nothing approved with Secure Boot on opens. `run` still closes | On a machine that runs with Secure Boot off, a console user can use it and the rest of the command line, `rd.systemd.mask=` too, which keeps `run` from closing (reasoned, not tested). Such a machine is red in `control` already (§8) |
+| Step 3 closes only what reads PCR 7 | Every slot of the rule, kira's and safearch's, reads it | A slot chosen by hand without 7 and an aSSH CA of another selection stay open; `control` says so |
+| An owner password removes step 2 unless the platform's authorization is empty | Step 3 is left | PCR 7 alone closes then; kira itself does not work with an owner password (§9) |
+| `kira.noclose` | Honoured on a UKI only with Secure Boot off, which moves PCR 7, so nothing approved with Secure Boot on opens. `run` still closes | On a machine that runs with Secure Boot off, a console user can use it and the rest of the command line, `rd.systemd.mask=` too, which keeps `run` from closing (reasoned, not tested). Such a machine is red in `control` already (§8) |
 | A degraded close turns the owner hierarchy off until the next boot | It is what closes when PCR 15 will not, and the passphrase needs nothing of it | Anything else kept under the owner hierarchy stops as well in that boot. PCR 7's way does not turn it off |

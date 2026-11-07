@@ -10,15 +10,15 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/diskkey"
 )
 
 // The route of the disk's key: how the initrd is told to take the key
-// from tpm2-kira. On a systemd initrd (Arch) that is the kernel command
-// line, rd.luks.key=<UUID>=/run/tpm2-kira/unlock.sock next to
+// from kira. On a systemd initrd (Arch) that is the kernel command
+// line, rd.luks.key=<UUID>=/run/kira/unlock.sock next to
 // rd.luks.name=<UUID>=<name>, or an x-initrd.attach line of /etc/crypttab
 // with the socket as its key file; on Debian the crypttab line's
-// keyscript=/lib/cryptsetup/scripts/tpm2-kira. tpm2-kira does not edit
+// keyscript=/lib/cryptsetup/scripts/kira. kira does not edit
 // these files - they are the boot's, and a wrong line there costs a
 // reboot - it reads them and prints the line as it should read, so the
 // person changes exactly that. 'luks route' is the command, 'luks enrol'
@@ -29,7 +29,7 @@ type RouteFinding struct {
 	File    string `json:"file"`
 	UUID    string `json:"uuid"`
 	Device  string `json:"device,omitempty"`
-	Routed  bool   `json:"routed"`            // the key comes from tpm2-kira
+	Routed  bool   `json:"routed"`            // the key comes from kira
 	Problem string `json:"problem,omitempty"` // what is wrong, if anything
 	Should  string `json:"should,omitempty"`  // the line as it should read
 	Note    string `json:"note,omitempty"`    // routed: how
@@ -139,7 +139,7 @@ func AdviseCmdline(file, cmdline, uuid string) (RouteFinding, bool) {
 			f.Routed, f.Note = true, "rd.luks.key= in "+file
 			return f, true
 		}
-		f.Problem = fmt.Sprintf("rd.luks.key= for %s is %s, not tpm2-kira's socket", uuid, path)
+		f.Problem = fmt.Sprintf("rd.luks.key= for %s is %s, not kira's socket", uuid, path)
 		fixed[keys[0]] = "rd.luks.key=" + uuid + "=" + diskkey.DefaultUnlockSocket
 	}
 	f.Should = strings.Join(fixed, " ")
@@ -195,7 +195,7 @@ func AdviseCrypttab(file string, data []byte, uuid, device string, debian bool) 
 		if key == diskkey.DefaultUnlockSocket {
 			f.Problem = fmt.Sprintf("the line for %s has the socket as its key file but no x-initrd.attach: the initrd does not read it", fields[0])
 		} else {
-			f.Problem = fmt.Sprintf("the line for %s has %s as its key file, not tpm2-kira's socket", fields[0], key)
+			f.Problem = fmt.Sprintf("the line for %s has %s as its key file, not kira's socket", fields[0], key)
 		}
 		o := strings.Split(opts, ",")
 		var kept []string
@@ -220,7 +220,7 @@ func isDebianInitramfs() bool {
 }
 
 // RouteFindings gathers the findings for the devices (every LUKS device
-// with a keyslot of tpm2-kira's when none is named), from the command
+// with a keyslot of kira's when none is named), from the command
 // line files and /etc/crypttab. A device routed nowhere gets a finding
 // with the line to add.
 func RouteFindings(devices []string, cmdlines []string, crypttab string) ([]RouteFinding, error) {
@@ -353,7 +353,7 @@ func WriteRouteFix(f RouteFinding) error {
 }
 
 // errRouteProblem: at least one finding has a problem.
-var errRouteProblem = errors.New("the disk's key is not routed through tpm2-kira everywhere")
+var errRouteProblem = errors.New("the disk's key is not routed through kira everywhere")
 
 // LuksRoute prints the findings; exit status 1 when a problem remains.
 func LuksRoute(devices []string, cmdlines []string, crypttab string, jsonOut bool) error {
@@ -370,7 +370,7 @@ func LuksRoute(devices []string, cmdlines []string, crypttab string, jsonOut boo
 		return enc.Encode(findings)
 	}
 	if len(findings) == 0 {
-		fmt.Println("No LUKS device has a keyslot of tpm2-kira's; nothing to route (tpm2-kira luks enrol).")
+		fmt.Println("No LUKS device has a keyslot of kira's; nothing to route (kira luks enrol).")
 		return nil
 	}
 	problem := false
@@ -392,7 +392,7 @@ func routeText(f RouteFinding) string {
 		dev = f.UUID
 	}
 	if f.Routed {
-		fmt.Fprintf(&b, "%s (%s): the key comes from tpm2-kira: %s\n", dev, f.UUID, f.Note)
+		fmt.Fprintf(&b, "%s (%s): the key comes from kira: %s\n", dev, f.UUID, f.Note)
 		return b.String()
 	}
 	fmt.Fprintf(&b, "%s (%s): %s: %s.\n", dev, f.UUID, f.File, f.Problem)

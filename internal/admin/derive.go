@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/tpm2-trust/go-tui-slim/secret"
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/diskkey"
 )
 
 // DeriveCommand is the recovery recipe's key by hand: the password and the
@@ -50,12 +50,12 @@ func DeriveCommand(out string) error {
 		return err
 	}
 	fmt.Printf("Key written to %s\n\n", out)
-	fmt.Println("Next steps - tpm2-kira does not touch your keyslots:")
+	fmt.Println("Next steps - kira does not touch your keyslots:")
 	fmt.Printf("    cryptsetup luksAddKey <device> %s\n", out)
 	fmt.Printf("    cryptsetup open --test-passphrase <device> --key-file %s\n", out)
 	fmt.Printf("    rm %s\n", out)
 	fmt.Println()
-	fmt.Println("Then mark the keyslot (tpm2-kira luks mark <device> --keyslot N --salt typed):")
+	fmt.Println("Then mark the keyslot (kira luks mark <device> --keyslot N --salt typed):")
 	fmt.Println("the mark is all the boot needs - it reads the recipe from the header and asks for")
 	fmt.Println("the password and the salt to derive this key. Keep a recovery passphrase in")
 	fmt.Println("another keyslot; it works at cryptsetup's prompt.")

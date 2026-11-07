@@ -10,7 +10,7 @@
 #
 # Without targets all three are built. Everything lands in build/packages/.
 #
-# The app links the tpm2-kira commit pinned in marify/core.properties.
+# The app links the kira commit pinned in marify/core.properties.
 # --core-head pins HEAD there first (a change to commit in marify);
 # without it, a pin behind HEAD is reported and built as pinned.
 #
@@ -58,16 +58,16 @@ fi
 die() { echo "error: $*" >&2; exit 1; }
 step() { printf '\n\033[1m== %s\033[0m\n' "$*"; }
 
-# source_archive OUT.tar.gz: HEAD under tpm2-kira-$short/, with the commit
+# source_archive OUT.tar.gz: HEAD under kira-$short/, with the commit
 # of each submodule that HEAD records ('git archive' leaves submodules out).
 source_archive() {
     local tar="${1%.gz}" mode sha path
-    git archive --format=tar --prefix="tpm2-kira-$short/" -o "$tar" HEAD
+    git archive --format=tar --prefix="kira-$short/" -o "$tar" HEAD
     while read -r mode _ sha path; do
         [[ $mode == 160000 ]] || continue
         git -C "$path" cat-file -e "$sha^{commit}" 2>/dev/null ||
             die "submodule $path lacks commit $sha: run 'git submodule update --init'"
-        git -C "$path" archive --format=tar --prefix="tpm2-kira-$short/$path/" "$sha" >"$tar.sub"
+        git -C "$path" archive --format=tar --prefix="kira-$short/$path/" "$sha" >"$tar.sub"
         tar --concatenate -f "$tar" "$tar.sub"
         rm "$tar.sub"
     done < <(git ls-tree -r HEAD)
@@ -90,7 +90,7 @@ if $fast_kdf; then
     echo "WARNING: a TEST build, Argon2id at a test's cost: not for a real disk, no final proof"
 fi
 mkdir -p "$out"
-echo "tpm2-kira $short, Go $gover, into ${out#"$root"/}/"
+echo "kira $short, Go $gover, into ${out#"$root"/}/"
 
 # Check every target's tools before building anything.
 if want arch; then command -v makepkg >/dev/null || die "makepkg not found: the Arch package is built on Arch Linux (or leave out 'arch')"; fi
@@ -107,14 +107,14 @@ if want arch; then
     version="$(git describe --tags --long HEAD | sed -e 's/^v//' -e 's/-\([0-9]\+\)-g/.r\1.g/' | tr '-' '_')$fast_mark"
     aur="$root/build/aur"
     mkdir -p "$aur"
-    rm -rf "$aur"/tpm2-kira-* "$aur/PKGBUILD" "$aur/src" "$aur/pkg"
-    source_archive "$aur/tpm2-kira-$short.tar.gz"
-    digest="$(sha256sum "$aur/tpm2-kira-$short.tar.gz" | cut -d' ' -f1)"
+    rm -rf "$aur"/kira-* "$aur/PKGBUILD" "$aur/src" "$aur/pkg"
+    source_archive "$aur/kira-$short.tar.gz"
+    digest="$(sha256sum "$aur/kira-$short.tar.gz" | cut -d' ' -f1)"
     # The PKGBUILD in packaging/aur fetches the release tag and aSSH's
     # commit; this one takes the archive of HEAD, submodules included.
     sed -e '/^_tag=/d' -e '/^source+=/d' \
         -e "s/^pkgver=.*/pkgver=$version/" \
-        -e "s/^source=.*/source=(\"tpm2-kira-$short.tar.gz\")/" \
+        -e "s/^source=.*/source=(\"kira-$short.tar.gz\")/" \
         -e "s/^sha256sums=.*/sha256sums=('$digest')/" \
         -e "s/^_srcdir=.*/_srcdir=\"\$pkgname-$short\"/" \
         packaging/aur/PKGBUILD > "$aur/PKGBUILD"
@@ -124,21 +124,21 @@ if want arch; then
     fi
     # The unit tests have their own run (AGENTS.md); --nocheck skips them here.
     (cd "$aur" && GOTOOLCHAIN="$gover" makepkg -f --nocheck)
-    rm -f "$out"/tpm2-kira-*.pkg.tar.zst
-    cp "$aur"/tpm2-kira-"$version"-*.pkg.tar.zst "$out/"
+    rm -f "$out"/kira-*.pkg.tar.zst
+    cp "$aur"/kira-"$version"-*.pkg.tar.zst "$out/"
 fi
 
 if want deb; then
     step "Debian package"
-    image="tpm2-kira-deb-build:$gover"
+    image="kira-deb-build:$gover"
     if ! docker image inspect "$image" >/dev/null 2>&1; then
         docker build --network host -t "$image" --build-arg GOVER="$gover" packaging/deb
     fi
     debver="$(packaging/deb-version.sh "$(git describe --tags HEAD)")$fast_mark"
     deb="$root/build/deb"
     mkdir -p "$deb"
-    rm -f "$deb"/*.deb "$deb"/*.changes "$deb"/*.buildinfo "$deb"/tpm2-kira-*.tar.gz
-    source_archive "$deb/tpm2-kira-$short.tar.gz"
+    rm -f "$deb"/*.deb "$deb"/*.changes "$deb"/*.buildinfo "$deb"/kira-*.tar.gz
+    source_archive "$deb/kira-$short.tar.gz"
     # The Go build cache stays in build/deb/.gocache across runs. The host's
     # network: the build fetches modules, and a container's own network
     # depends on the host's firewall rules for docker, which another
@@ -146,17 +146,17 @@ if want deb; then
     docker run --rm --network host -v "$deb:/out" -e SHORT="$short" -e DEBVER="$debver" -e OWNER="$(id -u):$(id -g)" -e FAST_MARK="$fast_mark" \
         "$image" bash -ec '
             mkdir -p /build && cd /build
-            tar xzf "/out/tpm2-kira-$SHORT.tar.gz" && cd "tpm2-kira-$SHORT"
-            sed -i "1s/^tpm2-kira (.*)/tpm2-kira ($DEBVER)/" debian/changelog
+            tar xzf "/out/kira-$SHORT.tar.gz" && cd "kira-$SHORT"
+            sed -i "1s/^kira (.*)/kira ($DEBVER)/" debian/changelog
             if [ -n "$FAST_MARK" ]; then
                 sed -i -e "s/go build -ldflags/go build -tags kira_test_fast_kdf -ldflags/" -e "/release-binary-check/d" debian/rules
                 [ "$(grep -c "go build -tags kira_test_fast_kdf" debian/rules)" = 2 ]
             fi
             DEB_BUILD_OPTIONS=nocheck GOCACHE=/out/.gocache dpkg-buildpackage -us -uc -b
-            cp ../tpm2-kira_*.deb ../*.changes ../*.buildinfo /out/
+            cp ../kira_*.deb ../*.changes ../*.buildinfo /out/
             chown -R "$OWNER" /out'
-    rm -f "$out"/tpm2-kira_*.deb
-    cp "$deb"/tpm2-kira_*.deb "$out/"
+    rm -f "$out"/kira_*.deb
+    cp "$deb"/kira_*.deb "$out/"
 fi
 
 if want apk; then
@@ -166,9 +166,9 @@ if want apk; then
     if [[ "$pinned" != "$full" ]]; then
         if $core_head; then
             sed -i "s/^kira.commit=.*/kira.commit=$full/" "$props"
-            echo "core.properties now pins tpm2-kira $short: commit it in $marify"
+            echo "core.properties now pins kira $short: commit it in $marify"
         else
-            echo "note: the app links tpm2-kira ${pinned:0:7}, not HEAD $short (--core-head pins HEAD)"
+            echo "note: the app links kira ${pinned:0:7}, not HEAD $short (--core-head pins HEAD)"
         fi
     fi
     KIRA_SRC="$root" "$marify/android/scripts/build-core.sh"

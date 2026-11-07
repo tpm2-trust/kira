@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/tpm2-trust/assh/config"
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/measure"
 )
 
 // usePCRKey points the PCR key's paths into a temporary directory and makes it.
@@ -73,7 +73,7 @@ func TestAdoptUKIConf(t *testing.T) {
 		}
 	}
 	b, _ := os.ReadFile(ukiConfPath)
-	want := "[UKI]\nCmdline=x\n\n[PCRSignature:tpm2-kira]\nPCRPrivateKey=" + pcrKeyPath + "\nPCRPublicKey=" + pcrPubPath + "\nPhases=enter-initrd\n"
+	want := "[UKI]\nCmdline=x\n\n[PCRSignature:kira]\nPCRPrivateKey=" + pcrKeyPath + "\nPCRPublicKey=" + pcrPubPath + "\nPhases=enter-initrd\n"
 	if string(b) != want {
 		t.Fatalf("%q", b)
 	}

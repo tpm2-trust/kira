@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tpm2-trust/tpm2-kira/core/transport/frame"
+	"github.com/tpm2-trust/kira/core/transport/frame"
 )
 
 // fakeController plays the controller and a central at the HCI level.
@@ -183,7 +183,7 @@ func (f *fakeController) disconnect() {
 
 func startPeripheral(t *testing.T) (*Peripheral, *fakeController) {
 	fc := newFakeController(t)
-	p, err := newPeripheral(fc, Config{DeviceName: "tpm2-kira", Logf: t.Logf})
+	p, err := newPeripheral(fc, Config{DeviceName: "kira", Logf: t.Logf})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -255,7 +255,7 @@ func TestDiscoveryAndEcho(t *testing.T) {
 		t.Fatalf("MTU rsp %x", rsp)
 	}
 
-	// Primary service discovery finds GAP and the tpm2-kira service.
+	// Primary service discovery finds GAP and the kira service.
 	rsp = fc.att(t, attReadByGroupReq, 1, 0, 0xFF, 0xFF, 0x00, 0x28)
 	if rsp[0] != attReadByGroupRsp || rsp[1] != 6 {
 		t.Fatalf("first group rsp %x", rsp)
@@ -329,7 +329,7 @@ func TestDiscoveryAndEcho(t *testing.T) {
 		t.Fatalf("CCCD write %x", rsp)
 	}
 
-	record := bytes.Repeat([]byte("tpm2-kira record "), 40) // 680 bytes
+	record := bytes.Repeat([]byte("kira record "), 40) // 680 bytes
 	frag, _ := frame.NewFragmenter(185 - 3)
 	frags, _ := frag.Split(record)
 	for _, fr := range frags {
@@ -423,7 +423,7 @@ func TestDeadlineDropsIdleCentral(t *testing.T) {
 func TestPacketSizesAreCapped(t *testing.T) {
 	fc := newFakeController(t)
 	fc.aclMax = 1021
-	p, err := newPeripheral(fc, Config{DeviceName: "tpm2-kira", Logf: t.Logf})
+	p, err := newPeripheral(fc, Config{DeviceName: "kira", Logf: t.Logf})
 	if err != nil {
 		t.Fatal(err)
 	}

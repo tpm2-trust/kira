@@ -1,7 +1,7 @@
 # The code: a TOTP code only the approved boot can show
 
 A way to check the boot before you type anything, chosen when the slot is
-sealed: `tpm2-kira slot add --totp` (or `control`'s "A TOTP code at boot?")
+sealed: `kira slot add --totp` (or `control`'s "A TOTP code at boot?")
 creates a TOTP key **inside the TPM**, as an HMAC key
 that never leaves it, sealed to the slot ([SLOT.md](SLOT.md)). The TPM
 computes every code; the key is shown exactly once, as the QR code you
@@ -26,7 +26,7 @@ nothing to enrol again.
 
 ## At boot: the code screen
 
-`tpm2-kira-boot run` (on Arch `tpm2-kira.service`, on Debian the init-premount
+`kira-boot run` (on Arch `kira.service`, on Debian the init-premount
 script) shows a fresh code of every slot every 30 seconds, before the
 disk's passphrase is asked. Compare it with your authenticator: if it
 matches, the boot chain is the one you approved - press Enter, and the
@@ -41,7 +41,7 @@ authenticator; otherwise the first code is on the next boot's screen.
 
 ## The close
 
-`tpm2-kira-boot close` extends PCR 15 (an event, "assh-close", in every
+`kira-boot close` extends PCR 15 (an event, "assh-close", in every
 bank). Every slot object - the TOTP key, the sealed machine-id, the phone's
 boot key, the release key - is created under the slot's policy
 `PolicyAuthorize(signing key) ; PolicyPCR(15 == 0)`: the PCR 15 check is
@@ -53,7 +53,7 @@ whatever the signing key approves.
 - `run` closes at the end of the code screen, after the parts have opened
   what they hold (the vault's part, the phone's salt, the TPM salt).
 - The image closes again, whatever `run` did, before any volume is opened:
-  on Arch `tpm2-kira-close.service`, on Debian local-top's script before
+  on Arch `kira-close.service`, on Debian local-top's script before
   cryptroot, and its init-bottom once more. A close tries a refused extend
   once more; a TPM that answers and refuses every way of it, or does not
   answer for the first time, is a hard reboot: no shell with PCR 15 at zero
@@ -61,7 +61,7 @@ whatever the signing key approves.
 - Right before a resume from hibernation, which starts the TPM afresh and
   runs no code screen: on Arch a drop-in on
   `systemd-hibernate-resume.service`, on Debian
-  `scripts/local-top/tpm2-kira-close` (`--resume`: a failure clears `resume=`).
+  `scripts/local-top/kira-close` (`--resume`: a failure clears `resume=`).
 
 `slot info` and `status` in the running system say "closed until the next
 boot". `slot approve` still works; the next boot opens the slots again.

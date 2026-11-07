@@ -3,10 +3,10 @@
 // the per-boot host key certified by the SSH CA.
 package sshscreen
 
-// The SSH server of the code screen (docs/SSH.md). With TPM2_KIRA_SSH
-// on, the image's tpm2-kira.service runs 'tpm2-kira-boot run --ssh': the
+// The SSH server of the code screen (docs/SSH.md). With KIRA_SSH
+// on, the image's kira.service runs 'kira-boot run --ssh': the
 // process that holds the boot opens the port of the image's assh.conf
-// (ASSH_LISTEN) and starts 'tpm2-kira-boot ssh-child' on it, without
+// (ASSH_LISTEN) and starts 'kira-boot ssh-child' on it, without
 // privileges (github.com/tpm2-trust/assh/server). Its host key is made in
 // the TPM for this boot and certified by the SSH CA (remote_hostkey.go).
 // That process speaks SSH and hands every login over as a session of the
@@ -36,8 +36,8 @@ import (
 	"time"
 
 	"github.com/tpm2-trust/go-tui-slim/secret"
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
-	"github.com/tpm2-trust/tpm2-kira/internal/screen"
+	"github.com/tpm2-trust/kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/screen"
 
 	"github.com/tpm2-trust/assh/config"
 	"github.com/tpm2-trust/assh/server"
@@ -163,8 +163,8 @@ func Start(o Options, console io.Writer, log func(string)) (*Server, error) {
 		Command:        serveCommand,
 		Session:        func(s *server.Session) { r.addSession(s, s.String()) },
 		Log:            func(s string) { log("ssh: " + s) },
-		Version:        "SSH-2.0-tpm2-kira",
-		Name:           "tpm2-kira",
+		Version:        "SSH-2.0-kira",
+		Name:           "kira",
 		Notice:         "only the code screen is served here (ssh without a command)",
 	})
 	if err != nil {
@@ -452,7 +452,7 @@ func ConsoleHint(port int, addrs []string, hk hostKeyAtBoot, sessions int) strin
 	}
 	if hk.Temporary != "" {
 		fmt.Fprintf(&b, "         Host key %s: a temporary key, the SSH CA did not certify one\n", hk.Fingerprint)
-		fmt.Fprintf(&b, "         (%s); ssh warns of an unknown host key. Quit tpm2-kira control after this boot.\n", hk.Temporary)
+		fmt.Fprintf(&b, "         (%s); ssh warns of an unknown host key. Quit kira control after this boot.\n", hk.Temporary)
 	} else if hk.CA != "" {
 		fmt.Fprintf(&b, "         Host key certified by the SSH CA %s\n", hk.CA)
 	}
@@ -468,4 +468,4 @@ func ConsoleHint(port int, addrs []string, hk hostKeyAtBoot, sessions int) strin
 }
 
 // DefaultConf is assh.conf, on the running system and in the image.
-const DefaultConf = "/etc/tpm2-kira/assh.conf"
+const DefaultConf = "/etc/kira/assh.conf"

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/diskkey"
 )
 
 // A header's metadata as cryptsetup dumps it: two keyslots, one of them
@@ -12,11 +12,11 @@ import (
 const luksMetadataSample = `{
   "keyslots": {"0": {"type": "luks2", "key_size": 64}, "1": {"type": "luks2", "key_size": 64}, "2": {"type": "luks2", "key_size": 64}},
   "tokens": {
-    "0": {"type": "tpm2-kira-1100", "keyslots": ["1"], "recipe": 4352, "created": "2026-10-07T17:30:00Z"},
+    "0": {"type": "kira-1100", "keyslots": ["1"], "recipe": 4352, "created": "2026-10-07T17:30:00Z"},
     "1": {"type": "systemd-tpm2", "keyslots": ["2"], "tpm2-blob": "x"},
-    "2": {"type": "tpm2-kira-1300", "keyslots": ["0"], "recipe": 4864, "slot": 0, "label": "luks", "created": "2026-10-07T18:00:00Z"},
-    "3": {"type": "tpm2-kira", "keyslots": ["9"], "mode": "password+salt", "created": "2026-10-01T00:00:00Z"},
-    "4": {"type": "tpm2-kira-1100", "keyslots": ["8"], "recipe": 4352, "created": "2026-10-01T00:00:00Z"}
+    "2": {"type": "kira-1300", "keyslots": ["0"], "recipe": 4864, "slot": 0, "label": "luks", "created": "2026-10-07T18:00:00Z"},
+    "3": {"type": "kira", "keyslots": ["9"], "mode": "password+salt", "created": "2026-10-01T00:00:00Z"},
+    "4": {"type": "kira-1100", "keyslots": ["8"], "recipe": 4352, "created": "2026-10-01T00:00:00Z"}
   },
   "segments": {}, "digests": {}, "config": {}
 }`
@@ -28,7 +28,7 @@ func TestParseLuksMetadata(t *testing.T) {
 	}
 	// Tokens 3 and 4 point at keyslots that are gone: leftovers, named by
 	// id so 'cryptsetup token remove' can take them.
-	if len(orphans) != 2 || orphans[0].ID != 3 || orphans[0].Type != "tpm2-kira" || orphans[1].ID != 4 {
+	if len(orphans) != 2 || orphans[0].ID != 3 || orphans[0].Type != "kira" || orphans[1].ID != 4 {
 		t.Fatalf("orphans: %+v", orphans)
 	}
 	if len(slots) != 3 || slots[0].Keyslot != 0 || slots[1].Keyslot != 1 || slots[2].Keyslot != 2 {
@@ -43,7 +43,7 @@ func TestParseLuksMetadata(t *testing.T) {
 	if slots[2].Token != nil {
 		t.Fatal("another kind's token taken for ours")
 	}
-	if d := describeKeyslot(slots[2]); !strings.Contains(d, "not tpm2-kira's") {
+	if d := describeKeyslot(slots[2]); !strings.Contains(d, "not kira's") {
 		t.Error(d)
 	}
 	if d := describeKeyslot(slots[1]); !strings.Contains(d, "0x1100") || !strings.Contains(d, "bound to no slot") || !strings.Contains(d, "token 0") {

@@ -25,7 +25,7 @@ func sealedMachine() *controller {
 
 func frameText(rows []string) string { return tui.StripSGR(strings.Join(rows, "\n")) }
 
-// The frame of tpm2-kira's model at the sizes a person meets: every row exactly as
+// The frame of kira's model at the sizes a person meets: every row exactly as
 // wide as the terminal, as many rows as it has; the overview's facts beside the
 // sections when there is room; a slot's detail; ASCII where the locale is not UTF-8;
 // the screen up while the facts come.
@@ -52,7 +52,7 @@ func TestControlFrame(t *testing.T) {
 	// A step's detail: what it does, its state, the command, what a destroy removes.
 	st := &panel.State{Section: sectionIndex("keys"), Focus: panel.Steps, Step: 1}
 	text := frameText(st.Frame(m, panel.View{Header: "h"}, 100, 40, g))
-	for _, want := range []string{"Slot 0", "Done: sealed to 0e,2e,7e,11u", "Destroys: slot 0 whole", "The command: tpm2-kira slot delete --nvram 0", "⚠"} {
+	for _, want := range []string{"Slot 0", "Done: sealed to 0e,2e,7e,11u", "Destroys: slot 0 whole", "The command: kira slot delete --nvram 0", "⚠"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("the slot's detail lacks %q:\n%s", want, text)
 		}
@@ -77,7 +77,7 @@ func sectionIndex(key string) int {
 	return -1
 }
 
-// tpm2-kira's steps on the panel's keys: a destroying slot runs (its question asks for
+// kira's steps on the panel's keys: a destroying slot runs (its question asks for
 // the word), a blocked step says why instead of running, an overview line opens its
 // section, search finds a step anywhere; the step run is the model's.
 func TestControlScreenKeys(t *testing.T) {

@@ -1,12 +1,12 @@
 [Unit]
-Description=tpm2-kira code screen and disk unlock
+Description=kira code screen and disk unlock
 # An initrd unit. The package also puts this file on the host, where the
 # mkinitcpio hook picks it up from; enabled there by mistake it does nothing.
 ConditionPathExists=/etc/initrd-release
 # The TPM is waited for by run itself, at most 5 s, and only when the
 # image's boot plan has a part that needs it (the codes, the phone, the
 # vault, the SSH CA's host key) - as on Debian. The key provider needs no
-# TPM: the prompt is tpm2-kira's on every machine.
+# TPM: the prompt is kira's on every machine.
 # The measure point: after systemd's enter-initrd phase (PCR 11) and before
 # the OS separator extends PCRs 0-7, 9, 12-14. Type=notify: a fresh code is
 # shown every 30 s until Enter is pressed on the console or the hold (90 s)
@@ -17,7 +17,7 @@ Before=systemd-pcrosseparator.service
 # The machine-id is unsealed under slot 0's policy, which run's close at
 # the end of the code screen ends: it is released first (with the image's
 # network; Debian's script runs it before run as well).
-After=tpm2-kira-machine-id.service
+After=kira-machine-id.service
 # systemd 258's NvPCR initialisation separator extends PCR 11 in the
 # initrd; unordered it could land while the code is shown and break the
 # policy mid-screen. Held back like the OS separator, it is also what the
@@ -47,23 +47,23 @@ Type=notify
 # prompt opens /dev/console only while it asks. A [Service] setting
 # (systemd ignores it in [Unit]): the socket's descriptor is passed in
 # (LISTEN_FDS), and the socket is ordered before this service.
-Sockets=tpm2-kira-unlock.socket
+Sockets=kira-unlock.socket
 # The stop's SIGTERM goes to run alone, as Debian's init-bottom sends it:
 # run tells the SSH sessions that the machine boots, and ssh-child relays
 # that before it ends; the radio worker ends with run's service. What is
 # left when run has exited is killed.
 KillMode=mixed
-# The hold is 90 s (tpm2-kira-boot run --hold), plus at most 60 s for a phone
+# The hold is 90 s (kira-boot run --hold), plus at most 60 s for a phone
 # that is in the middle of its answer; a hung TPM must not hold the boot for
 # longer than this. Raise it together with --hold.
 TimeoutStartSec=180
 # --plan: the parts the image carries (internal/admin/bootplan.go); what is not in it
 # is not started. The key socket comes from the socket unit
-# (Sockets=), not from a flag. TPM2_KIRA_REMOTE is set by the
-# image's drop-in (tpm2-kira.service.d/remote.conf) when control.conf turns
+# (Sockets=), not from a flag. KIRA_REMOTE is set by the
+# image's drop-in (kira.service.d/remote.conf) when control.conf turns
 # the SSH server on: --ssh and its hold (the port is assh.conf's); unset,
 # it is no argument.
-ExecStart=tpm2-kira-boot run --plan /etc/tpm2-kira/plan $TPM2_KIRA_REMOTE
+ExecStart=kira-boot run --plan /etc/kira/plan $KIRA_REMOTE
 # Enter on the console releases the boot.
 StandardInput=tty
 StandardOutput=tty
@@ -71,9 +71,9 @@ StandardOutput=tty
 # when the hold ended, when the prompt opened and answered) is written to
 # the journal directly, never to the console (the code screen is there);
 # the initrd's journald hands it to the system's:
-#   journalctl -b -u tpm2-kira.service
+#   journalctl -b -u kira.service
 # stderr carries failures and warnings, which the console shows as well.
-# "Debug at boot" (the boot settings in the TPM, 'tpm2-kira control') puts
+# "Debug at boot" (the boot settings in the TPM, 'kira control') puts
 # the narrative on the
 # console too.
 StandardError=journal+console

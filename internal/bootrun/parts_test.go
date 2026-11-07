@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
-	"github.com/tpm2-trust/tpm2-kira/internal/imageplan"
-	"github.com/tpm2-trust/tpm2-kira/internal/sshscreen"
-	"github.com/tpm2-trust/tpm2-kira/internal/totp"
+	"github.com/tpm2-trust/kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/imageplan"
+	"github.com/tpm2-trust/kira/internal/sshscreen"
+	"github.com/tpm2-trust/kira/internal/totp"
 )
 
 // Only what the plan names is started: an image without the network, the phone, the

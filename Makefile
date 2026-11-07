@@ -1,9 +1,9 @@
 .PHONY: all build build-static clean install uninstall install-mkinitcpio uninstall-mkinitcpio install-initramfs-tools uninstall-initramfs-tools deb test test-unit test-integration test-all fuzz fmt vet packages pkgbuild help
 
 # Binary name
-BINARY_NAME=tpm2-kira
-# What the boot image carries (cmd/tpm2-kira-boot); the hooks put it in.
-BOOT_NAME=tpm2-kira-boot
+BINARY_NAME=kira
+# What the boot image carries (cmd/kira-boot); the hooks put it in.
+BOOT_NAME=kira-boot
 INSTALL_PATH=/usr/local/bin
 
 # Go parameters
@@ -90,31 +90,31 @@ install-mkinitcpio:
 		exit 1; \
 	fi
 	sudo mkdir -p /etc/initcpio/install /etc/initcpio/post
-	sudo cp initramfs/mkinitcpio/install/sd-tpm2-kira /etc/initcpio/install/
-	sudo chmod +x /etc/initcpio/install/sd-tpm2-kira
-	sudo cp initramfs/mkinitcpio/post/sd-tpm2-kira /etc/initcpio/post/
-	sudo chmod +x /etc/initcpio/post/sd-tpm2-kira
+	sudo cp initramfs/mkinitcpio/install/sd-kira /etc/initcpio/install/
+	sudo chmod +x /etc/initcpio/install/sd-kira
+	sudo cp initramfs/mkinitcpio/post/sd-kira /etc/initcpio/post/
+	sudo chmod +x /etc/initcpio/post/sd-kira
 	sudo mkdir -p /usr/lib/systemd/system
-	sudo install -m644 initramfs/systemd/tpm2-kira.service initramfs/systemd/tpm2-kira-close.service initramfs/systemd/tpm2-kira-late-close.service initramfs/systemd/tpm2-kira-machine-id.service initramfs/systemd/tpm2-kira-unlock.socket /usr/lib/systemd/system/
+	sudo install -m644 initramfs/systemd/kira.service initramfs/systemd/kira-close.service initramfs/systemd/kira-late-close.service initramfs/systemd/kira-machine-id.service initramfs/systemd/kira-unlock.socket /usr/lib/systemd/system/
 	sudo mkdir -p /usr/lib/systemd/system/sysinit.target.wants
-	sudo ln -sf ../tpm2-kira-late-close.service /usr/lib/systemd/system/sysinit.target.wants/tpm2-kira-late-close.service
-	@if [ ! -e /etc/tpm2-kira/control.conf ]; then \
-		sudo install -Dm644 initramfs/common/control.conf /etc/tpm2-kira/control.conf; \
+	sudo ln -sf ../kira-late-close.service /usr/lib/systemd/system/sysinit.target.wants/kira-late-close.service
+	@if [ ! -e /etc/kira/control.conf ]; then \
+		sudo install -Dm644 initramfs/common/control.conf /etc/kira/control.conf; \
 	fi
 	@echo "Mkinitcpio hooks installed successfully!"
 	@echo ""
 	@echo "Next steps:"
 	@echo "1. Edit /etc/mkinitcpio.conf and add the hook next to sd-encrypt:"
 	@echo ""
-	@echo "   HOOKS=(base systemd autodetect modconf block keyboard sd-tpm2-kira sd-encrypt filesystems fsck)"
+	@echo "   HOOKS=(base systemd autodetect modconf block keyboard sd-kira sd-encrypt filesystems fsck)"
 	@echo ""
-	@echo "   On the kernel command line, make tpm2-kira's socket the key file of the"
+	@echo "   On the kernel command line, make kira's socket the key file of the"
 	@echo "   root volume (see README \"Configure the disk unlock\"):"
-	@echo "     rd.luks.key=<UUID>=/run/tpm2-kira/unlock.sock"
+	@echo "     rd.luks.key=<UUID>=/run/kira/unlock.sock"
 	@echo ""
 	@echo "2. Set up and seal (if not already done; see docs/SLOT.md \"Choosing PCRs\"):"
-	@echo "   tpm2-kira setup"
-	@echo "   tpm2-kira slot add --pcrs 0,7,11u"
+	@echo "   kira setup"
+	@echo "   kira slot add --pcrs 0,7,11u"
 	@echo ""
 	@echo "3. Rebuild initramfs:"
 	@echo "   sudo mkinitcpio -P"
@@ -122,9 +122,9 @@ install-mkinitcpio:
 ## uninstall-mkinitcpio: Remove mkinitcpio hooks
 uninstall-mkinitcpio:
 	@echo "Uninstalling mkinitcpio hooks..."
-	sudo rm -f /etc/initcpio/install/sd-tpm2-kira
-	sudo rm -f /etc/initcpio/post/sd-tpm2-kira
-	sudo rm -f /usr/lib/systemd/system/tpm2-kira.service /usr/lib/systemd/system/tpm2-kira-close.service /usr/lib/systemd/system/tpm2-kira-late-close.service /usr/lib/systemd/system/sysinit.target.wants/tpm2-kira-late-close.service /usr/lib/systemd/system/tpm2-kira-machine-id.service /usr/lib/systemd/system/tpm2-kira-unlock.socket
+	sudo rm -f /etc/initcpio/install/sd-kira
+	sudo rm -f /etc/initcpio/post/sd-kira
+	sudo rm -f /usr/lib/systemd/system/kira.service /usr/lib/systemd/system/kira-close.service /usr/lib/systemd/system/kira-late-close.service /usr/lib/systemd/system/sysinit.target.wants/kira-late-close.service /usr/lib/systemd/system/kira-machine-id.service /usr/lib/systemd/system/kira-unlock.socket
 	@echo "Mkinitcpio hooks uninstalled!"
 	@echo "Note: You should rebuild your initramfs after removing hooks:"
 	@echo "      sudo mkinitcpio -P"
@@ -144,28 +144,28 @@ install-initramfs-tools:
 		echo "Error: initramfs-tools not found. This system may not use initramfs-tools."; \
 		exit 1; \
 	fi
-	sudo install -Dm755 initramfs/initramfs-tools/hooks/tpm2-kira /etc/initramfs-tools/hooks/tpm2-kira
-	sudo install -Dm755 initramfs/initramfs-tools/scripts/init-premount/tpm2-kira /etc/initramfs-tools/scripts/init-premount/tpm2-kira
-	sudo install -Dm755 initramfs/initramfs-tools/scripts/init-bottom/tpm2-kira /etc/initramfs-tools/scripts/init-bottom/tpm2-kira
-	sudo install -Dm755 initramfs/initramfs-tools/post-update.d/tpm2-kira /etc/initramfs/post-update.d/tpm2-kira
-	sudo install -Dm755 initramfs/initramfs-tools/kernel/zzz-tpm2-kira /etc/kernel/postinst.d/zzz-tpm2-kira
-	sudo install -Dm755 initramfs/initramfs-tools/kernel/zzz-tpm2-kira /etc/kernel/postrm.d/zzz-tpm2-kira
-	sudo install -Dm755 initramfs/initramfs-tools/keyscript/tpm2-kira /lib/cryptsetup/scripts/tpm2-kira
-	@if [ ! -e /etc/tpm2-kira/control.conf ]; then \
-		sudo install -Dm644 initramfs/common/control.conf /etc/tpm2-kira/control.conf; \
+	sudo install -Dm755 initramfs/initramfs-tools/hooks/kira /etc/initramfs-tools/hooks/kira
+	sudo install -Dm755 initramfs/initramfs-tools/scripts/init-premount/kira /etc/initramfs-tools/scripts/init-premount/kira
+	sudo install -Dm755 initramfs/initramfs-tools/scripts/init-bottom/kira /etc/initramfs-tools/scripts/init-bottom/kira
+	sudo install -Dm755 initramfs/initramfs-tools/post-update.d/kira /etc/initramfs/post-update.d/kira
+	sudo install -Dm755 initramfs/initramfs-tools/kernel/zzz-kira /etc/kernel/postinst.d/zzz-kira
+	sudo install -Dm755 initramfs/initramfs-tools/kernel/zzz-kira /etc/kernel/postrm.d/zzz-kira
+	sudo install -Dm755 initramfs/initramfs-tools/keyscript/kira /lib/cryptsetup/scripts/kira
+	@if [ ! -e /etc/kira/control.conf ]; then \
+		sudo install -Dm644 initramfs/common/control.conf /etc/kira/control.conf; \
 	fi
 	@echo "initramfs-tools hook and boot scripts installed."
 	@echo ""
-	@echo "Next: sudo tpm2-kira control (the keyscript in /etc/crypttab, the signing key,"
+	@echo "Next: sudo kira control (the keyscript in /etc/crypttab, the signing key,"
 	@echo "the TOTP codes, network and SSH); it rebuilds the image when you quit."
 
 ## uninstall-initramfs-tools: Remove the initramfs-tools hook and boot scripts
 uninstall-initramfs-tools:
 	@echo "Uninstalling initramfs-tools hook and boot scripts..."
-	sudo rm -f /etc/initramfs-tools/hooks/tpm2-kira /etc/initramfs-tools/scripts/init-premount/tpm2-kira /etc/initramfs-tools/scripts/init-bottom/tpm2-kira
-	sudo rm -f /etc/initramfs/post-update.d/tpm2-kira /etc/kernel/postinst.d/zzz-tpm2-kira /etc/kernel/postrm.d/zzz-tpm2-kira
-	sudo rm -f /lib/cryptsetup/scripts/tpm2-kira
-	@echo "Removed. Take keyscript=/lib/cryptsetup/scripts/tpm2-kira out of /etc/crypttab,"
+	sudo rm -f /etc/initramfs-tools/hooks/kira /etc/initramfs-tools/scripts/init-premount/kira /etc/initramfs-tools/scripts/init-bottom/kira
+	sudo rm -f /etc/initramfs/post-update.d/kira /etc/kernel/postinst.d/zzz-kira /etc/kernel/postrm.d/zzz-kira
+	sudo rm -f /lib/cryptsetup/scripts/kira
+	@echo "Removed. Take keyscript=/lib/cryptsetup/scripts/kira out of /etc/crypttab,"
 	@echo "then rebuild the initramfs: sudo update-initramfs -u"
 
 ## deb: Build the Debian package (version derived from git describe)
@@ -178,7 +178,7 @@ deb:
 	echo "Debian package version: $$DEB_VERSION"; \
 	BACKUP=$$(mktemp); \
 	cp debian/changelog "$$BACKUP"; \
-	sed -i "1s/^tpm2-kira (.*)/tpm2-kira ($$DEB_VERSION)/" debian/changelog; \
+	sed -i "1s/^kira (.*)/kira ($$DEB_VERSION)/" debian/changelog; \
 	dpkg-buildpackage -us -uc; status=$$?; \
 	cp "$$BACKUP" debian/changelog; rm -f "$$BACKUP"; \
 	exit $$status
@@ -261,7 +261,7 @@ pkgbuild:
 	@ls -lh build/aur/*.pkg.tar.zst 2>/dev/null || ls -lh build/aur/*.pkg.tar.* 2>/dev/null || true
 	@echo ""
 	@echo "To install the package, run:"
-	@echo "  sudo pacman -U build/aur/tpm2-kira-*.pkg.tar.zst"
+	@echo "  sudo pacman -U build/aur/kira-*.pkg.tar.zst"
 
 ## help: Show this help message
 help:

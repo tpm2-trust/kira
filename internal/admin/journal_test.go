@@ -9,7 +9,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/journal"
+	"github.com/tpm2-trust/kira/internal/journal"
 )
 
 // Under systemd the narrative goes to journald's socket with a priority
@@ -34,14 +34,14 @@ func TestNarrateGoesToTheJournal(t *testing.T) {
 	}()
 
 	t.Setenv("JOURNAL_STREAM", "9:12345")
-	journal.Narrate("tpm2-kira: %s asks for its key", "cryptroot")
+	journal.Narrate("kira: %s asks for its key", "cryptroot")
 	buf := make([]byte, 4096)
 	n, _, err := l.ReadFromUnix(buf)
 	if err != nil {
 		t.Fatal(err)
 	}
 	got := string(buf[:n])
-	for _, want := range []string{"SYSLOG_IDENTIFIER=tpm2-kira\n", "PRIORITY=6\n", "MESSAGE=tpm2-kira: cryptroot asks for its key\n"} {
+	for _, want := range []string{"SYSLOG_IDENTIFIER=kira\n", "PRIORITY=6\n", "MESSAGE=kira: cryptroot asks for its key\n"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("journal entry lacks %q:\n%s", want, got)
 		}
@@ -67,8 +67,8 @@ func TestNarrateGoesToTheJournal(t *testing.T) {
 	// An initramfs without a journal (Debian): the log file, and nothing
 	// on stdout.
 	journal.JournalOnce = sync.Once{}
-	logPath := filepath.Join(t.TempDir(), "tpm2-kira.log")
-	t.Setenv("TPM2_KIRA_LOG", logPath)
+	logPath := filepath.Join(t.TempDir(), "kira.log")
+	t.Setenv("KIRA_LOG", logPath)
 	t.Setenv("JOURNAL_STREAM", "9:1")
 	out.Reset()
 	journal.Narrate("to the file")

@@ -11,14 +11,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
-	"github.com/tpm2-trust/tpm2-kira/core/transport/ble"
-	"github.com/tpm2-trust/tpm2-kira/core/transport/frame"
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/core/attest"
+	"github.com/tpm2-trust/kira/core/transport/ble"
+	"github.com/tpm2-trust/kira/core/transport/frame"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/phonegate"
+	"github.com/tpm2-trust/kira/internal/signing"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 )
 
 // Phone attestation commands: the phone at the machine, over Bluetooth LE
@@ -90,7 +90,7 @@ func AttestEnrol(o EnrolOptions) error {
 	if err != nil {
 		return fmt.Errorf("slot %d holds no sealed TOTP key (%v).\n"+
 			"A phone enrolment is stored with the slot's key and checks the same boot: seal first with\n\n"+
-			"    tpm2-kira slot add --nvram %d", nvslot.AttestSlot(idx), err, nvslot.AttestSlot(idx))
+			"    kira slot add --nvram %d", nvslot.AttestSlot(idx), err, nvslot.AttestSlot(idx))
 	}
 	if err := nvslot.VerifyBlobSignature(raw, slotBlob, priv.Public()); err != nil {
 		return foreignSlotError(nvslot.AttestSlot(idx), err)
@@ -104,7 +104,7 @@ func AttestEnrol(o EnrolOptions) error {
 	}
 	if blob != nil && o.SHA1 && blob.PCRAlg != attest.AlgSHA1 {
 		return fmt.Errorf("slot %d is already enrolled with the SHA-256 bank, which every phone of the slot shares; "+
-			"drop --sha1, or start over with 'tpm2-kira phone unenrol --nvram %d'", nvslot.AttestSlot(idx), nvslot.AttestSlot(idx))
+			"drop --sha1, or start over with 'kira phone unenrol --nvram %d'", nvslot.AttestSlot(idx), nvslot.AttestSlot(idx))
 	}
 
 	if blob == nil {
@@ -377,7 +377,7 @@ func chooseAttestBank(sha1 bool, sealedAlg uint16, has func(measure.PCRHashAlgo)
 	}
 	if sealedAlg == attest.AlgSHA1 && !sha1 {
 		return 0, fmt.Errorf("the slot is sealed against the SHA-1 PCR bank, and its phone enrolment quotes the same registers.\n"+
-			"Say so explicitly:\n\n    tpm2-kira phone enrol --sha1\n\n%s", stopgap)
+			"Say so explicitly:\n\n    kira phone enrol --sha1\n\n%s", stopgap)
 	}
 	if sealedAlg == attest.AlgSHA256 && sha1 {
 		return 0, errors.New("the slot is sealed against the SHA-256 PCR bank, and its phone enrolment quotes the same registers; drop --sha1")
@@ -387,7 +387,7 @@ func chooseAttestBank(sha1 bool, sealedAlg uint16, has func(measure.PCRHashAlgo)
 	}
 	if !sha1 && has(measure.PCRHashAlgoSHA1) {
 		return 0, fmt.Errorf("this TPM has no SHA-256 PCR bank to quote.\n"+
-			"The only remaining option is the SHA-1 bank:\n\n    tpm2-kira phone enrol --sha1\n\n%s", stopgap)
+			"The only remaining option is the SHA-1 bank:\n\n    kira phone enrol --sha1\n\n%s", stopgap)
 	}
 	return 0, fmt.Errorf("this TPM has no %s PCR bank to quote", hashAlgo.DisplayString())
 }

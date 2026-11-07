@@ -1,8 +1,8 @@
-# tpm2-kira BLE Attestation Protocol — Interface Definition
+# kira BLE Attestation Protocol — Interface Definition
 
 > **Protocol version 1, schema 2.** Status: implemented on the machine side
 > (`core/attest/`, `core/transport/frame/`, `core/transport/ble/`) and in the phone core
-> (`core/mobile/kiracore/`). This document is the contract between a tpm2-kira
+> (`core/mobile/kiracore/`). This document is the contract between a kira
 > machine and a phone app. The key words MUST, MUST NOT, SHOULD and MAY are
 > used as in RFC 2119.
 >
@@ -58,7 +58,7 @@ and tested — not as an invitation to write a second verifier.
 
 ### 1.3 Roles
 
-| | Machine (tpm2-kira) | Phone (app) |
+| | Machine (kira) | Phone (app) |
 |---|---|---|
 | BLE role | GATT **peripheral**, advertises | GATT **central**, scans and connects |
 | Noise role | responder | initiator |
@@ -85,7 +85,7 @@ AD type `0x21` (Service Data – 128-bit UUID) for the service UUID, payload:
 
 ```
 ServiceData := u8 flags ‖ prand[4] ‖ tag[8]                 (13 bytes)
-tag         := HMAC-SHA256(adv_key, "tpm2-kira/adv/v1" ‖ prand)[0:8]
+tag         := HMAC-SHA256(adv_key, "kira/adv/v1" ‖ prand)[0:8]
 ```
 
 | flags bit | Meaning |
@@ -99,7 +99,7 @@ and stored in the machine record. `prand` is random per boot.
 The phone SHOULD use `kiracore.MatchAdvertisement(serviceData, record)` to
 label a scan result with the machine's name before connecting. Without
 `adv_key` the bytes are indistinguishable from random: an observer learns that
-*a* tpm2-kira machine is booting nearby, not *which*.
+*a* kira machine is booting nearby, not *which*.
 
 `adv_key` and the machine's Noise private key are sealed in the TPM: they open
 before the close with PCR 7 as sealed, after it or with PCR 7 moved only with the
@@ -136,7 +136,7 @@ enrolled machine's record in turn; a wrong record fails the IK handshake
 | INFO characteristic | `883f0103-9727-459b-a589-a62200c064c0` | Read |
 
 The machine also exposes the Generic Access service (`0x1800`) with Device
-Name `tpm2-kira` and Appearance `0x0000`. There is no Generic Attribute
+Name `kira` and Appearance `0x0000`. There is no Generic Attribute
 service; handles are fixed for a given protocol version but the phone MUST
 discover them, not hard-code them.
 
@@ -148,7 +148,7 @@ mode: 1 = enrolment, 2 = attestation
 ```
 
 The phone SHOULD read INFO after discovery and refuse to continue (with a
-"please update the app / tpm2-kira" message) if `protocol` ≠ 1 or `schema`
+"please update the app / kira" message) if `protocol` ≠ 1 or `schema`
 is newer than `kiracore.SchemaVersion()`. Capability bits are listed in §7.4.
 
 ### 3.3 Connection procedure (phone)
@@ -254,7 +254,7 @@ The first byte of every record:
 | | Enrolment | Attestation |
 |---|---|---|
 | Protocol name | `Noise_XX_25519_ChaChaPoly_SHA256` | `Noise_IK_25519_ChaChaPoly_SHA256` |
-| Prologue | `tpm2-kira/v1` | `tpm2-kira/v1` |
+| Prologue | `kira/v1` | `kira/v1` |
 | Initiator | phone | phone |
 | Pre-known keys | none | the phone knows the machine's static key (machine record `machine_noise_pub`) |
 | Handshake payloads | empty | empty |
@@ -288,10 +288,10 @@ grindable by a man in the middle (two handshakes, ~10⁶ X25519 operations to
 collide six digits), so a commit-then-reveal exchange runs first:
 
 ```
-machine → phone   SASCommit { commit = SHA-256("tpm2-kira/sas-commit/v1" ‖ cb ‖ nonce_m) }
+machine → phone   SASCommit { commit = SHA-256("kira/sas-commit/v1" ‖ cb ‖ nonce_m) }
 phone   → machine SASNonce  { nonce_p }               (sent only after the commit arrived)
 machine → phone   SASReveal { nonce_m }               (phone checks the commitment)
-both              SAS = u32be(SHA-256("tpm2-kira/sas/v1" ‖ cb ‖ nonce_p ‖ nonce_m)[0:4]) mod 1 000 000
+both              SAS = u32be(SHA-256("kira/sas/v1" ‖ cb ‖ nonce_p ‖ nonce_m)[0:4]) mod 1 000 000
 ```
 
 displayed as six digits with leading zeros. A man in the middle must fix its
@@ -393,7 +393,7 @@ Signatures never cover this encoding; they cover the canonical strings of §9.
 | 11 | eventlog_size | u32 | O | bytes |
 | 12 | boot_key_state | u8 | O | 0 not tried · 1 proved · 2 refused by the TPM · 3 could not try · 4 locked until the next boot (§7.6) |
 | 13 | boot_proof | bytes[32] exact | O | present with state 1 |
-| 14 | boot_signature | bytes ≤600 | O | TPMT_SIGNATURE by the boot key over `"tpm2-kira/boot-signature/v1" ‖ qd ‖ SHA-256(quoted)`; present with state 1 |
+| 14 | boot_signature | bytes ≤600 | O | TPMT_SIGNATURE by the boot key over `"kira/boot-signature/v1" ‖ qd ‖ SHA-256(quoted)`; present with state 1 |
 | 15 | factor_credential | bytes ≤1024 | O | a wrapped factor the phone is asked to keep (`factor enrol` on the booted system; never at boot): `TPM2_MakeCredential` credentialBlob for the machine's EK and release key. Kept, replacing any kept one, when the verdict is accepted (not on reject); returned in a Release after the accepted receipt of this and every later session |
 | 16 | factor_secret | bytes ≤1024 | O | with 15: `TPM2_MakeCredential` secret |
 | 17 | factor_label | string ≤64 | O | with 15: the factor's label, default `luks` |
@@ -518,9 +518,9 @@ nonce_m). SASConfirm has no fields.
 
 **Baseline.** `pcr_values` is what the running system's registers hold at
 enrolment, proven by `quoted`. The gate, however, quotes inside the initramfs,
-at tpm2-kira's measure point, and systemd extends some PCRs after that (PCR 11
+at kira's measure point, and systemd extends some PCRs after that (PCR 11
 with `nvpcr-separator` - systemd 258's NvPCR initialisation separator, which
-tpm2-kira.service holds back like the OS separator - and the `leave-initrd`,
+kira.service holds back like the OS separator - and the `leave-initrd`,
 `sysinit` and `ready` phases; PCR 9 by
 `systemd-tpm2-setup`), so for those `pcr_values` can never match a boot check.
 The machine therefore predicts the measure-point values with the same code
@@ -569,7 +569,7 @@ is not sent, §11.1) ·
 6 `anchor_sig` bytes ≤128 R (DER ECDSA over SHA-256(`enrol_accept_tbs`)) ·
 7 `anchor_attestation` bytes ≤16384 O — the anchor key's attestation certificate
 chain (Android Key Attestation), concatenated DER, leaf first, made with the
-challenge `SHA-256("tpm2-kira/anchor-attest/v1" ‖ cb)`.
+challenge `SHA-256("kira/anchor-attest/v1" ‖ cb)`.
 
 The machine checks field 7 against pinned Google attestation roots
 (`core/attest/phoneroots/`): the leaf is for `anchor_pub`, the challenge is this
@@ -651,7 +651,7 @@ the public point and the signing key's Name (machine record fields
 1. generates a P-256 key pair `(e, E)` and computes `Z = ECDH(e, boot_key_pub)`
    (the x coordinate, 32 bytes);
 2. derives 64 bytes with HKDF-SHA256(secret `Z`, salt `qd`, info
-   `"tpm2-kira/boot-key/v1" ‖ E ‖ boot_key_pub`), both points uncompressed:
+   `"kira/boot-key/v1" ‖ E ‖ boot_key_pub`), both points uncompressed:
    bytes 0-31 are `k_enc`, 32-63 `k_mac`;
 3. draws a code of 8 characters from `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`;
 4. sends `E` and `AES-256-GCM(k_enc, nonce = 0^12, plaintext = code, aad = qd)`
@@ -659,10 +659,10 @@ the public point and the signing key's Name (machine record fields
 
 The machine computes `Z` with `TPM2_ECDH_ZGen` under the boot key's policy.
 If the TPM lets it, the machine derives the keys, opens the code, shows it to
-the person at its console, signs `SHA-256("tpm2-kira/boot-signature/v1" ‖ qd
+the person at its console, signs `SHA-256("kira/boot-signature/v1" ‖ qd
 ‖ SHA-256(quoted))` with the same key (`TPM2_Sign`, ECDSA/SHA-256, under the
 same policy), and answers with `boot_key_state` 1, `boot_proof =
-HMAC-SHA256(k_mac, "tpm2-kira/boot-proof/v1" ‖ qd)` and `boot_signature`. If
+HMAC-SHA256(k_mac, "kira/boot-proof/v1" ‖ qd)` and `boot_signature`. If
 the TPM refuses, it answers with state 2 and neither. On the booted system,
 where the close (PCR 15) has locked the slot until the next boot (a check by
 hand, or a phone salt's enrolment, PLAN-PHONESALT.md §6), it answers with state 4 and
@@ -699,7 +699,7 @@ changed in a diff are those that do not match under these rules.
 
 ## 8. Exchanges
 
-### 8.1 Enrolment (machine runs `tpm2-kira phone enrol`, booted system)
+### 8.1 Enrolment (machine runs `kira phone enrol`, booted system)
 
 ```mermaid
 sequenceDiagram
@@ -728,7 +728,7 @@ sequenceDiagram
     P->>M: Bye
 ```
 
-### 8.2 Attestation (machine runs `tpm2-kira phone gate`)
+### 8.2 Attestation (machine runs `kira phone gate`)
 
 ```mermaid
 sequenceDiagram
@@ -776,8 +776,8 @@ sequenceDiagram
 ### 9.1 Qualifying data
 
 ```
-qd       := SHA-256("tpm2-kira/qd/v1" ‖ nonce_a ‖ nonce_v ‖ cb ‖ u16le(pcr_alg) ‖ u8(n) ‖ indices[n])
-enrol_qd := SHA-256("tpm2-kira/enrol-qd/v1" ‖ cb)
+qd       := SHA-256("kira/qd/v1" ‖ nonce_a ‖ nonce_v ‖ cb ‖ u16le(pcr_alg) ‖ u8(n) ‖ indices[n])
+enrol_qd := SHA-256("kira/enrol-qd/v1" ‖ cb)
 ```
 
 `nonce_a`, `nonce_v` and `cb` are 32 bytes each. `qd` is the quote's
@@ -786,7 +786,7 @@ enrol_qd := SHA-256("tpm2-kira/enrol-qd/v1" ‖ cb)
 ### 9.2 Receipt
 
 ```
-receipt_tbs := "tpm2-kira/receipt/v1" ‖ u8(verdict) ‖ lp(device_id) ‖ lp(ak_name) ‖ lp(qd) ‖
+receipt_tbs := "kira/receipt/v1" ‖ u8(verdict) ‖ lp(device_id) ‖ lp(ak_name) ‖ lp(qd) ‖
                lp(quote_digest) ‖ lp(policy_id) ‖ u64le(issued_at) ‖ u64le(expires_at) ‖ lp(verifier_id)
 signature   := ECDSA-P256-SHA256(anchor_key, receipt_tbs), DER
 ```
@@ -802,20 +802,20 @@ clock in the initrd); freshness comes from `qd`, which covers its own nonce.
 ### 9.3 Enrolment acceptance
 
 ```
-enrol_accept_tbs := "tpm2-kira/enrol-accept/v1" ‖ lp(device_id) ‖ lp(cb) ‖ lp(ak_name) ‖
+enrol_accept_tbs := "kira/enrol-accept/v1" ‖ lp(device_id) ‖ lp(cb) ‖ lp(ak_name) ‖
                     lp(anchor_pub) ‖ lp(verifier_id) ‖ lp(policy_id)
 ```
 
 ### 9.4 Anchor digest
 
-`anchor_digest := SHA-256("tpm2-kira/anchor/v1" ‖ anchor_pub)`
+`anchor_digest := SHA-256("kira/anchor/v1" ‖ anchor_pub)`
 
 ### 9.5 SAS — see §6.4.  9.6 Advertising tag — see §2.2.
 
 ### 9.7 Factor (the phone salt)
 
 ```
-factor := hex( HKDF-SHA256(ikm = F, salt = "", info = "tpm2-kira/factor/v1" ‖ lp(label), L = 32) )
+factor := hex( HKDF-SHA256(ikm = F, salt = "", info = "kira/factor/v1" ‖ lp(label), L = 32) )
 ```
 
 `F` is the 32-byte secret recovered by `TPM2_ActivateCredential` from a
@@ -833,26 +833,26 @@ selection SHA-256 {0, 2, 4, 7}, `device_id = a0 … af`,
 
 | Value | Result |
 |---|---|
-| qd | `8233fca13c1522b8b5f715163dfc02d22617bc43fba8305290717e1976edfe8d` |
-| enrol_qd | `46a8e194d0d031af05922c5866e8a5e037d0860c8f82a6451cf020e1f5da1ba1` |
-| sas commit | `1e54a4dbd650ce9dc357e9eadf904cf5cbdd35c923f24bc4da85d40488af1efb` |
-| SAS | `394551` |
-| anchor_digest | `da0912c41cf5e85586e925cb47e7d00377338fc4cce96832f21b36808946fc27` |
-| service data (flags ATTEST) | `020102030424213b87412e6e4e` |
-| factor | `be5af6edaaa51a5d8243045ef04287fdba640410a8364f256fa39381b0491cf8` |
-| offline qd | `efbd3a1a95d1e8b70f06136fac569b7333839eda17a3b86452fa3f27389f16c8` |
+| qd | `a0e99eadbcbeda0789ad2c2b80115cbd9cbaf5a01fab14e33f2233ce8160c938` |
+| enrol_qd | `cf3737cc06ad638d7045d7f2800cdcb825047dec5bc4c36915df629083857037` |
+| sas commit | `bb38912f91a5bf22c192320df338c74c180c7c1710945917b51f0a8f3c8fa214` |
+| SAS | `979216` |
+| anchor_digest | `90321eefa2e28e447b0888ef46deb0f82b8bae182a45cf199b371f428f834543` |
+| service data (flags ATTEST) | `02010203046c87bad73025a4f7` |
+| factor (the phone salt, label `luks`) | `e2803855c3bb181b969d772739394ebe5abcad11f59611056de17a3a89b77b9a` |
+| offline qd | `b63bbd6fe21254e8bfa45ba110430d4708c1da602807e4c0f3f6ec59e420b3b9` |
 
 `receipt_tbs` (verdict ok):
 
 ```
-74706d322d6b6972612f726563656970742f7631 01 10000000 a0a1a2a3a4a5a6a7a8a9aaabacadaeaf
+6b6972612f726563656970742f7631 01 10000000 a0a1a2a3a4a5a6a7a8a9aaabacadaeaf
 22000000 000bb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecf
-20000000 8233fca13c1522b8b5f715163dfc02d22617bc43fba8305290717e1976edfe8d
+20000000 a0e99eadbcbeda0789ad2c2b80115cbd9cbaf5a01fab14e33f2233ce8160c938
 20000000 c0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedf
 07000000 64656661756c74 803bb16a00000000 ac3cb16a00000000 07000000 706978656c2d31
 ```
 
-These values are asserted by `core/attest/vectors_test.go`.
+These values are asserted by `core/attest/vectors_test.go`, the factor by `internal/phonegate/knownanswer_test.go`.
 
 ---
 
@@ -1051,7 +1051,7 @@ is created: on a phone without biometrics, enrolling a fingerprint later does
 not invalidate the key. Removing the screen lock invalidates it on both
 platforms.
 
-Losing the phone means re-enrolling the machine (`tpm2-kira phone enrol`
+Losing the phone means re-enrolling the machine (`kira phone enrol`
 again with the new phone; `phone unenrol` removes the old entry).
 
 ---

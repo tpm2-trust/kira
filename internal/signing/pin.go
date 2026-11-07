@@ -9,8 +9,8 @@ import (
 
 	"github.com/tpm2-trust/go-tui-slim/secret"
 	"github.com/tpm2-trust/go-tui-slim/termguard"
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
-	"github.com/tpm2-trust/tpm2-kira/internal/piv"
+	"github.com/tpm2-trust/kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/piv"
 	"golang.org/x/sys/unix"
 )
 
@@ -163,7 +163,7 @@ func pinFromFile() ([]byte, bool, error) {
 	if loose {
 		secret.Wipe(pin)
 		return nil, false, fmt.Errorf("%s holds the YubiKey PIN but other users can read it, or root does not own it,\n"+
-			"  so tpm2-kira does not use it. Make it readable by root only:\n"+
+			"  so kira does not use it. Make it readable by root only:\n"+
 			"      chown root: %s && chmod 600 %s\n"+
 			"  and consider changing the PIN, since it may already have been read",
 			path, path, path)
@@ -184,13 +184,13 @@ func warnIfNoUnattendedPIN(w io.Writer) {
 	fmt.Fprintf(w, "WARNING: there is no PIN in %s.\n", PINPath())
 	fmt.Fprintln(w, "         The automatic approval after kernel and initramfs updates will therefore")
 	fmt.Fprintln(w, "         have no PIN: it will be SKIPPED, and the next boot will show a PCR")
-	fmt.Fprintln(w, "         mismatch until you approve by hand. 'tpm2-kira control' stores the PIN")
+	fmt.Fprintln(w, "         mismatch until you approve by hand. 'kira control' stores the PIN")
 	fmt.Fprintln(w, "         (the signing key step), readable by root alone.")
 }
 
 // ignoredPINEnv held the PIN once: a string, not wipeable, inherited by every child,
 // readable in /proc/PID/environ.
-const ignoredPINEnv = "TPM2_KIRA_PIN"
+const ignoredPINEnv = "KIRA_PIN"
 
 // pinEnvIgnored: this command found the variable set. Without a PIN, that is part of the
 // reason, as a hook captures the output and shows the reason alone.
@@ -204,12 +204,12 @@ func IgnorePINEnv(w io.Writer) {
 	}
 	os.Unsetenv(ignoredPINEnv)
 	pinEnvIgnored = true
-	fmt.Fprintf(w, "tpm2-kira: WARNING: %s is set and ignored: the YubiKey's PIN comes from --pin-fd N, from %s or from the terminal\n", ignoredPINEnv, PINPath())
+	fmt.Fprintf(w, "kira: WARNING: %s is set and ignored: the YubiKey's PIN comes from --pin-fd N, from %s or from the terminal\n", ignoredPINEnv, PINPath())
 }
 
 // noTerminalPIN is the reason when no source has a PIN and there is no terminal to ask on.
 func noTerminalPIN() error {
-	const reason = "no PIN: store it with tpm2-kira control, or give it with --pin-fd N (there is no terminal to ask on)"
+	const reason = "no PIN: store it with kira control, or give it with --pin-fd N (there is no terminal to ask on)"
 	if pinEnvIgnored {
 		return errors.New(reason + "\n" + ignoredPINEnv + " is set and ignored: it gives no PIN")
 	}
@@ -262,10 +262,10 @@ func readNoEcho(tty *os.File) ([]byte, error) {
 // has a file of its own: control.conf holds what the image is built with,
 // and only that.
 func PINPath() string {
-	// TPM2_KIRA_CONTROL_CONF moves control.conf for the tests, and the PIN
+	// KIRA_CONTROL_CONF moves control.conf for the tests, and the PIN
 	// with it.
-	conf := "/etc/tpm2-kira/control.conf"
-	if p := os.Getenv("TPM2_KIRA_CONTROL_CONF"); p != "" {
+	conf := "/etc/kira/control.conf"
+	if p := os.Getenv("KIRA_CONTROL_CONF"); p != "" {
 		conf = p
 	}
 	return filepath.Join(filepath.Dir(conf), "pin")

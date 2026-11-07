@@ -9,7 +9,7 @@ import (
 )
 
 // TestNoiseVectors replays the published Noise test vectors for the two
-// patterns tpm2-kira uses (testdata/noise_vectors.json, from cacophony and
+// patterns kira uses (testdata/noise_vectors.json, from cacophony and
 // snow): every handshake and transport message must match byte for byte, and
 // so must the handshake hash, which is the channel binding the quote commits to.
 func TestNoiseVectors(t *testing.T) {

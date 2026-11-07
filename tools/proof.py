@@ -49,7 +49,7 @@ MEMORY_BUDGET = 14000  # MiB of the host's 15 GB the parts may plan on
 ORIENTATION = 20 * 60  # the proof's seconds, wall clock; past it the report says so, and what went over
 STUCK = 60 * 60  # a set of parts past it hangs: what runs is stopped, and reported as stuck
 MACHINES = ("arch", "debian")
-VAULT_CONTAINER = "tpm2-kira-vmtest-vault"
+VAULT_CONTAINER = "kira-vmtest-vault"
 
 
 class Part:
@@ -84,7 +84,7 @@ def parts_table(run_dir, everything=False):
         Part("test-all", ["make", "test-all"], REPO, {"GOFLAGS": "-count=1"}, check=no_cached, memory=3000),
         Part("machines", machines, REPO, machines=True, memory=8500),
         Part("assh", go_test, project("assh"), check=no_cached, memory=1000),
-        Part("vault", go_test, project("tpm2-kira-vault"), check=no_cached, memory=500),
+        Part("vault", go_test, project("kira-vault"), check=no_cached, memory=500),
         Part("safearch-run", ["tests/run.sh"], project("safearch"), memory=500),
         Part("go-uefi-slim", go_test, project("go-uefi-slim"), check=no_cached, memory=1000),
         Part("go-tui-slim", go_test, project("go-tui-slim"), check=no_cached, memory=500),
@@ -265,7 +265,7 @@ def report(parts, wall, notes, run_dir, proof_wall=None):
     a run: time is information, unless a part was stopped as stuck."""
     scenarios = read_scenarios(run_dir)
     over, running = over_budget(scenarios)
-    lines = list(notes) + ["tpm2-kira proof, " + datetime.datetime.now().isoformat(timespec="seconds"), ""]
+    lines = list(notes) + ["kira proof, " + datetime.datetime.now().isoformat(timespec="seconds"), ""]
     lines.append(f"{'part':<16}{'from':>7}{'seconds':>9}  {'least free MiB':>14}  {'disk MiB':>9}  result")
     for p in parts:
         lines.append(f"{p.name:<16}{p.start:>7.0f}{p.seconds:>9.0f}  {p.least_memory or 0:>14}  {p.least_disk or 0:>9}  {'ok' if p.ok else 'FAILED: ' + p.why}")

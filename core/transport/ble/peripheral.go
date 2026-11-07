@@ -6,7 +6,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/tpm2-trust/tpm2-kira/core/transport/frame"
+	"github.com/tpm2-trust/kira/core/transport/frame"
 )
 
 // Config selects and describes the adapter.
@@ -49,7 +49,7 @@ type Peripheral struct {
 // this disconnects Bluetooth mice, keyboards and headsets until Close.
 func Open(cfg Config) (*Peripheral, error) {
 	if cfg.DeviceName == "" {
-		cfg.DeviceName = "tpm2-kira"
+		cfg.DeviceName = "kira"
 	}
 	tr, release, err := openUserChannelWait(cfg.Adapter, cfg.UnblockRFKill, cfg.RFKill, cfg.Wait, cfg.Cancel, cfg.Logf)
 	if err != nil {

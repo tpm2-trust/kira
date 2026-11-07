@@ -28,10 +28,10 @@ Last updated 2026-10-05.
 | Phase | What exists | Verified by |
 |---|---|---|
 | 1 — BLE stack | **Decided: in-tree.** `core/transport/ble/`: pure-Go HCI user channel peripheral — advertising, ACL fragmentation and flow control, L2CAP, ATT/GATT server, pairing refused — about 1,500 lines, no dependency beyond `golang.org/x/sys`. `go-ble/ble` rejected (unmaintained, dependency surface). | fake-controller tests: iOS-style discovery, MTU 23/185, records both ways, framing errors, idle deadline, re-advertising |
-| 2 — peripheral, framing, encrypted session | `core/transport/frame/`, Noise XX/IK in `core/attest/noise.go`, `tpm2-kira phone enrol` with SAS | unit tests, fuzzing, interop with the reference `noiseprotocol` library |
+| 2 — peripheral, framing, encrypted session | `core/transport/frame/`, Noise XX/IK in `core/attest/noise.go`, `kira phone enrol` with SAS | unit tests, fuzzing, interop with the reference `noiseprotocol` library |
 | 3 — mobile core | `core/mobile/kiracore` (gomobile verifier), `core/mobile/kiratest` (simulated machine); apps specified in [mobile/](mobile/) | Go tests through the binding API; gobind generates Java and Objective-C cleanly |
-| 4 — attestation round trip | `tpm2-kira phone gate` on a booted system | swtpm integration test (real AK, EK, quotes, ActivateCredential) |
-| 5 — initramfs (part) | the boot plan (`tpm2-kira initramfs plan`) resolves the configured adapter's driver modules (the whole sysfs path) and the firmware the kernel loaded for it, from the kernel log. The boot plan takes the phone part in while a phone is enrolled (or with `TPM2_KIRA_ATTEST_BLUETOOTH=always` in control.conf). mkinitcpio: modules, exact firmware, `modules-load.d`; initramfs-tools: the same resolution, the modules by `force_load` (the image's `conf/modules`). On both, `run` starts the radio worker (`gate-child`) beside the TOTP display; it never holds the boot and ends with the hold. The gate waits for the adapter that comes up as long as the code screen holds and retries while the kernel finishes controller setup; the TPM is `run`'s. Hooks add nothing when no phone is enrolled or the adapter is missing. | resolver unit tests on a fake sysfs (Intel, Realtek, Broadcom log formats); stubbed-hook tests for both hooks; a real `mkinitcpio` image build on Arch containing exactly 6 modules and 1 firmware file (≈1.1 MB) |
+| 4 — attestation round trip | `kira phone gate` on a booted system | swtpm integration test (real AK, EK, quotes, ActivateCredential) |
+| 5 — initramfs (part) | the boot plan (`kira initramfs plan`) resolves the configured adapter's driver modules (the whole sysfs path) and the firmware the kernel loaded for it, from the kernel log. The boot plan takes the phone part in while a phone is enrolled (or with `KIRA_ATTEST_BLUETOOTH=always` in control.conf). mkinitcpio: modules, exact firmware, `modules-load.d`; initramfs-tools: the same resolution, the modules by `force_load` (the image's `conf/modules`). On both, `run` starts the radio worker (`gate-child`) beside the TOTP display; it never holds the boot and ends with the hold. The gate waits for the adapter that comes up as long as the code screen holds and retries while the kernel finishes controller setup; the TPM is `run`'s. Hooks add nothing when no phone is enrolled or the adapter is missing. | resolver unit tests on a fake sysfs (Intel, Realtek, Broadcom log formats); stubbed-hook tests for both hooks; a real `mkinitcpio` image build on Arch containing exactly 6 modules and 1 firmware file (≈1.1 MB) |
 
 ### Open
 
@@ -96,7 +96,7 @@ The manual OTP path is untouched and remains the default fallback (§7.3).
 sequenceDiagram
     participant U as You
     participant P as Phone
-    participant K as tpm2-kira (initrd)
+    participant K as kira (initrd)
     participant T as TPM
 
     K->>K: start BLE advertising, show "waiting for attestation"
@@ -129,7 +129,7 @@ This is forced, not chosen:
 - The user story is "the phone requests an attestation", which is the central
   role initiating a connection.
 
-Consequence: tpm2-kira must implement a BLE **peripheral** in the initrd,
+Consequence: kira must implement a BLE **peripheral** in the initrd,
 which is the hard part of this plan (§3).
 
 ---
@@ -169,7 +169,7 @@ tree and a state directory — a large surface, an extra daemon to order against
 `cryptsetup-pre.target`, and a dependency that Debian's non-systemd initramfs
 cannot satisfy at all.
 
-Instead tpm2-kira takes the adapter directly, via an **HCI user channel**:
+Instead kira takes the adapter directly, via an **HCI user channel**:
 `socket(AF_BLUETOOTH, SOCK_RAW, BTPROTO_HCI)` bound with
 `hci_channel = HCI_CHANNEL_USER`, which gives exclusive control of the
 controller and bypasses the kernel's own Bluetooth host stack. That requires
@@ -211,9 +211,9 @@ session when the hold ends extends it by at most a minute, so the registers
 do not change between its question and its answer.
 
 The gate is two processes of the one binary. The display is its
-*coordinator* (`tpm2-kira-boot run`): it holds the TPM, checks the
+*coordinator* (`kira-boot run`): it holds the TPM, checks the
 enrolment record, issues the quotes, and reads the phone's receipt against
-the anchors and the quotes it issued. The *radio worker* (`tpm2-kira-boot
+the anchors and the quotes it issued. The *radio worker* (`kira-boot
 gate-child`, which `run` starts as nobody and which confines itself)
 advertises and runs the session; it has no TPM and asks the coordinator
 over the socket pairs it was started with: identity,
@@ -263,7 +263,7 @@ device id, no user-visible name.** A random non-resolvable address is set per
 boot.
 
 This is not free of leakage and the documentation must say so: a fixed service
-UUID makes "a tpm2-kira machine is sitting at its passphrase prompt" observable
+UUID makes "a kira machine is sitting at its passphrase prompt" observable
 to anyone within radio range, and that is a signal about your boot schedule and
 your presence. A machine in a hostile physical environment should consider
 `--attest=off` and the OTP. The identity of the machine is only revealed inside
@@ -361,7 +361,7 @@ digits — the same act the OTP asks for daily, but performed once, in a
 controlled situation, with the user physically holding both devices.
 
 ```
-=== tpm2-kira phone enrol ===
+=== kira phone enrol ===
 Adapter:       hci0 (Intel AX201)
 Advertising:   waiting for a phone to connect ...
 Connected:     iPhone (anonymous)
@@ -403,11 +403,11 @@ the user to rebuild the initramfs and approve, because an anchor that is not in
 the image is not the anchor the gate will use.
 
 ```
-Anchor written to /etc/tpm2-kira/verifier.pub
+Anchor written to /etc/kira/verifier.pub
 
 Next steps — the anchor only takes effect once it is inside the boot image:
     sudo mkinitcpio -P          # or: sudo update-initramfs -u
-    sudo tpm2-kira slot approve
+    sudo kira slot approve
 ```
 
 ---
@@ -493,7 +493,7 @@ into the shared core so the app and the CLI explain a diff identically.
 
 ## 7. The gate informs; it never holds the boot
 
-tpm2-kira does its work and informs; the passphrase can always be entered
+kira does its work and informs; the passphrase can always be entered
 by hand. A phone is served whenever one is enrolled for a slot and the
 hook found the adapter; nothing is set anywhere to turn it on or off. An
 enforced gate, which would hold the boot until the phone's verdict is
@@ -510,11 +510,11 @@ as it always does.
 
 ### 7.2 How the hold is implemented
 
-**Arch / systemd initramfs.** tpm2-kira is the key provider of the volumes
-the initrd unlocks: `tpm2-kira-unlock.socket` is the key file of each of
+**Arch / systemd initramfs.** kira is the key provider of the volumes
+the initrd unlocks: `kira-unlock.socket` is the key file of each of
 them (crypttab(5), AF_UNIX key files, named by `rd.luks.key=` on the
 kernel command line), `systemd-cryptsetup` connects to it when it
-activates the volume and reads the key, and `tpm2-kira.service` answers
+activates the volume and reads the key, and `kira.service` answers
 once the code screen's hold has ended. The TPM side of the attestation
 happens before the OS separator, where the boot key's policy holds.
 

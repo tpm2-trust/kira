@@ -84,7 +84,7 @@ func TestRunEndsAtSIGTERMWithThePromptOpen(t *testing.T) {
 	copy(hdr, "LUKS\xba\xbe")
 	binary.BigEndian.PutUint16(hdr[6:8], 2)
 	binary.BigEndian.PutUint64(hdr[8:16], hdrSize)
-	copy(hdr[4096:], `{"keyslots":{},"tokens":{"0":{"type":"tpm2-kira-1100","keyslots":["0"],"recipe":4352,"created":"x"}},"segments":{},"digests":{},"config":{}}`)
+	copy(hdr[4096:], `{"keyslots":{},"tokens":{"0":{"type":"kira-1100","keyslots":["0"],"recipe":4352,"created":"x"}},"segments":{},"digests":{},"config":{}}`)
 	disk := filepath.Join(dir, "disk")
 	if err := os.WriteFile(disk, hdr, 0o600); err != nil {
 		t.Fatal(err)
@@ -95,10 +95,10 @@ func TestRunEndsAtSIGTERMWithThePromptOpen(t *testing.T) {
 	os.MkdirAll(filepath.Join(plan, "unlock"), 0o755)
 	sock := filepath.Join(dir, "unlock.sock")
 
-	run := exec.Command("./tpm2-kira-boot", "run", "--plan", plan, "--tpm", filepath.Join(dir, "no-tpm"), "--hold", "0", "--unlock", sock)
+	run := exec.Command("./kira-boot", "run", "--plan", plan, "--tpm", filepath.Join(dir, "no-tpm"), "--hold", "0", "--unlock", sock)
 	var out syncBuffer
 	run.Stdout, run.Stderr = &out, &out
-	run.Env = append(os.Environ(), "TPM2_KIRA_CONSOLE="+console, "TPM2_KIRA_CRYPTTAB="+crypttab)
+	run.Env = append(os.Environ(), "KIRA_CONSOLE="+console, "KIRA_CRYPTTAB="+crypttab)
 	if err := run.Start(); err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +153,7 @@ func TestRunEndsAtSIGTERMWaitingForTheTPM(t *testing.T) {
 	dir := t.TempDir()
 	plan := filepath.Join(dir, "plan")
 	os.MkdirAll(filepath.Join(plan, "tpm"), 0o755)
-	run := exec.Command("./tpm2-kira-boot", "run", "--plan", plan, "--tpm", filepath.Join(dir, "no-tpm"), "--unlock", filepath.Join(dir, "unlock.sock"))
+	run := exec.Command("./kira-boot", "run", "--plan", plan, "--tpm", filepath.Join(dir, "no-tpm"), "--unlock", filepath.Join(dir, "unlock.sock"))
 	var out syncBuffer
 	run.Stdout, run.Stderr = &out, &out
 	if err := run.Start(); err != nil {

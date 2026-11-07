@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/tpm2-trust/go-tui-slim/panel"
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/diskkey"
 )
 
 // answering is a controller whose questions read the lines given.
@@ -31,15 +31,15 @@ func TestControlAnnotate(t *testing.T) {
 		command string
 		danger  panel.Danger
 	}{
-		{controlStep{Key: "slot:0"}, "tpm2-kira slot delete --nvram 0", dangerDestroy},
-		{controlStep{Key: "seal"}, "tpm2-kira slot add --nvram 0 --pcrs 0e,2e,7e,11u", dangerChange},
-		{controlStep{Key: "luks-salt"}, "tpm2-kira luks enrol DEVICE --password typed --salt typed", dangerChange},
-		{controlStep{Key: "luks-salt", Done: "keyslot 1 of /dev/sda2"}, "tpm2-kira luks remove DEVICE --keyslot N", dangerDestroy},
-		{controlStep{Key: "phone-remove:0"}, "tpm2-kira phone unenrol --nvram 0", dangerDestroy},
-		{controlStep{Key: "salt-remove:0"}, "tpm2-kira phone salt unenrol --nvram 0", dangerDestroy},
-		{controlStep{Key: "delete-all"}, "tpm2-kira luks remove DEVICE --keyslot N (each of tpm2-kira's); tpm2-kira slot delete --yes --sweep; rm -r /etc/tpm2-kira /var/lib/tpm2-kira", dangerDestroy},
-		{controlStep{Key: "view:slot info --nvram 0"}, "tpm2-kira slot info --nvram 0", dangerView},
-		{controlStep{Key: "help:luks"}, "tpm2-kira help luks", dangerView},
+		{controlStep{Key: "slot:0"}, "kira slot delete --nvram 0", dangerDestroy},
+		{controlStep{Key: "seal"}, "kira slot add --nvram 0 --pcrs 0e,2e,7e,11u", dangerChange},
+		{controlStep{Key: "luks-salt"}, "kira luks enrol DEVICE --password typed --salt typed", dangerChange},
+		{controlStep{Key: "luks-salt", Done: "keyslot 1 of /dev/sda2"}, "kira luks remove DEVICE --keyslot N", dangerDestroy},
+		{controlStep{Key: "phone-remove:0"}, "kira phone unenrol --nvram 0", dangerDestroy},
+		{controlStep{Key: "salt-remove:0"}, "kira phone salt unenrol --nvram 0", dangerDestroy},
+		{controlStep{Key: "delete-all"}, "kira luks remove DEVICE --keyslot N (each of kira's); kira slot delete --yes --sweep; rm -r /etc/kira /var/lib/kira", dangerDestroy},
+		{controlStep{Key: "view:slot info --nvram 0"}, "kira slot info --nvram 0", dangerView},
+		{controlStep{Key: "help:luks"}, "kira help luks", dangerView},
 	} {
 		got := c.annotate(s.step)
 		if got.Command != s.command || got.Danger != s.danger {
@@ -50,7 +50,7 @@ func TestControlAnnotate(t *testing.T) {
 		}
 	}
 	c.o.TPMPath = "/dev/tpm1"
-	if got := c.annotate(controlStep{Key: "slot:3"}); got.Command != "tpm2-kira slot delete --tpm /dev/tpm1 --nvram 3" {
+	if got := c.annotate(controlStep{Key: "slot:3"}); got.Command != "kira slot delete --tpm /dev/tpm1 --nvram 3" {
 		t.Errorf("another TPM: %q", got.Command)
 	}
 	// The removals and the views are offered where there is something to remove or see.
@@ -117,7 +117,7 @@ func TestConfirmDestroy(t *testing.T) {
 	}
 }
 
-// A view is the command as it is: tpm2-kira itself, with the TPM when it is not the
+// A view is the command as it is: kira itself, with the TPM when it is not the
 // default one, and nothing changes.
 func TestControlViewsRunTheCommand(t *testing.T) {
 	var ran [][]string
@@ -155,7 +155,7 @@ func TestControlSections(t *testing.T) {
 	}
 }
 
-// Every prompter of tpm2-kira's reads a secret into diskkey's locked buffer.
+// Every prompter of kira's reads a secret into diskkey's locked buffer.
 func TestPrompterTakesTheLockedBuffer(t *testing.T) {
 	p := newPrompter(strings.NewReader(""), &bytes.Buffer{})
 	if p.SecretBuffer == nil {

@@ -10,7 +10,7 @@ package admin
 // asks with where the running system's client has an identifier of its own
 // (and on Debian, whose image has no networkd): the running system's, read
 // when the image is built
-// (TPM2_KIRA_NET_DHCP_ID=auto, the default), or set in control.conf (mac,
+// (KIRA_NET_DHCP_ID=auto, the default), or set in control.conf (mac,
 // or the identifier in hex).
 //
 // What the running system asks with is read from its DHCP client, for the
@@ -49,7 +49,7 @@ type dhcpIdentity struct {
 	From string // where it comes from, for the build's output
 }
 
-// parseClientID reads TPM2_KIRA_NET_DHCP_ID's identifier: hex bytes,
+// parseClientID reads KIRA_NET_DHCP_ID's identifier: hex bytes,
 // with or without colons.
 func parseClientID(s string) ([]byte, error) {
 	b, err := hex.DecodeString(strings.ReplaceAll(s, ":", ""))
@@ -78,16 +78,16 @@ func (n NetConfig) DHCPIdentity() dhcpIdentity {
 	switch n.DHCPID {
 	case "mac":
 		if len(matched) == 1 {
-			return dhcpIdentity{ID: macClientID(matched[0].MAC), From: "the MAC (TPM2_KIRA_NET_DHCP_ID=mac)"}
+			return dhcpIdentity{ID: macClientID(matched[0].MAC), From: "the MAC (KIRA_NET_DHCP_ID=mac)"}
 		}
-		return dhcpIdentity{From: "the MAC (TPM2_KIRA_NET_DHCP_ID=mac)"}
+		return dhcpIdentity{From: "the MAC (KIRA_NET_DHCP_ID=mac)"}
 	case "", "auto":
 	default:
 		id, _ := parseClientID(n.DHCPID)
-		return dhcpIdentity{ID: id, From: "TPM2_KIRA_NET_DHCP_ID"}
+		return dhcpIdentity{ID: id, From: "KIRA_NET_DHCP_ID"}
 	}
 	if len(matched) != 1 {
-		return dhcpIdentity{From: "unknown: the network is for more than one interface (TPM2_KIRA_NET_MATCH)"}
+		return dhcpIdentity{From: "unknown: the network is for more than one interface (KIRA_NET_MATCH)"}
 	}
 	it := matched[0]
 	if id := networkdClientID(it.Name); id != nil {

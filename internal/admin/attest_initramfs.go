@@ -37,7 +37,7 @@ const DefaultFirmwareDir = "/usr/lib/firmware"
 
 // BTFirmwareStateDir keeps, per adapter, the firmware files a kernel log
 // once named for it. A variable so the tests can point it elsewhere.
-var BTFirmwareStateDir = "/var/lib/tpm2-kira/bt-firmware"
+var BTFirmwareStateDir = "/var/lib/kira/bt-firmware"
 
 // firmwareSiblings are files a driver loads next to the one it names:
 // Intel's DDC parameters belong to its firmware image.
@@ -64,7 +64,7 @@ type USBDevice struct {
 }
 
 // BTUdevRuleFile is where the boot plan puts the rule in the image.
-const BTUdevRuleFile = "etc/udev/rules.d/70-tpm2-kira-bluetooth.rules"
+const BTUdevRuleFile = "etc/udev/rules.d/70-kira-bluetooth.rules"
 
 // UdevRule is the rule that authorizes the device at its port, and only
 // it: in the image alone, never on the host, where the person's own

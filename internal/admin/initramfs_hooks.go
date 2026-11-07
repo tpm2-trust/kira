@@ -14,7 +14,7 @@ import (
 
 // Whether the boot integration is wired, for control's status: the package
 // installs the mkinitcpio hook files, but it is the person who puts
-// sd-tpm2-kira into HOOKS of /etc/mkinitcpio.conf - forgotten, every
+// sd-kira into HOOKS of /etc/mkinitcpio.conf - forgotten, every
 // protection reads done while the next boot shows no code screen and
 // serves no key. On Debian the .deb's initramfs-tools scripts are active
 // in every image; there only their presence can be missing (a build from
@@ -25,11 +25,11 @@ var (
 	mkinitcpioConf = "/etc/mkinitcpio.conf"
 	// Where mkinitcpio looks for the hook: /etc/initcpio (make
 	// install-mkinitcpio), then /usr/lib/initcpio (the package).
-	mkinitcpioHookFiles = []string{"/etc/initcpio/install/sd-tpm2-kira", "/usr/lib/initcpio/install/sd-tpm2-kira"}
+	mkinitcpioHookFiles = []string{"/etc/initcpio/install/sd-kira", "/usr/lib/initcpio/install/sd-kira"}
 	// Where initramfs-tools looks for the boot script: /etc/initramfs-tools
 	// (make install-initramfs-tools), /usr/share/initramfs-tools (the
 	// package).
-	debianPremounts = []string{"/etc/initramfs-tools/scripts/init-premount/tpm2-kira", "/usr/share/initramfs-tools/scripts/init-premount/tpm2-kira"}
+	debianPremounts = []string{"/etc/initramfs-tools/scripts/init-premount/kira", "/usr/share/initramfs-tools/scripts/init-premount/kira"}
 )
 
 // initramfsHookState says why the boot integration of kind would not run,
@@ -38,20 +38,20 @@ func initramfsHookState(kind string) string {
 	switch kind {
 	case "mkinitcpio":
 		if !mkinitcpioHookInstalled() {
-			return "the sd-tpm2-kira hook is not installed (sudo make install-mkinitcpio, or the package)"
+			return "the sd-kira hook is not installed (sudo make install-mkinitcpio, or the package)"
 		}
-		if !slices.Contains(mkinitcpioHooks(mkinitcpioConf), "sd-tpm2-kira") {
-			return "sd-tpm2-kira is not in HOOKS of " + mkinitcpioConf + " - add it next to sd-encrypt, then rebuild"
+		if !slices.Contains(mkinitcpioHooks(mkinitcpioConf), "sd-kira") {
+			return "sd-kira is not in HOOKS of " + mkinitcpioConf + " - add it next to sd-encrypt, then rebuild"
 		}
 	case "initramfs-tools":
 		if !debianScriptInstalled() {
-			return "the tpm2-kira boot scripts are not installed (sudo make install-initramfs-tools, or the package)"
+			return "the kira boot scripts are not installed (sudo make install-initramfs-tools, or the package)"
 		}
 	}
 	return ""
 }
 
-// mkinitcpioHookInstalled reports whether the sd-tpm2-kira install hook is
+// mkinitcpioHookInstalled reports whether the sd-kira install hook is
 // in one of the places mkinitcpio looks.
 func mkinitcpioHookInstalled() bool {
 	return slices.ContainsFunc(mkinitcpioHookFiles, fileExists)
@@ -98,31 +98,31 @@ func winningHooks(conf string) (file, value string, hooks []string) {
 }
 
 // AdoptHookLine is the winning HOOKS line as it should read, with
-// sd-tpm2-kira in it, and the file it lives in - for control to show, and
+// sd-kira in it, and the file it lives in - for control to show, and
 // for AdoptHook to write when asked. An error says why it cannot be done
 // by editing (no HOOKS assignment, or an initramfs without the systemd
-// hook, which sd-tpm2-kira needs).
+// hook, which sd-kira needs).
 func AdoptHookLine(conf string) (file, oldLine, newLine string, err error) {
 	file, value, hooks := winningHooks(conf)
 	if file == "" {
 		return "", "", "", fmt.Errorf("no HOOKS assignment found in %s or its drop-ins", conf)
 	}
-	if slices.Contains(hooks, "sd-tpm2-kira") {
+	if slices.Contains(hooks, "sd-kira") {
 		return file, "HOOKS=" + value, "HOOKS=" + value, nil
 	}
 	var adopted string
 	switch {
 	case strings.Contains(value, "sd-encrypt"):
-		adopted = strings.Replace(value, "sd-encrypt", "sd-tpm2-kira sd-encrypt", 1)
+		adopted = strings.Replace(value, "sd-encrypt", "sd-kira sd-encrypt", 1)
 	case regexp.MustCompile(`systemd([ \t\n)'"])`).MatchString(value):
-		adopted = regexp.MustCompile(`systemd([ \t\n)'"])`).ReplaceAllString(value, "systemd sd-tpm2-kira${1}")
+		adopted = regexp.MustCompile(`systemd([ \t\n)'"])`).ReplaceAllString(value, "systemd sd-kira${1}")
 	default:
-		return "", "", "", fmt.Errorf("the HOOKS of %s carry neither systemd nor sd-encrypt: sd-tpm2-kira needs a systemd-based initramfs (HOOKS with base systemd ... sd-encrypt)", file)
+		return "", "", "", fmt.Errorf("the HOOKS of %s carry neither systemd nor sd-encrypt: sd-kira needs a systemd-based initramfs (HOOKS with base systemd ... sd-encrypt)", file)
 	}
 	return file, "HOOKS=" + value, "HOOKS=" + adopted, nil
 }
 
-// AdoptHook writes sd-tpm2-kira into the winning HOOKS assignment, before
+// AdoptHook writes sd-kira into the winning HOOKS assignment, before
 // sd-encrypt (else after systemd), and reports the file and the line as it
 // reads now. Only the one assignment changes; the rest of the file is kept
 // byte for byte.
@@ -214,7 +214,7 @@ func mkinitcpioImages() []string {
 }
 
 // rebuildPending says, as far as the timestamps tell, whether an image
-// still predates the HOOKS that name sd-tpm2-kira: built before the file
+// still predates the HOOKS that name sd-kira: built before the file
 // last changed, it cannot carry the hook, and the next boot would show no
 // code screen. "" when every image is newer, or when nothing can be told
 // (no presets, no images yet - mkinitcpio -P is then due anyway and the

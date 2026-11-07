@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/diskkey"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -42,7 +42,7 @@ func (s *syncBuffer) String() string {
 	return s.b.String()
 }
 
-// remoteBoot is 'tpm2-kira-boot run --ssh' against a software TPM with a sealed
+// remoteBoot is 'kira-boot run --ssh' against a software TPM with a sealed
 // slot and a LUKS2 header marked recovery recipe (0x1100): the chain of the image -
 // SSH to the unprivileged 'ssh-child', the session handed to 'run',
 // the code screen, the key socket.
@@ -76,7 +76,7 @@ func startRemoteBoot(t *testing.T) *remoteBoot {
 	if out, err := format.CombinedOutput(); err != nil {
 		t.Fatalf("luksFormat: %v: %s", err, out)
 	}
-	if out, err := exec.Command("./tpm2-kira", "luks", "mark", "--keyslot", "0", "--salt", "typed", img).CombinedOutput(); err != nil || !bytes.Contains(out, []byte("marked")) {
+	if out, err := exec.Command("./kira", "luks", "mark", "--keyslot", "0", "--salt", "typed", img).CombinedOutput(); err != nil || !bytes.Contains(out, []byte("marked")) {
 		t.Fatalf("luks mark: %v: %s", err, out)
 	}
 	volume := "cryptroot"
@@ -99,10 +99,10 @@ func startRemoteBoot(t *testing.T) *remoteBoot {
 	b := &remoteBoot{out: &syncBuffer{}, port: port, unlock: filepath.Join(dir, "unlock.sock"), volume: volume, key: login}
 	asshConf := filepath.Join(dir, "assh.conf")
 	os.WriteFile(asshConf, []byte(fmt.Sprintf("ASSH_LISTEN=127.0.0.1:%d\nASSH_CA=%s\nASSH_AUTHORIZED_KEYS=%s\n", port, filepath.Join(dir, "none.json"), auth)), 0o644)
-	b.run = exec.Command("./tpm2-kira-boot", "run", "--tpm", tpmPath, "--nvram", "0x01803010", "--unlock", b.unlock,
+	b.run = exec.Command("./kira-boot", "run", "--tpm", tpmPath, "--nvram", "0x01803010", "--unlock", b.unlock,
 		"--ssh", "--ssh-conf", asshConf)
-	b.run.Env = append(os.Environ(), "TPM2_KIRA_CRYPTTAB="+crypttab,
-		"TPM2_KIRA_CONTROL_CONF="+conf, "TPM2_KIRA_CONSOLE="+filepath.Join(dir, "console"))
+	b.run.Env = append(os.Environ(), "KIRA_CRYPTTAB="+crypttab,
+		"KIRA_CONTROL_CONF="+conf, "KIRA_CONSOLE="+filepath.Join(dir, "console"))
 	b.run.Stdout, b.run.Stderr = b.out, b.out
 	b.stdin, _ = b.run.StdinPipe()
 	if err := b.run.Start(); err != nil {

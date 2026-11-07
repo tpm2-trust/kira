@@ -1,4 +1,4 @@
-// Package admin is everything tpm2-kira does on the installed system: control
+// Package admin is everything kira does on the installed system: control
 // (the guided way), setup, slot add and approve, status, phone and phone salt
 // enrolment, the LUKS keyslots, vault enrolment, the boot plan and the image
 // build.
@@ -13,21 +13,21 @@ import (
 
 	"github.com/tpm2-trust/go-tui-slim/panel"
 	"github.com/tpm2-trust/go-tui-slim/prompt"
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/screen"
+	"github.com/tpm2-trust/kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/screen"
 	"golang.org/x/sys/unix"
 )
 
-// 'tpm2-kira control' is the guided way through the protections, for a
+// 'kira control' is the guided way through the protections, for a
 // person rather than a script: it first looks at what the machine has (a
 // TPM and its banks, the event log, how it booted, a Bluetooth adapter, the
 // LUKS devices, the initramfs kind, the network interfaces), then at what
 // is configured already (the keys, the slots, the phone, the keyslots, the
 // route, the vault, the boot image's network and SSH server). It guides in
 // sections (control_model.go). The boot chain (control_bootchain.go): the
-// prerequisites, each judged, then the sd-tpm2-kira hook in the image and
+// prerequisites, each judged, then the sd-kira hook in the image and
 // the key's route on the kernel command line. The others (control_hub.go): what the machine combines -
 // the signing key with the TOTP codes, the phone, the ways the disk is
 // unlocked, the network and SSH at boot - each option greyed with the
@@ -46,7 +46,7 @@ type ControlOptions struct {
 	Out     io.Writer // default stdout
 	// Lines forces the numbered line menus instead of the full screen.
 	Lines bool
-	// HelpTopics are the pages of 'tpm2-kira help', for the Reference section.
+	// HelpTopics are the pages of 'kira help', for the Reference section.
 	HelpTopics []string
 }
 
@@ -143,9 +143,9 @@ func (c *controller) input() *os.File {
 // ControlNeedsRoot is control's answer when it is not root: its screen,
 // or a line without a terminal.
 func ControlNeedsRoot() {
-	text := "Everything control looks at and sets is root's: the TPM, the keys in /etc/tpm2-kira, the LUKS headers, the initramfs.\n\n    sudo tpm2-kira control"
+	text := "Everything control looks at and sets is root's: the TPM, the keys in /etc/kira, the LUKS headers, the initramfs.\n\n    sudo kira control"
 	if !isTerminal(os.Stdin) {
-		fmt.Fprintln(os.Stderr, "tpm2-kira control: root is needed - sudo tpm2-kira control")
+		fmt.Fprintln(os.Stderr, "kira control: root is needed - sudo kira control")
 		return
 	}
 	c := &controller{out: os.Stdout}
@@ -270,7 +270,7 @@ func (c *controller) screenTitle() string {
 }
 
 // newPrompter is a prompt.Prompter that reads every secret - a PIN, a password -
-// into diskkey's locked buffer, as every secret tpm2-kira holds: never swapped,
+// into diskkey's locked buffer, as every secret kira holds: never swapped,
 // wiped by the caller (go-tui-slim's own default is a plain buffer).
 func newPrompter(in io.Reader, out io.Writer) *prompt.Prompter {
 	p := prompt.New(in, out)
@@ -549,7 +549,7 @@ func (c *controller) leaveWith(look func() machineFacts) {
 		case f.caWaitsForImage():
 			fmt.Fprintf(c.out, "The SSH CA's slots take PCR 11 signed and the image carries no such signature: build it (%s), whose hook approves it; until then the next boot serves a temporary host key.\n", rebuildCommand(f.Initramfs))
 		case !c.tty:
-			fmt.Fprintln(c.out, "The SSH CA needs the signing key's approval of the PCRs at the next boot: run tpm2-kira control at a terminal.")
+			fmt.Fprintln(c.out, "The SSH CA needs the signing key's approval of the PCRs at the next boot: run kira control at a terminal.")
 		default:
 			if err := c.approveSSHCA(); err != nil {
 				fmt.Fprintf(c.out, "\033[0;31mNot approved:\033[0m %v - the next boot serves a temporary host key\n", err)
@@ -562,7 +562,7 @@ func (c *controller) leaveWith(look func() machineFacts) {
 		}
 		for _, ks := range d.Keyslots {
 			if ks.Token != nil {
-				fmt.Fprintf(c.out, "%s has a keyslot of tpm2-kira's but is not routed through it: tpm2-kira luks route\n", d.Device)
+				fmt.Fprintf(c.out, "%s has a keyslot of kira's but is not routed through it: kira luks route\n", d.Device)
 				break
 			}
 		}

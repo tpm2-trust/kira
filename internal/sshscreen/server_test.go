@@ -65,7 +65,7 @@ func testRemote(t *testing.T) (*Server, ssh.Signer, *testLog) {
 	old := serveCommand
 	serveCommand = func() *exec.Cmd {
 		c := exec.Command(os.Args[0])
-		c.Env = []string{"TPM2_KIRA_TEST_SERVE=1"}
+		c.Env = []string{"KIRA_TEST_SERVE=1"}
 		return c
 	}
 	t.Cleanup(func() { serveCommand = old })
@@ -368,7 +368,7 @@ func TestRemoteServeAlone(t *testing.T) {
 		return
 	}
 	c := exec.Command(os.Args[0])
-	c.Env = []string{"TPM2_KIRA_TEST_SERVE=1"}
+	c.Env = []string{"KIRA_TEST_SERVE=1"}
 	if out, err := c.CombinedOutput(); err == nil || !strings.Contains(string(out), "no control socket") {
 		t.Fatalf("without run: %v %s", err, out)
 	}

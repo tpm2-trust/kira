@@ -4,7 +4,7 @@ What the hooks put into the initramfs on Arch and Debian, the units and their co
 
 ## Setting it up: Arch Linux (mkinitcpio)
 
-tpm2-kira can display TOTP codes during early boot — before you enter your disk encryption passphrase. This way you can verify the system hasn't been tampered with before typing your LUKS password.
+kira can display TOTP codes during early boot — before you enter your disk encryption passphrase. This way you can verify the system hasn't been tampered with before typing your LUKS password.
 
 ### Install the hooks
 
@@ -13,8 +13,8 @@ sudo make install-mkinitcpio
 ```
 
 This installs:
-- `sd-tpm2-kira` — mkinitcpio install hook (systemd-based initramfs)
-- A **post-generation hook** that automatically runs `tpm2-kira slot approve` after every initramfs rebuild
+- `sd-kira` — mkinitcpio install hook (systemd-based initramfs)
+- A **post-generation hook** that automatically runs `kira slot approve` after every initramfs rebuild
 
 ### Configure mkinitcpio
 
@@ -22,35 +22,35 @@ Edit `/etc/mkinitcpio.conf` and add the hook next to `sd-encrypt`:
 
 ```bash
 # Systemd-based initramfs (recommended):
-HOOKS=(base systemd autodetect modconf block keyboard sd-tpm2-kira sd-encrypt filesystems fsck)
+HOOKS=(base systemd autodetect modconf block keyboard sd-kira sd-encrypt filesystems fsck)
 ```
 
 The order of the two hooks does not matter for the boot: what runs when is
-decided by the units (`tpm2-kira.service` before `systemd-pcrosseparator`,
+decided by the units (`kira.service` before `systemd-pcrosseparator`,
 the key socket before `cryptsetup-pre.target`, the disk after both), not
 by the position in `HOOKS`, and neither hook reads what the other wrote.
-`sd-tpm2-kira sd-encrypt` is the order to use, because it reads like the
+`sd-kira sd-encrypt` is the order to use, because it reads like the
 boot: the code screen, then the disk.
 
 What the image does at boot depends on two things, both optional:
 
 | In the image / on the command line | At boot |
 |---|---|
-| nothing but the hook | the code screen, then `sd-encrypt`'s own passphrase prompt (systemd's), as if tpm2-kira were not there once the code is confirmed |
-| `rd.luks.key=<UUID>=/run/tpm2-kira/unlock.sock` on the kernel command line | the code screen, then tpm2-kira's passphrase prompt; a typo falls back to systemd's prompt |
+| nothing but the hook | the code screen, then `sd-encrypt`'s own passphrase prompt (systemd's), as if kira were not there once the code is confirmed |
+| `rd.luks.key=<UUID>=/run/kira/unlock.sock` on the kernel command line | the code screen, then kira's passphrase prompt; a typo falls back to systemd's prompt |
 | a phone enrolled (`phone enrol`) and the adapter found at build time | the code screen also asks the phone and shows its verdict; the passphrase prompt is never held |
 
 
 ### Configure the disk unlock
 
-The main disk takes its key from tpm2-kira's socket when the kernel
+The main disk takes its key from kira's socket when the kernel
 command line names it next to `rd.luks.name=`:
 
 ```
-rd.luks.name=<UUID>=cryptroot rd.luks.key=<UUID>=/run/tpm2-kira/unlock.sock
+rd.luks.name=<UUID>=cryptroot rd.luks.key=<UUID>=/run/kira/unlock.sock
 ```
 
-`tpm2-kira luks route` checks the files the command line comes from and
+`kira luks route` checks the files the command line comes from and
 prints the line as it should read (`control`'s boot chain writes it when you
 say so). How the key is then made - asked, derived, or from the vault -
 is the keyslot's token: [DISK-KEY.md](DISK-KEY.md). Then
@@ -63,9 +63,9 @@ boot state, so the next boot matches.
 sequenceDiagram
   participant FW as Firmware / boot loader
   participant TPM
-  participant K as tpm2-kira-boot run (initrd)
+  participant K as kira-boot run (initrd)
   participant P as Phone (Marify)
-  participant V as tpm2-kira-vault
+  participant V as kira-vault
   participant S as SSH client
   participant D as LUKS volume
   FW->>TPM: measure the boot chain into the PCRs
@@ -89,7 +89,7 @@ sequenceDiagram
   K->>TPM: close (PCR 15) when the code screen is over: no more codes in this boot
 ```
 
-`tpm2-kira.service` starts before the disk unlock and runs `tpm2-kira-boot
+`kira.service` starts before the disk unlock and runs `kira-boot
 run`: the code screen ([CODE.md](CODE.md)), the phone's gate
 when one is enrolled ([PHONE.md](PHONE.md)), the SSH server when
 it is set ([SSH.md](SSH.md)), the vault's release when a slot is
@@ -97,7 +97,7 @@ enrolled with one ([VAULT.md](VAULT.md)), and the key socket
 ([DISK-KEY.md](DISK-KEY.md)) - each only when the boot plan put
 it in the image. Enter at the code screen, the phone's verdict, the
 vault's key, or 90 seconds ends the hold;
-`run` then closes the boot (PCR 15), `tpm2-kira-close.service` (Debian: `local-top`'s
+`run` then closes the boot (PCR 15), `kira-close.service` (Debian: `local-top`'s
 script) closes it again before any volume is opened, whatever `run` did, and no code can be
 computed until the next boot.
 
@@ -110,11 +110,11 @@ does not apply. The `.deb` installs these instead:
 
 | Path | Role |
 |---|---|
-| `/usr/share/initramfs-tools/hooks/tpm2-kira` | copies the binary into the image |
-| `/usr/share/initramfs-tools/scripts/init-premount/tpm2-kira` | starts the display at boot |
-| `/usr/share/initramfs-tools/scripts/local-top/tpm2-kira-close` | runs `tpm2-kira-boot close` when the code screen is over, before `cryptroot` opens a volume (a failure reboots) |
-| `/usr/share/initramfs-tools/scripts/init-bottom/tpm2-kira` | stops it and runs `tpm2-kira-boot close` once more before the real root takes over (a failure reboots) |
-| `/lib/cryptsetup/scripts/tpm2-kira` | cryptsetup keyscript: the volume's key from tpm2-kira's prompt |
+| `/usr/share/initramfs-tools/hooks/kira` | copies the binary into the image |
+| `/usr/share/initramfs-tools/scripts/init-premount/kira` | starts the display at boot |
+| `/usr/share/initramfs-tools/scripts/local-top/kira-close` | runs `kira-boot close` when the code screen is over, before `cryptroot` opens a volume (a failure reboots) |
+| `/usr/share/initramfs-tools/scripts/init-bottom/kira` | stops it and runs `kira-boot close` once more before the real root takes over (a failure reboots) |
+| `/lib/cryptsetup/scripts/kira` | cryptsetup keyscript: the volume's key from kira's prompt |
 
 `/init` runs `init-premount` before `local-top/cryptroot` asks for the
 passphrase, which is what puts the code on screen first. The script starts
@@ -124,11 +124,11 @@ listed in [BOOT-INTEGRATION.md](#arch-and-debian).
 
 ### Configure the disk unlock (Debian)
 
-`cryptroot` takes the key from a keyscript; add tpm2-kira's to the root
+`cryptroot` takes the key from a keyscript; add kira's to the root
 volume's line of `/etc/crypttab`, then `sudo update-initramfs -u`:
 
 ```
-vda3_crypt UUID=… none luks,discard,keyscript=/lib/cryptsetup/scripts/tpm2-kira
+vda3_crypt UUID=… none luks,discard,keyscript=/lib/cryptsetup/scripts/kira
 ```
 
 The keyscript asks the same socket `systemd-cryptsetup` does on Arch, and
@@ -149,7 +149,7 @@ apply. GRUB carries the equivalent measurements instead:
 
 ```bash
 # Measures kernel, initrd and command line; predicted across updates (below)
-tpm2-kira slot add --pcrs "0e,2e,4u,7e,8e,9e"
+kira slot add --pcrs "0e,2e,4u,7e,8e,9e"
 ```
 
 Secure Boot checks GRUB and the kernel, not GRUB's command line or the
@@ -176,23 +176,23 @@ enabled on the host, and each carries
 `ConditionPathExists=/etc/initrd-release`, so enabling one there by mistake
 does nothing.
 
-The image carries one binary, `/usr/bin/tpm2-kira-boot`: the code screen
+The image carries one binary, `/usr/bin/kira-boot`: the code screen
 and the parts of the plan, the close, the keyscript, the phone's radio worker
-and the SSH server's unprivileged half. `tpm2-kira`, the administration,
+and the SSH server's unprivileged half. `kira`, the administration,
 stays on the installed system; the hooks run it to decide the plan.
 
-What goes in is the **boot plan**'s (`tpm2-kira initramfs plan`,
-`tpm2-kira help initramfs`): the disk unlock always, every other part only
+What goes in is the **boot plan**'s (`kira initramfs plan`,
+`kira help initramfs`): the disk unlock always, every other part only
 while something uses it, and what needs the TPM only with one. The image
-names its parts in `/etc/tpm2-kira/plan/`; `tpm2-kira-boot run --plan` and the
+names its parts in `/etc/kira/plan/`; `kira-boot run --plan` and the
 Debian scripts start only those.
 
 | Unit | In the initramfs image | Does something when |
 |------|------------------------|---------------------|
-| `tpm2-kira.service` (`run`: the code at the prompt, the gate's coordinator, the SSH server, and the key provider for `systemd-cryptsetup`) | always, once `sd-tpm2-kira` is in `HOOKS`. `run` waits for the TPM's device (at most 5 s after the boot's first wait for it, SSH.md, "One wait per boot") only when a part of the plan needs it | a volume asks for its key; with the codes in the plan (a slot with a TOTP key or phones), a code is shown. Without them nothing is shown: the hold lasts while the vault opens its part, else the boot is released at once. The first `slot add` makes the image out of date (`control` rebuilds it when left). The gate ends when the boot is released; the process stays to answer the volumes' key requests and ends at switch-root |
-| `tpm2-kira-unlock.socket` (the key socket) | always, with the display | `systemd-cryptsetup` activates a volume whose key file is the socket |
-| `tpm2-kira-close.service` (closes the boot: PCR 15 extended, `tpm2-kira-boot close`, which every slot object's policy and the SSH CA's read - no code, no slot's part opens, no key is certified until the next boot; `run` closed it already when the code screen was over, this closes it whatever `run` did; required by `initrd.target`; a failure - every way refused, or a TPM silent for the first time - is a hard reboot, `FailureAction=reboot-force`: no shell with PCR 15 at zero; SSH.md, "The close: what it can come to") | with the TPM in the plan: a slot is sealed, whatever its methods, or an SSH CA exists (also one kept while SSH is off) | the code screen is over (after `tpm2-kira.service`), before `cryptsetup-pre.target` |
-| `tpm2-kira-machine-id.service` (releases the sealed machine-id, `tpm2-kira-boot machine-id`) | with the image's network | before systemd-networkd starts and before the close: slot 0's policy holds, `KIRAmachineID` unseals ([SSH.md](SSH.md) §2.1) |
+| `kira.service` (`run`: the code at the prompt, the gate's coordinator, the SSH server, and the key provider for `systemd-cryptsetup`) | always, once `sd-kira` is in `HOOKS`. `run` waits for the TPM's device (at most 5 s after the boot's first wait for it, SSH.md, "One wait per boot") only when a part of the plan needs it | a volume asks for its key; with the codes in the plan (a slot with a TOTP key or phones), a code is shown. Without them nothing is shown: the hold lasts while the vault opens its part, else the boot is released at once. The first `slot add` makes the image out of date (`control` rebuilds it when left). The gate ends when the boot is released; the process stays to answer the volumes' key requests and ends at switch-root |
+| `kira-unlock.socket` (the key socket) | always, with the display | `systemd-cryptsetup` activates a volume whose key file is the socket |
+| `kira-close.service` (closes the boot: PCR 15 extended, `kira-boot close`, which every slot object's policy and the SSH CA's read - no code, no slot's part opens, no key is certified until the next boot; `run` closed it already when the code screen was over, this closes it whatever `run` did; required by `initrd.target`; a failure - every way refused, or a TPM silent for the first time - is a hard reboot, `FailureAction=reboot-force`: no shell with PCR 15 at zero; SSH.md, "The close: what it can come to") | with the TPM in the plan: a slot is sealed, whatever its methods, or an SSH CA exists (also one kept while SSH is off) | the code screen is over (after `kira.service`), before `cryptsetup-pre.target` |
+| `kira-machine-id.service` (releases the sealed machine-id, `kira-boot machine-id`) | with the image's network | before systemd-networkd starts and before the close: slot 0's policy holds, `KIRAmachineID` unseals ([SSH.md](SSH.md) §2.1) |
 
 The slots' records are EFI variables (`KIRAslotN`): the image reads them
 through efivarfs. systemd mounts it itself on Arch (the hook adds the
@@ -203,7 +203,7 @@ prompt ("efivarfs not mounted?" in the log).
 
 The phone's gate is no unit: with the phone in the plan, `run` starts its
 radio worker itself. The phone is in the plan with a TPM, a phone enrolled
-(or `TPM2_KIRA_ATTEST_BLUETOOTH=always`), its record signed by this
+(or `KIRA_ATTEST_BLUETOOTH=always`), its record signed by this
 machine's key and current, **and** the adapter found when the image was
 built; the signing public key and the adapter's modules and firmware go
 into the image with it. Otherwise no Bluetooth module or firmware is in the
@@ -231,8 +231,8 @@ thread that asks): no new privileges, no executable memory, Landlock as
 above (no TCP bind or connect either), and none of the system calls that
 administer the machine - mounts, modules, the clock, other processes'
 memory, namespaces, user IDs, keyrings, BPF, running a program (seccomp,
-EPERM; another architecture's ABI ends the process). `tpm2-kira help
-ssh-child`, `tpm2-kira help gate-child`.
+EPERM; another architecture's ABI ends the process). `kira help
+ssh-child`, `kira help gate-child`.
 
 ### Arch and Debian
 
@@ -242,14 +242,14 @@ does around it:
 
 | | Arch (mkinitcpio, systemd) | Debian (initramfs-tools) |
 |---|---|---|
-| `run` is started by | `tpm2-kira.service` | `scripts/init-premount/tpm2-kira`, in the background |
-| the disk's key | `systemd-cryptsetup` reads `tpm2-kira-unlock.socket` (`rd.luks.key=`, crypttab(5) AF_UNIX key files) | cryptroot runs the keyscript `unlock-key`, which asks the socket `run --unlock` made |
+| `run` is started by | `kira.service` | `scripts/init-premount/kira`, in the background |
+| the disk's key | `systemd-cryptsetup` reads `kira-unlock.socket` (`rd.luks.key=`, crypttab(5) AF_UNIX key files) | cryptroot runs the keyscript `unlock-key`, which asks the socket `run --unlock` made |
 | the adapter's modules | loaded by `systemd-modules-load` (`modules-load.d`) | loaded by the image's init (`conf/modules`, the hook's `force_load`) |
-| the image's network | `systemd-networkd`, the plan's `.network` file; the sealed machine-id released before it (`tpm2-kira-machine-id.service`), from which networkd derives its default DUID (a copied identity wins) | the script: initramfs-tools' `configure_networking`, or busybox' `udhcpc` / `ip` (`remote.conf`) with the copied identity; the machine-id is released all the same, before it |
-| the narrative | the journal: `journalctl -b -u tpm2-kira.service` | `/run/initramfs/tpm2-kira.log` |
-| the boot closed (PCR 15: every slot and the SSH CA) | `run` when the code screen is over, before READY; then `tpm2-kira-close.service`; down aSSH's ladder (SSH.md), a failure: `FailureAction=reboot-force` | `run` when the code screen is over, before its READY file (`--ready-file`); then `scripts/local-top/tpm2-kira-close`, which waits for that file or for `run` gone and runs before cryptroot, whose prerequisites name every other script of `local-top`; again `scripts/init-bottom/tpm2-kira`; down aSSH's ladder (SSH.md), a failure: `reboot -f`, then SysRq `b` |
-| the close before a resume from hibernation | a drop-in on `systemd-hibernate-resume.service` (`ExecStartPre=tpm2-kira-boot close --resume`, after `tpm2-kira.service`); a failure: no resume | `scripts/local-top/tpm2-kira-close` (`tpm2-kira-boot close --resume`, after that script's own close), before cryptroot; a failure clears `resume=` |
-| stopped | at `initrd-switch-root`: the units' stop | `scripts/init-bottom/tpm2-kira`: TERM to `run` (5 s) |
+| the image's network | `systemd-networkd`, the plan's `.network` file; the sealed machine-id released before it (`kira-machine-id.service`), from which networkd derives its default DUID (a copied identity wins) | the script: initramfs-tools' `configure_networking`, or busybox' `udhcpc` / `ip` (`remote.conf`) with the copied identity; the machine-id is released all the same, before it |
+| the narrative | the journal: `journalctl -b -u kira.service` | `/run/initramfs/kira.log` |
+| the boot closed (PCR 15: every slot and the SSH CA) | `run` when the code screen is over, before READY; then `kira-close.service`; down aSSH's ladder (SSH.md), a failure: `FailureAction=reboot-force` | `run` when the code screen is over, before its READY file (`--ready-file`); then `scripts/local-top/kira-close`, which waits for that file or for `run` gone and runs before cryptroot, whose prerequisites name every other script of `local-top`; again `scripts/init-bottom/kira`; down aSSH's ladder (SSH.md), a failure: `reboot -f`, then SysRq `b` |
+| the close before a resume from hibernation | a drop-in on `systemd-hibernate-resume.service` (`ExecStartPre=kira-boot close --resume`, after `kira.service`); a failure: no resume | `scripts/local-top/kira-close` (`kira-boot close --resume`, after that script's own close), before cryptroot; a failure clears `resume=` |
+| stopped | at `initrd-switch-root`: the units' stop | `scripts/init-bottom/kira`: TERM to `run` (5 s) |
 | the measure point | ordered before systemd's PCR separators | before cryptroot (no separator) |
 
 The display refreshes once per 30-second TOTP window, writing to the same
@@ -285,8 +285,8 @@ on disk now - the way SUSE's `pcr-oracle` does it; neither Debian nor
 | `grub.cfg` (`update-grub`) | its SHA-256, and the `menuentry`/`submenu` commands rebuilt from it - GRUB measures them with their whole body |
 | `grubenv`, GRUB modules, `.lst` files | their SHA-256 |
 
-The hooks run it: `/etc/initramfs/post-update.d/tpm2-kira` after every
-`update-initramfs`, and `/etc/kernel/postinst.d/zzz-tpm2-kira` (also
+The hooks run it: `/etc/initramfs/post-update.d/kira` after every
+`update-initramfs`, and `/etc/kernel/postinst.d/zzz-kira` (also
 `postrm.d`) after `zz-update-grub` has written the final `grub.cfg` of a
 kernel install or removal. `slot approve` prints what it substituted, for
 example `PCR9 /initrd.img-6.12.111+deb13-amd64: now /boot/initrd.img-…`.
@@ -297,7 +297,7 @@ What the prediction cannot know, and what then happens: a different menu
 entry chosen at the GRUB menu, a command line edited there, a `grubenv`
 the boot rewrites (`GRUB_SAVEDEFAULT`, `recordfail`), or a GRUB package
 update that changes the module set. Such a boot shows no code - expected,
-not a compromise - and `sudo tpm2-kira slot approve` after it binds to the
+not a compromise - and `sudo kira slot approve` after it binds to the
 state you booted, as the approval always did. The prediction is checked
 against this machine's real log in the test suite
 (`internal/measure/grub_predict_test.go`, Debian 13, GRUB 2.12).

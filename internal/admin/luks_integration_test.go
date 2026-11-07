@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/diskkey"
 )
 
 // luks enrol on a LUKS2 image: the keyslot added through cryptsetup with
@@ -51,7 +51,7 @@ func TestLuksEnrolOnAnImage(t *testing.T) {
 	}
 	defer func() { terminalAsk = oldAsk }()
 	conf := filepath.Join(dir, "control.conf")
-	os.WriteFile(conf, []byte("# comment\nTPM2_KIRA_NOSUCH=skip\n"), 0o644)
+	os.WriteFile(conf, []byte("# comment\nKIRA_NOSUCH=skip\n"), 0o644)
 
 	if err := LuksEnrol(LuksEnrolOptions{Device: loop, Recipe: diskkey.RecipeRecovery, ExistingKeyFile: existing}); err != nil {
 		t.Fatalf("luks enrol: %v", err)
@@ -66,11 +66,11 @@ func TestLuksEnrolOnAnImage(t *testing.T) {
 	if out, err := exec.Command("cryptsetup", "open", "--test-passphrase", loop, "--key-file", keyFile).CombinedOutput(); err != nil {
 		t.Fatalf("the derived key does not open the header: %v %s", err, out)
 	}
-	if out, err := exec.Command("cryptsetup", "luksDump", loop).CombinedOutput(); err != nil || !strings.Contains(string(out), "tpm2-kira") {
+	if out, err := exec.Command("cryptsetup", "luksDump", loop).CombinedOutput(); err != nil || !strings.Contains(string(out), "kira") {
 		t.Fatalf("luksDump shows no token: %v\n%s", err, out)
 	}
 
-	// A device whose every keyslot is tpm2-kira's gets no second one: the
+	// A device whose every keyslot is kira's gets no second one: the
 	// recovery passphrase must stay.
 	if err := LuksMark(LuksMarkOptions{Device: loop, Keyslot: 0, Recipe: diskkey.RecipeRecovery}); err != nil {
 		t.Fatal(err)
@@ -80,7 +80,7 @@ func TestLuksEnrolOnAnImage(t *testing.T) {
 		t.Fatalf("without a recovery keyslot: %v", err)
 	}
 
-	// remove: only tpm2-kira's, never the last. cryptsetup wants a
+	// remove: only kira's, never the last. cryptsetup wants a
 	// passphrase of a keyslot other than the one killed.
 	if err := LuksRemove(LuksRemoveOptions{Device: loop, Keyslot: 0, ExistingKeyFile: keyFile}); err != nil {
 		t.Fatal(err)
@@ -96,7 +96,7 @@ func TestLuksEnrolOnAnImage(t *testing.T) {
 	if out, err := add.CombinedOutput(); err != nil {
 		t.Fatalf("luksAddKey: %v: %s", err, out)
 	}
-	if err := LuksRemove(LuksRemoveOptions{Device: loop, Keyslot: 0, ExistingKeyFile: keyFile}); err == nil || !strings.Contains(err.Error(), "not tpm2-kira's") {
+	if err := LuksRemove(LuksRemoveOptions{Device: loop, Keyslot: 0, ExistingKeyFile: keyFile}); err == nil || !strings.Contains(err.Error(), "not kira's") {
 		t.Fatalf("a keyslot that is not ours: %v", err)
 	}
 }

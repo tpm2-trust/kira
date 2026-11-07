@@ -239,7 +239,7 @@ func TestAnchorAttestationChallengeVector(t *testing.T) {
 	for i := range cb {
 		cb[i] = byte(i)
 	}
-	h := sha256.Sum256(append([]byte("tpm2-kira/anchor-attest/v1"), cb...))
+	h := sha256.Sum256(append([]byte("kira/anchor-attest/v1"), cb...))
 	if got := AnchorAttestationChallenge(cb); hex.EncodeToString(got) != hex.EncodeToString(h[:]) {
 		t.Fatal("challenge")
 	}

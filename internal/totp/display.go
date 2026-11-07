@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 
 	"github.com/google/go-tpm/tpm2"
 	"rsc.io/qr"
@@ -63,7 +63,7 @@ func PrintKIRAError(err error) {
 		}
 
 		fmt.Println()
-		fmt.Println("To fix this, run: tpm2-kira slot approve --privkey /path/to/private.key")
+		fmt.Println("To fix this, run: kira slot approve --privkey /path/to/private.key")
 	} else if tpmdev.IsTPMPolicyFailure(err) {
 		// Handle TPM policy failures with helpful guidance
 		fmt.Println(FormatKIRAError(err))
@@ -74,7 +74,7 @@ func PrintKIRAError(err error) {
 		fmt.Println("- The system state has changed since sealing")
 		fmt.Println()
 
-		fmt.Println("To see detailed PCR values and fix this, run: tpm2-kira slot approve --privkey /path/to/private.key")
+		fmt.Println("To see detailed PCR values and fix this, run: kira slot approve --privkey /path/to/private.key")
 		fmt.Println("(Provide the signing private key that corresponds to the public key used during sealing)")
 	} else {
 		fmt.Println(FormatKIRAError(err))
@@ -121,10 +121,10 @@ func RenderQRCode(data string) (string, error) {
 // every authenticator assumes, and some apps reject the parameter.
 func URI(secret, label, issuer string, alg tpm2.TPMAlgID) string {
 	if label == "" {
-		label = "TPM2-KIRA"
+		label = "KIRA"
 	}
 	if issuer == "" {
-		issuer = "TPM2-KIRA"
+		issuer = "KIRA"
 	}
 	// URL encode the label for proper formatting
 	encodedLabel := url.PathEscape(label)
@@ -146,8 +146,8 @@ func DisplayQRCode(secret string, nvramIndex uint32, pcrsStr string, alg tpm2.TP
 	slotNumber := nvslot.SlotNumber(nvramIndex)
 
 	// Create label with slot number and PCRs
-	label := fmt.Sprintf("TPM2-KIRA: %s, PCRs %s (#%d)", hostname, pcrsStr, slotNumber)
-	totpURI := URI(secret, label, "TPM2-KIRA", alg)
+	label := fmt.Sprintf("KIRA: %s, PCRs %s (#%d)", hostname, pcrsStr, slotNumber)
+	totpURI := URI(secret, label, "KIRA", alg)
 
 	if qrText, err := RenderQRCode(totpURI); err != nil {
 		fmt.Printf("   QR code could not be generated: %v\n", err)

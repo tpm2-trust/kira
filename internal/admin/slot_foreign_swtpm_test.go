@@ -14,8 +14,8 @@ import (
 	"github.com/google/go-tpm/tpm2/transport"
 	"github.com/tpm2-trust/assh/persist"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 )
 
 // A generation index of another shape, read_stclear and without no_da.
@@ -26,7 +26,7 @@ var oldGeneration = tpm2.TPMANV{OwnerRead: true, AuthRead: true, PolicyWrite: tr
 func foreignTPM(t *testing.T) (string, transport.TPMCloser) {
 	t.Helper()
 	sock := startSWTPM(t)
-	t.Setenv("TPM2_KIRA_CONTROL_CONF", filepath.Join(t.TempDir(), "control.conf"))
+	t.Setenv("KIRA_CONTROL_CONF", filepath.Join(t.TempDir(), "control.conf"))
 	answers(t, "")
 	oldList := listLuksDevices
 	t.Cleanup(func() { listLuksDevices = oldList })
@@ -112,7 +112,7 @@ func TestForeignGenerationIndexSlotDelete(t *testing.T) {
 			}
 			sealRealSlot(t, sock, slot)
 			if nvslot.ForeignAt(tpm, gen) != nil || !nvslot.SlotExists(tpm, slot) {
-				t.Fatal("a slot sealed afterwards has no generation index of tpm2-kira's")
+				t.Fatal("a slot sealed afterwards has no generation index of kira's")
 			}
 			if err := NVRAMDeleteCommand(sock, slot, false, false, false, false); err != nil {
 				t.Fatalf("the sealed slot, without asking: %v", err)
@@ -190,7 +190,7 @@ func TestForeignInSlotDeleteEverything(t *testing.T) {
 	}
 }
 
-// --force stops at tpm2-kira's places: not the rest of its range, not a slot's
+// --force stops at kira's places: not the rest of its range, not a slot's
 // number, not what is outside the range.
 func TestForceStopsAtTheOwnPlaces(t *testing.T) {
 	sock, tpm := foreignTPM(t)
@@ -201,7 +201,7 @@ func TestForceStopsAtTheOwnPlaces(t *testing.T) {
 	}
 	var err error
 	captureStdout(t, func() { err = NVRAMDeleteCommand(sock, reserved, false, true, false, false) })
-	if !errors.Is(err, persist.ErrNotOurs) || !strings.Contains(err.Error(), "not one of tpm2-kira's own places") {
+	if !errors.Is(err, persist.ErrNotOurs) || !strings.Contains(err.Error(), "not one of kira's own places") {
 		t.Errorf("the rest of the range: %v", err)
 	}
 	captureStdout(t, func() { err = NVRAMDeleteCommand(sock, outside, false, true, false, false) })
@@ -213,7 +213,7 @@ func TestForceStopsAtTheOwnPlaces(t *testing.T) {
 		t.Errorf("a slot's number: %v", err)
 	}
 	// The primitive itself, whatever a caller says yes to.
-	always := func(nvslot.Foreign) (bool, error) { t.Error("asked about a place not tpm2-kira's"); return true, nil }
+	always := func(nvslot.Foreign) (bool, error) { t.Error("asked about a place not kira's"); return true, nil }
 	if _, err := nvslot.RemoveIndex(tpm, reserved, always); !errors.Is(err, persist.ErrNotOurs) {
 		t.Errorf("RemoveIndex in the range: %v", err)
 	}
@@ -276,7 +276,7 @@ func TestControlForeignGenerationIndex(t *testing.T) {
 }
 
 // The owner's password: a clear error that says what to do, the index still
-// there, for tpm2-kira's own index as for another shape; no prompt's yes helps.
+// there, for kira's own index as for another shape; no prompt's yes helps.
 func TestRemovalUnderAnOwnerPassword(t *testing.T) {
 	sock, tpm := foreignTPM(t)
 	gen := nvslot.GenerationIndex(nvslot.NVRAMSlotStart)

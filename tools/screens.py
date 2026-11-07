@@ -257,11 +257,11 @@ def main():
                             f"<figcaption>{html.escape(label)}</figcaption></figure>")
     index = os.path.join(root, "screens.html")
     with open(index, "w") as f:
-        f.write("<!DOCTYPE html><meta charset=utf-8><title>tpm2-kira screens</title>"
+        f.write("<!DOCTYPE html><meta charset=utf-8><title>kira screens</title>"
                 "<style>body{font-family:sans-serif;background:#f4f4f4;margin:16px}figure{margin:12px 0}"
                 "img{max-width:100%;border:1px solid #ccc;background:#1d1f21}figure.phone img{max-width:360px}"
                 "figcaption{font-size:12px;color:#555}</style>"
-                f"<h1>tpm2-kira: the screens of {html.escape(os.path.basename(root))}</h1>" + "\n".join(body))
+                f"<h1>kira: the screens of {html.escape(os.path.basename(root))}</h1>" + "\n".join(body))
     print(f"screens: {count} pictures, {index}")
     return 0
 

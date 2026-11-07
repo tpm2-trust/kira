@@ -1,5 +1,5 @@
 {
- "comment": "Noise test vectors for the two patterns tpm2-kira uses, copied unchanged from the sources named per vector (2026-10-05).",
+ "comment": "Noise test vectors for the two patterns kira uses, copied unchanged from the sources named per vector (2026-10-05).",
  "vectors": [
   {
    "protocol_name": "Noise_IK_25519_ChaChaPoly_SHA256",

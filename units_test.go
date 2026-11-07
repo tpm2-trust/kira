@@ -49,7 +49,7 @@ func has(lines []string, want string) bool {
 // The initrd units are installed on the host too (the mkinitcpio hook takes
 // them from there). Enabled on the host by mistake they must do nothing.
 func TestInitrdUnitsOnlyRunInTheInitrd(t *testing.T) {
-	for _, unit := range []string{"tpm2-kira.service", "tpm2-kira-close.service", "tpm2-kira-machine-id.service", "tpm2-kira-unlock.socket"} {
+	for _, unit := range []string{"kira.service", "kira-close.service", "kira-machine-id.service", "kira-unlock.socket"} {
 		if !has(directives(t, "initramfs/systemd/"+unit), "ConditionPathExists=/etc/initrd-release") {
 			t.Errorf("%s lacks ConditionPathExists=/etc/initrd-release", unit)
 		}
@@ -64,18 +64,18 @@ func TestInitrdUnitsOnlyRunInTheInitrd(t *testing.T) {
 // starts a gate of its own, waits for the TPM itself or loads the
 // adapter's modules itself.
 func TestTheBootIsRunOnBothDistributions(t *testing.T) {
-	if _, err := os.Stat("initramfs/systemd/tpm2-kira-attest.service"); err == nil {
+	if _, err := os.Stat("initramfs/systemd/kira-attest.service"); err == nil {
 		t.Error("a unit of the gate's own: run starts the radio worker")
 	}
-	display := directives(t, "initramfs/systemd/tpm2-kira.service")
+	display := directives(t, "initramfs/systemd/kira.service")
 	// The code screen owns the terminal; what the key provider reports
 	// (stderr) must be readable after the boot as well.
 	if !has(display, "StandardInput=tty") || !has(display, "StandardOutput=tty") || !has(display, "StandardError=journal+console") {
 		t.Error("the display's terminal and journal wiring")
 	}
-	// $TPM2_KIRA_REMOTE: the SSH server's flags from the image's drop-in,
+	// $KIRA_REMOTE: the SSH server's flags from the image's drop-in,
 	// no argument at all without one. --plan: what the image carries.
-	const arch = "ExecStart=tpm2-kira-boot run --plan /etc/tpm2-kira/plan $TPM2_KIRA_REMOTE"
+	const arch = "ExecStart=kira-boot run --plan /etc/kira/plan $KIRA_REMOTE"
 	if !has(display, arch) {
 		t.Error("the code screen does not follow the image's plan")
 	}
@@ -96,42 +96,42 @@ func TestTheBootIsRunOnBothDistributions(t *testing.T) {
 	}
 
 	// Debian: the same run, with the key socket of its own (systemd's
-	// socket unit hands it over instead), and nothing else of tpm2-kira's.
-	script, err := os.ReadFile("initramfs/initramfs-tools/scripts/init-premount/tpm2-kira")
+	// socket unit hands it over instead), and nothing else of kira's.
+	script, err := os.ReadFile("initramfs/initramfs-tools/scripts/init-premount/kira")
 	if err != nil {
 		t.Fatal(err)
 	}
 	var started []string
 	for _, l := range strings.Split(string(script), "\n") {
-		if l = strings.TrimSpace(l); !strings.HasPrefix(l, "#") && !strings.HasPrefix(l, "[") && strings.Contains(l, "tpm2-kira-boot ") {
+		if l = strings.TrimSpace(l); !strings.HasPrefix(l, "#") && !strings.HasPrefix(l, "[") && strings.Contains(l, "kira-boot ") {
 			started = append(started, l)
 		}
 	}
-	const debian = `/usr/bin/tpm2-kira-boot run --plan "$PLAN" --unlock "$UNLOCK" --ready-file /run/tpm2-kira/screen-over $TPM2_KIRA_REMOTE `
-	const machineID = `/usr/bin/tpm2-kira-boot machine-id `
+	const debian = `/usr/bin/kira-boot run --plan "$PLAN" --unlock "$UNLOCK" --ready-file /run/kira/screen-over $KIRA_REMOTE `
+	const machineID = `/usr/bin/kira-boot machine-id `
 	if len(started) != 2 || !strings.Contains(started[0], machineID) || !strings.Contains(started[1], debian) {
 		t.Errorf("Debian starts %q, want the machine-id's release, then run as %q", started, debian)
 	}
 	// Secure Boot's state and the slots' records are EFI variables: efivarfs is
 	// mounted before run, in every image - not only with the TPM or a network.
 	mount := strings.Index(string(script), "mount -t efivarfs efivarfs /sys/firmware/efi/efivars")
-	netCase := strings.Index(string(script), `case "$TPM2_KIRA_NET" in`+"\ndhcp | static)\n    TPM2_KIRA_LOG")
+	netCase := strings.Index(string(script), `case "$KIRA_NET" in`+"\ndhcp | static)\n    KIRA_LOG")
 	run := strings.Index(string(script), debian)
 	if mount < 0 || run < 0 || mount > run || netCase >= 0 && mount > netCase || !strings.Contains(string(script), `if [ -d /sys/firmware/efi/efivars ] && ! grep`) {
 		t.Error("Debian's script does not mount efivarfs before run, for every image")
 	}
 	// Arch: the same release, before the network and the separators.
-	mid := directives(t, "initramfs/systemd/tpm2-kira-machine-id.service")
-	for _, want := range []string{"ExecStart=tpm2-kira-boot machine-id", "Type=oneshot", "Before=systemd-networkd.service",
+	mid := directives(t, "initramfs/systemd/kira-machine-id.service")
+	for _, want := range []string{"ExecStart=kira-boot machine-id", "Type=oneshot", "Before=systemd-networkd.service",
 		"Before=systemd-pcrosseparator.service", "After=systemd-pcrphase-initrd.service",
 		// Unsealed under slot 0's policy: before the close (PCR 15) ends it.
-		"Before=tpm2-kira-close.service"} {
+		"Before=kira-close.service"} {
 		if !has(mid, want) {
-			t.Errorf("tpm2-kira-machine-id.service lacks %q", want)
+			t.Errorf("kira-machine-id.service lacks %q", want)
 		}
 	}
 	// ... and before run, which closes when its code screen is over.
-	if !has(directives(t, "initramfs/systemd/tpm2-kira.service"), "After=tpm2-kira-machine-id.service") {
+	if !has(directives(t, "initramfs/systemd/kira.service"), "After=kira-machine-id.service") {
 		t.Error("run may close the boot before the machine-id is released")
 	}
 	for _, bad := range []string{"modprobe", "/dev/tpmrm0", "gate-child", "--gate", "INITRAMFS_MODE"} {
@@ -139,7 +139,7 @@ func TestTheBootIsRunOnBothDistributions(t *testing.T) {
 			t.Errorf("Debian's script has %q: run, or the image's init, does that on both", bad)
 		}
 	}
-	hook, err := os.ReadFile("initramfs/initramfs-tools/hooks/tpm2-kira")
+	hook, err := os.ReadFile("initramfs/initramfs-tools/hooks/kira")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,26 +148,26 @@ func TestTheBootIsRunOnBothDistributions(t *testing.T) {
 	}
 }
 
-// The disk's key comes from tpm2-kira: the socket unit is the key file of
+// The disk's key comes from kira: the socket unit is the key file of
 // the volumes (crypttab(5), AF_UNIX key files), exists before any
 // cryptsetup unit, and is answered by the display's process.
 func TestUnlockSocketIsWiredToTheDisplay(t *testing.T) {
-	sock := directives(t, "initramfs/systemd/tpm2-kira-unlock.socket")
+	sock := directives(t, "initramfs/systemd/kira-unlock.socket")
 	for _, want := range []string{
-		"ListenStream=/run/tpm2-kira/unlock.sock",
+		"ListenStream=/run/kira/unlock.sock",
 		"SocketMode=0600",
 		"Wants=cryptsetup-pre.target",
 		"Before=cryptsetup-pre.target",
-		"Service=tpm2-kira.service",
+		"Service=kira.service",
 		"RemoveOnStop=yes",
 	} {
 		if !has(sock, want) {
 			t.Errorf("socket unit lacks %q", want)
 		}
 	}
-	svc := directives(t, "initramfs/systemd/tpm2-kira.service")
+	svc := directives(t, "initramfs/systemd/kira.service")
 	// Sockets= is a [Service] setting: systemd ignores it in [Unit].
-	if section(svc, "Sockets=tpm2-kira-unlock.socket") != "[Service]" {
+	if section(svc, "Sockets=kira-unlock.socket") != "[Service]" {
 		t.Error("the display's service does not take the key socket in [Service]")
 	}
 	// The key is asked for after the separator, which the display's READY
@@ -182,31 +182,31 @@ func TestUnlockSocketIsWiredToTheDisplay(t *testing.T) {
 // "-" before the command; the hook makes initrd.target require it). There
 // is no other lock: no cap unit.
 func TestCloseUnitFailsTheBoot(t *testing.T) {
-	if _, err := os.Stat("initramfs/systemd/tpm2-kira-cap.service"); err == nil {
+	if _, err := os.Stat("initramfs/systemd/kira-cap.service"); err == nil {
 		t.Error("a cap unit: PCR 15 closes the slots")
 	}
-	d := directives(t, "initramfs/systemd/tpm2-kira-close.service")
-	for _, want := range []string{"After=tpm2-kira.service", "Wants=cryptsetup-pre.target",
-		"Before=cryptsetup-pre.target initrd.target initrd-switch-root.target", "Type=oneshot", "ExecStart=tpm2-kira-boot close",
-		"FailureAction=reboot-force", "ConditionKernelCommandLine=!tpm2-kira.noclose"} {
+	d := directives(t, "initramfs/systemd/kira-close.service")
+	for _, want := range []string{"After=kira.service", "Wants=cryptsetup-pre.target",
+		"Before=cryptsetup-pre.target initrd.target initrd-switch-root.target", "Type=oneshot", "ExecStart=kira-boot close",
+		"FailureAction=reboot-force", "ConditionKernelCommandLine=!kira.noclose"} {
 		if !has(d, want) {
-			t.Errorf("tpm2-kira-close.service lacks %s", want)
+			t.Errorf("kira-close.service lacks %s", want)
 		}
 	}
 	// The late closer: after the close, in the image and in the root, only when
 	// the close left its file.
-	d = directives(t, "initramfs/systemd/tpm2-kira-late-close.service")
-	for _, want := range []string{"ConditionPathExists=/run/tpm2-kira/close-pending", "After=tpm2-kira-close.service",
-		"ExecStart=tpm2-kira-boot close --late", "Conflicts=shutdown.target initrd-switch-root.target"} {
+	d = directives(t, "initramfs/systemd/kira-late-close.service")
+	for _, want := range []string{"ConditionPathExists=/run/kira/close-pending", "After=kira-close.service",
+		"ExecStart=kira-boot close --late", "Conflicts=shutdown.target initrd-switch-root.target"} {
 		if !has(d, want) {
-			t.Errorf("tpm2-kira-late-close.service lacks %s", want)
+			t.Errorf("kira-late-close.service lacks %s", want)
 		}
 	}
-	hook, err := os.ReadFile("initramfs/mkinitcpio/install/sd-tpm2-kira")
+	hook, err := os.ReadFile("initramfs/mkinitcpio/install/sd-kira")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(hook), "initrd.target.requires/tpm2-kira-close.service") {
+	if !strings.Contains(string(hook), "initrd.target.requires/kira-close.service") {
 		t.Error("the hook does not make initrd.target require the close")
 	}
 }
@@ -214,15 +214,15 @@ func TestCloseUnitFailsTheBoot(t *testing.T) {
 // bootctl update through systemd-boot-update.service moves PCR 4: its drop-in
 // approves, only what moved, and its failure is never the update's.
 func TestBootUpdateApprovesPCR4(t *testing.T) {
-	d := directives(t, "initramfs/systemd/systemd-boot-update-tpm2-kira.conf")
-	if !has(d, "ExecStartPost=-/usr/bin/tpm2-kira slot approve --if-moved") {
+	d := directives(t, "initramfs/systemd/systemd-boot-update-kira.conf")
+	if !has(d, "ExecStartPost=-/usr/bin/kira slot approve --if-moved") {
 		t.Errorf("the drop-in: %v", d)
 	}
 	pkg, err := os.ReadFile("packaging/aur/PKGBUILD")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(pkg), "systemd-boot-update.service.d/tpm2-kira.conf") {
+	if !strings.Contains(string(pkg), "systemd-boot-update.service.d/kira.conf") {
 		t.Error("the package does not install the drop-in")
 	}
 }

@@ -14,7 +14,7 @@
 
 A machine is described in a config (default ../.local/vms/localvm.conf,
 see localvm.conf.example): the exported disk, its MAC, and the local ports
-its ssh (22) and tpm2-kira's boot SSH server (2222) are forwarded to on
+its ssh (22) and kira's boot SSH server (2222) are forwarded to on
 127.0.0.1. Its files live in the config's dir/<machine>/:
 
   disk.qcow2      an overlay on the export: the export is never written

@@ -12,7 +12,7 @@ Severity: sealed an unusable policy — PCR 11 never matched, unseal always fail
 Sealing with `0e,2e,7e,11u` produced a PCR 11 mismatch at the boot prompt.
 `0e,2e,7e` alone worked flawlessly.
 
-    PCR11 expected (tpm2-kira) : 65e0e85d...
+    PCR11 expected (kira) : 65e0e85d...
     PCR11 register (at prompt) : e35c56c4...
 
 The register was correct. The prediction was wrong.
@@ -73,7 +73,7 @@ data, which would otherwise read past the section.
   and fails if the predictor returns the padded one. It skips when no unified
   kernel image is present, and skips rather than passing vacuously if no
   measured section happens to be padded in that image.
-- `tpm2-kira slot add` now runs `VerifyUKISpecsAgainstEventlog`, which recomputes
+- `kira slot add` now runs `VerifyUKISpecsAgainstEventlog`, which recomputes
   PCR 11 from the image and compares it against this boot's firmware event log
   measurement by measurement. This exact bug would have been caught at seal
   time instead of at the prompt.

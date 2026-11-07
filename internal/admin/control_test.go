@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"github.com/tpm2-trust/assh/hostkey"
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/sbstate"
-	"github.com/tpm2-trust/tpm2-kira/internal/vaultkey"
+	"github.com/tpm2-trust/kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/sbstate"
+	"github.com/tpm2-trust/kira/internal/vaultkey"
 )
 
 // The boot chain: the hook, the route, and the way on to the overview,
@@ -32,7 +32,7 @@ func TestControlBootChain(t *testing.T) {
 	// is the recommendation.
 	c.facts.Initramfs, c.facts.HookInstalled = "mkinitcpio", true
 	c.facts.Hooks = []string{"base", "systemd", "block", "sd-encrypt", "filesystems"}
-	c.facts.HookState = "sd-tpm2-kira is not in HOOKS of /etc/mkinitcpio.conf - add it next to sd-encrypt, then rebuild"
+	c.facts.HookState = "sd-kira is not in HOOKS of /etc/mkinitcpio.conf - add it next to sd-encrypt, then rebuild"
 	c.facts.Status.Devices = []LuksDeviceStatus{{Device: "/dev/sda2", Keyslots: []KeyslotStatus{{Keyslot: 0}}}}
 	steps = c.chainSteps()
 	if steps[0].Title != "mkinitcpio adoption" || steps[0].Blocked != "" || steps[0].Done != "" ||
@@ -44,11 +44,11 @@ func TestControlBootChain(t *testing.T) {
 	if s := c.chainSteps()[0]; !strings.Contains(s.Blocked, "not systemd-based") || !strings.Contains(c.prereqText(), "HOOKS lack systemd") {
 		t.Fatalf("busybox: %+v", s)
 	}
-	c.facts.Hooks = []string{"base", "systemd", "sd-tpm2-kira", "sd-encrypt"}
+	c.facts.Hooks = []string{"base", "systemd", "sd-kira", "sd-encrypt"}
 
 	// In HOOKS, the route open: the way on waits for the route alone - the
 	// image is built when control is left, not in a step.
-	c.facts.HookState, c.facts.Rebuild = "", "the image was built before sd-tpm2-kira was in HOOKS"
+	c.facts.HookState, c.facts.Rebuild = "", "the image was built before sd-kira was in HOOKS"
 	steps = c.chainSteps()
 	if steps[0].Done == "" || steps[1].Done != "" || steps[1].Blocked != "" ||
 		!strings.Contains(steps[2].Blocked, "Kernel command line adoption") || strings.Contains(steps[2].Blocked, "mkinitcpio") {
@@ -95,7 +95,7 @@ func TestControlPrerequisites(t *testing.T) {
 // its recovery passphrase.
 func wired() *controller {
 	c := &controller{facts: machineFacts{TPM: "/dev/tpmrm0", SHA256Bank: true, LogSHA256: true, PCRs: "0e,2e,7e,11u",
-		Initramfs: "mkinitcpio", HookInstalled: true, Hooks: []string{"systemd", "sd-tpm2-kira", "sd-encrypt"},
+		Initramfs: "mkinitcpio", HookInstalled: true, Hooks: []string{"systemd", "sd-kira", "sd-encrypt"},
 		Wired: 1, Remote: DefaultRemoteConfig()}}
 	c.facts.Status.Devices = []LuksDeviceStatus{{Device: "/dev/sda2", Keyslots: []KeyslotStatus{{Keyslot: 0}}}}
 	c.facts.Routed = map[string]bool{"/dev/sda2": true}
@@ -134,7 +134,7 @@ func TestControlHub(t *testing.T) {
 
 	// The boot chain not in place: every section waits for it. An image built
 	// before the hook was in HOOKS is not that: it is rebuilt on leaving.
-	c.facts.Rebuild = "the image was built before sd-tpm2-kira was in HOOKS"
+	c.facts.Rebuild = "the image was built before sd-kira was in HOOKS"
 	if steps := c.hubSteps(); steps[0].Done != "in place" {
 		t.Fatalf("an old image holds the boot chain open: %+v", steps[0])
 	}
@@ -290,7 +290,7 @@ func TestControlRemote(t *testing.T) {
 		t.Fatalf("no key: %+v", r)
 	}
 	c.facts.SSHKeys = 2
-	c.facts.SSHCA = sshCAState{Err: "no SSH CA: tpm2-kira control creates it in the TPM"}
+	c.facts.SSHCA = sshCAState{Err: "no SSH CA: kira control creates it in the TPM"}
 	if r := c.menuSteps("remote"); !strings.Contains(r[1].Dirty, "no SSH CA") {
 		t.Fatalf("no CA: %+v", r[1])
 	}
@@ -356,7 +356,7 @@ func TestControlStatusJudgement(t *testing.T) {
 		good("enabled"),
 		good("0 (0e,2e,7e,11u), 1 (0e,7e, the fallback)"),
 		good("local key files"),
-		good("mkinitcpio, sd-tpm2-kira in HOOKS"),
+		good("mkinitcpio, sd-kira in HOOKS"),
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("the sound machine lacks %q:\n%s", want, got)
@@ -389,8 +389,8 @@ func TestControlStatusJudgement(t *testing.T) {
 			t.Errorf("the status lacks %q:\n%s", want, got)
 		}
 	}
-	c.facts.Initramfs, c.facts.HookState = "mkinitcpio", "sd-tpm2-kira is not in HOOKS of /etc/mkinitcpio.conf - add it next to sd-encrypt, then rebuild"
-	if got := c.factsText(); !strings.Contains(got, "mkinitcpio, but sd-tpm2-kira is not in HOOKS") || !strings.Contains(got, "(risk: the next boot shows no code screen and serves no key)") {
+	c.facts.Initramfs, c.facts.HookState = "mkinitcpio", "sd-kira is not in HOOKS of /etc/mkinitcpio.conf - add it next to sd-encrypt, then rebuild"
+	if got := c.factsText(); !strings.Contains(got, "mkinitcpio, but sd-kira is not in HOOKS") || !strings.Contains(got, "(risk: the next boot shows no code screen and serves no key)") {
 		t.Errorf("the unwired hook is not marked:\n%s", got)
 	}
 	c.facts.Initramfs, c.facts.HookState = "", ""
@@ -441,7 +441,7 @@ func TestControlYubiKeyPINStep(t *testing.T) {
 }
 
 // The boot integration is wired only when the hook files are installed
-// and, with mkinitcpio, sd-tpm2-kira is in the HOOKS that mkinitcpio
+// and, with mkinitcpio, sd-kira is in the HOOKS that mkinitcpio
 // would use - the conf and its drop-ins, the last assignment winning.
 func TestInitramfsHookState(t *testing.T) {
 	dir := t.TempDir()
@@ -449,7 +449,7 @@ func TestInitramfsHookState(t *testing.T) {
 		mkinitcpioConf, mkinitcpioHookFiles, debianPremounts = conf, hooks, pre
 	}(mkinitcpioConf, mkinitcpioHookFiles, debianPremounts)
 	mkinitcpioConf = dir + "/mkinitcpio.conf"
-	mkinitcpioHookFiles = []string{dir + "/etc-sd-tpm2-kira", dir + "/sd-tpm2-kira"}
+	mkinitcpioHookFiles = []string{dir + "/etc-sd-kira", dir + "/sd-kira"}
 	debianPremounts = []string{dir + "/etc-premount", dir + "/premount"}
 
 	if s := initramfsHookState("mkinitcpio"); !strings.Contains(s, "hook is not installed") {
@@ -457,11 +457,11 @@ func TestInitramfsHookState(t *testing.T) {
 	}
 	// make install-mkinitcpio's place (/etc); the package's counts the same.
 	os.WriteFile(mkinitcpioHookFiles[0], []byte("#!/bin/bash\n"), 0o644)
-	os.WriteFile(mkinitcpioConf, []byte("# comment, not an assignment:\n#HOOKS=(base sd-tpm2-kira)\nHOOKS=(base systemd block\n       sd-encrypt filesystems)\n"), 0o644)
+	os.WriteFile(mkinitcpioConf, []byte("# comment, not an assignment:\n#HOOKS=(base sd-kira)\nHOOKS=(base systemd block\n       sd-encrypt filesystems)\n"), 0o644)
 	if s := initramfsHookState("mkinitcpio"); !strings.Contains(s, "is not in HOOKS of "+mkinitcpioConf) {
 		t.Fatalf("missing from HOOKS: %q", s)
 	}
-	os.WriteFile(mkinitcpioConf, []byte("HOOKS=(base systemd block sd-tpm2-kira sd-encrypt filesystems) # trailing\n"), 0o644)
+	os.WriteFile(mkinitcpioConf, []byte("HOOKS=(base systemd block sd-kira sd-encrypt filesystems) # trailing\n"), 0o644)
 	if s := initramfsHookState("mkinitcpio"); s != "" {
 		t.Fatalf("wired, yet: %q", s)
 	}
@@ -471,7 +471,7 @@ func TestInitramfsHookState(t *testing.T) {
 	if s := initramfsHookState("mkinitcpio"); !strings.Contains(s, "is not in HOOKS") {
 		t.Fatalf("the drop-in did not win: %q", s)
 	}
-	os.WriteFile(dir+"/mkinitcpio.conf.d/20-ours.conf", []byte("HOOKS=('base' 'systemd' 'sd-tpm2-kira' 'sd-encrypt')\n"), 0o644)
+	os.WriteFile(dir+"/mkinitcpio.conf.d/20-ours.conf", []byte("HOOKS=('base' 'systemd' 'sd-kira' 'sd-encrypt')\n"), 0o644)
 	if s := initramfsHookState("mkinitcpio"); s != "" {
 		t.Fatalf("the later drop-in did not win: %q", s)
 	}
@@ -501,14 +501,14 @@ func TestAdoptHookAndRebuildPending(t *testing.T) {
 	file, oldLine, newLine, err := AdoptHookLine(mkinitcpioConf)
 	if err != nil || file != mkinitcpioConf ||
 		oldLine != "HOOKS=(base systemd block sd-encrypt filesystems)" ||
-		newLine != "HOOKS=(base systemd block sd-tpm2-kira sd-encrypt filesystems)" {
+		newLine != "HOOKS=(base systemd block sd-kira sd-encrypt filesystems)" {
 		t.Fatalf("%q %q %q %v", file, oldLine, newLine, err)
 	}
 	if _, line, err := AdoptHook(mkinitcpioConf); err != nil || line != newLine {
 		t.Fatalf("adopt: %q %v", line, err)
 	}
 	data, _ := os.ReadFile(mkinitcpioConf)
-	if string(data) != "MODULES=()\nHOOKS=(base systemd block sd-tpm2-kira sd-encrypt filesystems)\n" {
+	if string(data) != "MODULES=()\nHOOKS=(base systemd block sd-kira sd-encrypt filesystems)\n" {
 		t.Fatalf("the file after adopting:\n%s", data)
 	}
 	if s := initramfsHookState("mkinitcpio"); strings.Contains(s, "HOOKS") { // the hook files are the host's business here
@@ -517,7 +517,7 @@ func TestAdoptHookAndRebuildPending(t *testing.T) {
 	// Without sd-encrypt the hook goes after systemd; without either it is
 	// not an editing matter.
 	os.WriteFile(mkinitcpioConf, []byte("HOOKS=(base systemd autodetect block filesystems)\n"), 0o644)
-	if _, _, newLine, err := AdoptHookLine(mkinitcpioConf); err != nil || newLine != "HOOKS=(base systemd sd-tpm2-kira autodetect block filesystems)" {
+	if _, _, newLine, err := AdoptHookLine(mkinitcpioConf); err != nil || newLine != "HOOKS=(base systemd sd-kira autodetect block filesystems)" {
 		t.Fatalf("after systemd: %q %v", newLine, err)
 	}
 	os.WriteFile(mkinitcpioConf, []byte("HOOKS=(base udev encrypt filesystems)\n"), 0o644)
@@ -526,7 +526,7 @@ func TestAdoptHookAndRebuildPending(t *testing.T) {
 	}
 
 	// The rebuild check: an image older than the HOOKS file is pending.
-	os.WriteFile(mkinitcpioConf, []byte("HOOKS=(base systemd sd-tpm2-kira sd-encrypt)\n"), 0o644)
+	os.WriteFile(mkinitcpioConf, []byte("HOOKS=(base systemd sd-kira sd-encrypt)\n"), 0o644)
 	os.MkdirAll(mkinitcpioPresetDir, 0o755)
 	img := dir + "/initramfs-linux.img"
 	os.WriteFile(dir+"/mkinitcpio.d/linux.preset", []byte("PRESETS=('default')\ndefault_image=\""+img+"\"\n"), 0o644)

@@ -2,7 +2,7 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in tpm2-kira:
+If you discover a security vulnerability in kira:
 
 1. **DO NOT** open a public GitHub issue.
 2. Email the maintainers directly (see [MAINTAINERS](MAINTAINERS)).
@@ -16,7 +16,7 @@ We will acknowledge your report within 48 hours and keep you updated on our prog
 
 ## Supported Versions
 
-All versions of tpm2-kira receive security updates.
+All versions of kira receive security updates.
 
 | Version | Supported          |
 | ------- | ------------------ |
@@ -44,7 +44,7 @@ Results are uploaded as a GitHub Actions artifact (`strix-security-report`, reta
 
 | Date | Scope | Codebase state | Duration | Result | Link |
 |------|-------|----------------|----------|--------|------|
-| 2026-02-02 | Full scan | `dev` branch, between releases 0.0.12 and 0.0.13 (PR [#26](https://github.com/tpm2-trust/tpm2-kira/pull/26), branch `copilot/add-ai-pentest-scan-workflow`) | ~56 min | Completed, report artifact available | [Actions run](https://github.com/tpm2-trust/tpm2-kira/actions/runs/20994975512/job/62242599102) |
+| 2026-02-02 | Full scan | `dev` branch, between releases 0.0.12 and 0.0.13 (PR [#26](https://github.com/tpm2-trust/kira/pull/26), branch `copilot/add-ai-pentest-scan-workflow`) | ~56 min | Completed, report artifact available | [Actions run](https://github.com/tpm2-trust/kira/actions/runs/20994975512/job/62242599102) |
 
 The scan report artifact (`strix-security-report`, 23.7 KB) is downloadable from the Actions run linked above.
 
@@ -65,7 +65,7 @@ there:
   which the hook puts into the image (public, not a secret). That refuses a
   record written by anyone else;
 - **its count**, against a counter the TPM holds for the slot. Every record
-  tpm2-kira writes carries the counter's next value, and a TPM counter cannot
+  kira writes carries the counter's next value, and a TPM counter cannot
   be turned back: even deleting it only makes the TPM start a new one above
   the old value. That refuses an older record, however genuinely signed.
 
@@ -189,7 +189,7 @@ gives registers that differ, before the separator and after it.
 
 ## The TOTP secret on a running system
 
-`tpm2-kira.service` checks its policy in the initrd *before*
+`kira.service` checks its policy in the initrd *before*
 `systemd-pcrosseparator.service` extends PCRs 0–7, 9, 12–14, and is
 `Type=notify` so that the separator waits for that check. The key is an HMAC
 key object that never leaves the TPM; while the display holds the boot (a
@@ -199,10 +199,10 @@ one-way: once the
 separator has run, no process in the booted system — root included — can
 satisfy the key's policy again until the next boot. On top of that, `run`
 closes the boot at the end of the code screen, and the image closes it again
-before any volume is opened: `tpm2-kira-boot close` extends PCR 15, which
+before any volume is opened: `kira-boot close` extends PCR 15, which
 every slot object's own policy requires to be zero
 (`PolicyAuthorize ; PolicyPCR(15 == 0)`, fixed at creation, beyond any
-approval). `tpm2-kira reveal` on the running system reports the slot as
+approval). `kira reveal` on the running system reports the slot as
 *closed until the next boot*. A runtime compromise can therefore neither read the key nor compute a
 code to replay at a later, tampered boot.
 
@@ -211,7 +211,7 @@ Two things fall outside that lock:
 - **The signing key.** Whoever can use it can approve any boot state; after
   the close that opens nothing in this boot, but the next boot of that state
   shows codes. Keep it on a YubiKey (the
-  intended setup); a key file under `/etc/tpm2-kira/keys` is the fallback,
+  intended setup); a key file under `/etc/kira/keys` is the fallback,
   better than no recovery path, but with it a runtime root has that power.
 - **Blobs sealed from registers.** A slot sealed from the registers because
   the event log could not be replayed holds post-separator values; the close

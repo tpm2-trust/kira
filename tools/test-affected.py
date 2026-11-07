@@ -23,14 +23,14 @@ import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WORKSPACE = os.path.dirname(REPO)
-PROJECTS = ("tpm2-kira", "assh", "tpm2-kira-vault", "marify", "safearch", "tpm2-verifier", "go-uefi-slim", "go-tui-slim")
+PROJECTS = ("kira", "assh", "kira-vault", "marify", "safearch", "tpm2-verifier", "go-uefi-slim", "go-tui-slim")
 # A pin's path in a project (a submodule, a line in a file), and the project it pins.
-PINS = {("tpm2-kira", "assh"): "assh", ("tpm2-kira", "go-uefi-slim"): "go-uefi-slim", ("tpm2-kira", "tpm2-verifier"): "tpm2-verifier",
-        ("safearch", "assh"): "assh", ("assh", "go-uefi-slim"): "go-uefi-slim", ("tpm2-kira-vault", "tpm2-kira"): "tpm2-kira",
-        ("marify", "core.properties"): "tpm2-kira", ("tpm2-kira", "go-tui-slim"): "go-tui-slim", ("assh", "go-tui-slim"): "go-tui-slim",
-        ("tpm2-kira-vault", "go-tui-slim"): "go-tui-slim"}
-# What of tpm2-kira the boot runs. Everything else of its Go code is the installed system's.
-BOOT = ("cmd/tpm2-kira-boot/*", "initramfs/*", "internal/bootclose/*", "internal/bootrun/*", "internal/diskkey/*", "internal/imageplan/*",
+PINS = {("kira", "assh"): "assh", ("kira", "go-uefi-slim"): "go-uefi-slim", ("kira", "tpm2-verifier"): "tpm2-verifier",
+        ("safearch", "assh"): "assh", ("assh", "go-uefi-slim"): "go-uefi-slim", ("kira-vault", "kira"): "kira",
+        ("marify", "core.properties"): "kira", ("kira", "go-tui-slim"): "go-tui-slim", ("assh", "go-tui-slim"): "go-tui-slim",
+        ("kira-vault", "go-tui-slim"): "go-tui-slim"}
+# What of kira the boot runs. Everything else of its Go code is the installed system's.
+BOOT = ("cmd/kira-boot/*", "initramfs/*", "internal/bootclose/*", "internal/bootrun/*", "internal/diskkey/*", "internal/imageplan/*",
         "internal/journal/*", "internal/machineid/*", "internal/memlock/*", "internal/phonegate/*", "internal/screen/*", "internal/sshscreen/*",
         "internal/tpmdev/*", "internal/unixsock/*", "internal/untrusted/*", "internal/vaultkey/*")
 ARGON2 = ("internal/diskkey/combine*", "internal/memlock/*")
@@ -53,7 +53,7 @@ is_docs, is_boot, is_argon2 = under(*DOCS), under(*BOOT), under(*ARGON2)
 
 
 def kira(rule):
-    return lambda project, path: project == "tpm2-kira" and not is_docs(path) and rule(path)
+    return lambda project, path: project == "kira" and not is_docs(path) and rule(path)
 
 
 def project_is(name):
@@ -64,21 +64,21 @@ ROWS = (
     Row("Docs only", "nothing", lambda project, path: is_docs(path)),
     Row("Test tools", "the affected scenario alone (`vmtest.py --only SCENARIO`)",
         kira(under("tools/*", "packaging/*", ".github/*", "Makefile"))),
-    Row("Installed-system code of tpm2-kira (`control`, `status`, the admin commands)", "`make test-all`",
+    Row("Installed-system code of kira (`control`, `status`, the admin commands)", "`make test-all`",
         kira(lambda path: not under("tools/*", "packaging/*", ".github/*", "Makefile", "core/*")(path) and not is_boot(path)), ("test-all",)),
-    Row("tpm2-kira's boot, close or unlock", "`make test-all`; `tools/vmtest.py --fast-kdf`; the affected scenarios, from a saved setup",
+    Row("kira's boot, close or unlock", "`make test-all`; `tools/vmtest.py --fast-kdf`; the affected scenarios, from a saved setup",
         kira(is_boot), ("test-all", "machines")),
     Row("Argon2id, or what memory the boot takes", "as above, at the real cost (without `--fast-kdf`), on the affected boots",
         kira(is_argon2), ("test-all", "machines")),
-    Row("`tpm2-kira/core/`", "as for the boot; the vault's tests. Marify's `android/scripts/test-emulator.sh` at the end of the batch, after `./pin tpm2-kira`",
+    Row("`kira/core/`", "as for the boot; the vault's tests. Marify's `android/scripts/test-emulator.sh` at the end of the batch, after `./pin kira`",
         kira(under("core/*")), ("test-all", "machines", "vault", "marify")),
-    Row("`assh/`", "its tests (`go test ./...`, swtpm); tpm2-kira's `make test-all` against it (`go.work`); safearch's `tests/run.sh` after `./pin assh`",
+    Row("`assh/`", "its tests (`go test ./...`, swtpm); kira's `make test-all` against it (`go.work`); safearch's `tests/run.sh` after `./pin assh`",
         project_is("assh"), ("assh", "test-all", "safearch-run")),
-    Row("`tpm2-kira-vault/`", "its tests; the vault steps of `tools/vmtest.py` at the end of the batch",
-        project_is("tpm2-kira-vault"), ("vault", "machines")),
-    Row("`go-uefi-slim/`", "its tests (the immutable test as root on a VM); aSSH's and tpm2-kira's suites after `./pin go-uefi-slim`",
+    Row("`kira-vault/`", "its tests; the vault steps of `tools/vmtest.py` at the end of the batch",
+        project_is("kira-vault"), ("vault", "machines")),
+    Row("`go-uefi-slim/`", "its tests (the immutable test as root on a VM); aSSH's and kira's suites after `./pin go-uefi-slim`",
         project_is("go-uefi-slim"), ("go-uefi-slim", "assh", "test-all")),
-    Row("`go-tui-slim/`", "its tests (the process lock's \"covers\" as root on a VM); aSSH's tests, tpm2-kira's `make test-all` and the vault's tests against it (`go.work`); after `./pin go-tui-slim`, safearch's `tests/run.sh` and the vmtest scenarios that drive `control` (setup)",
+    Row("`go-tui-slim/`", "its tests (the process lock's \"covers\" as root on a VM); aSSH's tests, kira's `make test-all` and the vault's tests against it (`go.work`); after `./pin go-tui-slim`, safearch's `tests/run.sh` and the vmtest scenarios that drive `control` (setup)",
         project_is("go-tui-slim"), ("go-tui-slim", "assh", "test-all", "vault", "safearch-run", "machines")),
     Row("`tpm2-verifier/`", "its tests; `core`'s and the vault's after `./pin tpm2-verifier`",
         project_is("tpm2-verifier"), ("tpm2-verifier", "test-all", "vault")),
@@ -93,7 +93,7 @@ def rows_of(project, path):
     pinned = PINS.get((project, path))
     if pinned:
         # A pin moved: what the pinned project's row asks, for any of its code.
-        return rows_of(pinned, "core/pin" if pinned == "tpm2-kira" else "pin")
+        return rows_of(pinned, "core/pin" if pinned == "kira" else "pin")
     return [r for r in ROWS if r.match(project, path)]
 
 

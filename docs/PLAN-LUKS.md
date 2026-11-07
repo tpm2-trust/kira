@@ -1,4 +1,4 @@
-# PLAN — tpm2-kira and the LUKS keyslots
+# PLAN — kira and the LUKS keyslots
 
 > The unlock modes this plan names - `password+salt`, `password+phonesalt`,
 > `tpm+vault` - are keyslot recipes by number now: `0x1100`, `0x1300` and
@@ -8,23 +8,23 @@
 
 > **Status:** in implementation. Done: the keyslot token, `luks status`,
 > `luks mark`, `luks enrol` (both modes), `luks remove` (§2, §3), the
-> unlock modes (§1), the `phone salt` command name, `tpm2-kira status`
+> unlock modes (§1), the `phone salt` command name, `kira status`
 > (§4). Not now: `luks rotate` (a new keyslot is `remove` and `enrol`).
 > Next: the network verifier (§6).
-> **Changes a standing rule:** tpm2-kira may touch LUKS keyslots - only
+> **Changes a standing rule:** kira may touch LUKS keyslots - only
 > through the `luks` verb, only with `cryptsetup`, and every keyslot it adds
 > is marked with a token (§2). `luks derive` and the `--out` paths stay as the
 > way to run `cryptsetup` by hand.
 
 ## 1. Names
 
-The modes say what tpm2-kira does with the disk's key, in the words a
+The modes say what kira does with the disk's key, in the words a
 person uses (decided 2026-10-07). They are the keyslot token's `mode`,
 read from the volume's own header at boot - there is no configured
-unlock mode (the TPM2_KIRA_UNLOCK of earlier versions is gone,
+unlock mode (the KIRA_UNLOCK of earlier versions is gone,
 HISTORY.md):
 
-| the keyslot's token says | what tpm2-kira does | without a released salt |
+| the keyslot's token says | what kira does | without a released salt |
 |---|---|---|
 | *(no token)* | nothing: cryptsetup's own prompt asks for the LUKS passphrase | - |
 | `password+salt` | asks for a password and a salt, hands over their derivation (Argon2id) | - |
@@ -35,7 +35,7 @@ for the slot and the phone salt enrolled with it. `luks mark` and `luks
 enrol` refuse the mode otherwise, the hooks warn at image build, `run`
 says so at boot. The same words name the token's `mode` (§2). What the
 phone keeps is the **phone salt**; the command for it is
-`tpm2-kira phone salt enrol|status|rotate|unenrol` (renamed from `factor …`).
+`kira phone salt enrol|status|rotate|unenrol` (renamed from `factor …`).
 "Factor" stays in the Go identifiers until the
 rename of the code is its own change; PLAN-PHONESALT.md is the design
 of the mechanism and keeps its title. Later, with more than one verifier
@@ -51,13 +51,13 @@ still comes through the socket (Arch) or the keyscript (Debian). A token
 of ours:
 
 ```json
-{"type": "tpm2-kira-salt", "keyslots": ["1"], "created": "2026-10-07T17:30:00Z"}
-{"type": "tpm2-kira-phonesalt", "keyslots": ["2"], "slot": 0,
+{"type": "kira-salt", "keyslots": ["1"], "created": "2026-10-07T17:30:00Z"}
+{"type": "kira-phonesalt", "keyslots": ["2"], "slot": 0,
  "label": "luks", "created": "2026-10-07T18:00:00Z"}
 ```
 
 - the type carries the mode, so a plain `luksDump` tells the two apart:
-  `tpm2-kira-salt` is `password+salt`, `tpm2-kira-phonesalt` is
+  `kira-salt` is `password+salt`, `kira-phonesalt` is
   `password+phonesalt` (`+` is not allowed in a LUKS2 token type, so the
   type spells it out).
 - `slot`: password+phonesalt only - the slot whose enrolment releases
@@ -72,22 +72,22 @@ of ours:
 No key material, no secret; the header already holds the keyslot. Written
 with `cryptsetup token import --json-file -`, read with
 `cryptsetup luksDump --dump-json-metadata`. `luksDump` then shows
-`Tokens: 0: tpm2-kira`, and tpm2-kira can find its own keyslots for
+`Tokens: 0: kira`, and kira can find its own keyslots for
 status, removal and rotation without guessing.
 
 ## 3. Commands
 
 ```
-tpm2-kira luks status [<device>…] [--json]      # our keyslots per LUKS device, from the tokens
-tpm2-kira luks mark   <device> --keyslot N --mode password+salt|password+phonesalt [--nvram N] [--label STR]
-tpm2-kira luks enrol  <device> --mode password+salt|password+phonesalt [--nvram N] [--label STR]
-tpm2-kira luks remove <device> --keyslot N
+kira luks status [<device>…] [--json]      # our keyslots per LUKS device, from the tokens
+kira luks mark   <device> --keyslot N --mode password+salt|password+phonesalt [--nvram N] [--label STR]
+kira luks enrol  <device> --mode password+salt|password+phonesalt [--nvram N] [--label STR]
+kira luks remove <device> --keyslot N
 ```
 
 - `status` without a device looks at every `crypto_LUKS` block device
-  (`lsblk`). For each keyslot it says whose it is: `tpm2-kira,
-  password+salt (slot 0)`, `tpm2-kira, password+phonesalt (slot 0)`, or
-  `not tpm2-kira's` - the recovery passphrase, or a key enrolled by other
+  (`lsblk`). For each keyslot it says whose it is: `kira,
+  password+salt (slot 0)`, `kira, password+phonesalt (slot 0)`, or
+  `not kira's` - the recovery passphrase, or a key enrolled by other
   means.
 - `mark` writes the token for a keyslot that exists - made with `luks derive`
   or `luks derive` and `luksAddKey` by hand, or before tokens existed.
@@ -99,18 +99,18 @@ tpm2-kira luks remove <device> --keyslot N
   the commands touch no configuration file, `control` sets the mode. The
   derived key goes to `cryptsetup` through a pipe, never a file.
 - `remove` is `luksKillSlot` (a remaining passphrase authorises it) plus
-  the token's removal; only a keyslot tpm2-kira marked, never the last one.
+  the token's removal; only a keyslot kira marked, never the last one.
 - A new key for a keyslot is `enrol` of the new one and `remove` of the
   old one (`phone salt rotate` for a new phone salt first).
 
 ## 4. One overview
 
 ```
-tpm2-kira status
+kira status
   slot 0   TOTP sealed to 0e,2e,7e,11u (generation 12); release key present
            verifiers: phone "Pixel" (BLE, phone salt kept 2026-10-07)
-  unlock   mode password+phonesalt (/etc/tpm2-kira/control.conf)
-  /dev/vda2  keyslot 0 not tpm2-kira's; keyslot 2 password+phonesalt (slot 0, label luks); keyslot 1 password+salt
+  unlock   mode password+phonesalt (/etc/kira/control.conf)
+  /dev/vda2  keyslot 0 not kira's; keyslot 2 password+phonesalt (slot 0, label luks); keyslot 1 password+salt
 ```
 
 `phone status`, `phone salt status` and `luks status` in one place,
@@ -130,7 +130,7 @@ existing passphrase already does, `--existing-key-file`). Not yet.
 
 `derive --out` and `phone salt enrol --out` write the key to tmpfs for a
 `luksAddKey` run by hand; `luks mark` then records it. People who do not
-want tpm2-kira near their header keep that path; `luks status` tells them
+want kira near their header keep that path; `luks status` tells them
 the same as everyone.
 
 ## 6. More verifiers than a phone
@@ -142,11 +142,11 @@ phone salt (PLAN-FACTORRELEASE §12.5) - is a *verifier kind*, not a new
 command set:
 
 ```
-tpm2-kira phone enrol                          # a phone over BLE, as today
-tpm2-kira phone enrol --server https://host    # the same handshake over TCP
-tpm2-kira phone status                         # phones and servers, per slot
-tpm2-kira phone unenrol --verifier <id>
-tpm2-kira phone salt enrol --verifier <id>     # which verifier keeps the salt
+kira phone enrol                          # a phone over BLE, as today
+kira phone enrol --server https://host    # the same handshake over TCP
+kira phone status                         # phones and servers, per slot
+kira phone unenrol --verifier <id>
+kira phone salt enrol --verifier <id>     # which verifier keeps the salt
 ```
 
 The gate serves both at boot - the radio worker for BLE, a network worker

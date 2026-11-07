@@ -15,7 +15,7 @@ import (
 )
 
 // A minimal implementation of the Noise Protocol Framework (revision 34),
-// restricted to what tpm2-kira uses:
+// restricted to what kira uses:
 //
 //	Noise_XX_25519_ChaChaPoly_SHA256   enrolment: neither side knows the other
 //	Noise_IK_25519_ChaChaPoly_SHA256   attestation: the phone knows the machine
@@ -30,7 +30,7 @@ import (
 
 // NoisePrologue is mixed into every handshake. A peer speaking another
 // protocol revision fails the first decryption instead of misreading data.
-const NoisePrologue = "tpm2-kira/v1"
+const NoisePrologue = "kira/v1"
 
 // NoiseKeySize is the size of X25519 keys and of the channel binding value.
 const NoiseKeySize = 32

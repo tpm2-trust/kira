@@ -10,14 +10,14 @@ import (
 
 	"github.com/google/go-tpm/tpm2"
 	"github.com/tpm2-trust/assh/persist"
-	"github.com/tpm2-trust/tpm2-kira/internal/efivars"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/efivars"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 )
 
-// What an earlier version (or another program) left at tpm2-kira's places: slot
+// What an earlier version (or another program) left at kira's places: slot
 // delete --yes shows it and leaves it, and names --sweep; --sweep takes it whatever
-// its shape. What is not at tpm2-kira's places stays.
-func TestSweepTakesWhatIsLeftAtTpm2KirasPlaces(t *testing.T) {
+// its shape. What is not at kira's places stays.
+func TestSweepTakesWhatIsLeftAtKirasPlaces(t *testing.T) {
 	sock, tpm := foreignTPM(t)
 	old := efivars.Dir
 	efivars.SetDir(t.TempDir())
@@ -26,7 +26,7 @@ func TestSweepTakesWhatIsLeftAtTpm2KirasPlaces(t *testing.T) {
 		"KIRAattestOld-" + efivars.GUIDText:             true,  // an earlier version's variable: swept
 		"KIRAasshCA-" + persist.VarGUID:                 true,  // the SSH CA's: swept
 		"Boot0001-8be4df61-93ca-11d2-aa0d-00e098032b8c": false, // the firmware's: stays
-		"OtherApp-" + persist.VarGUID:                   false, // aSSH's GUID, not tpm2-kira's name: stays
+		"OtherApp-" + persist.VarGUID:                   false, // aSSH's GUID, not kira's name: stays
 	}
 	for name := range vars {
 		if err := os.WriteFile(filepath.Join(efivars.Dir, name), []byte{7, 0, 0, 0, 1}, 0o644); err != nil {
@@ -60,7 +60,7 @@ func TestSweepTakesWhatIsLeftAtTpm2KirasPlaces(t *testing.T) {
 		}
 	}
 	if _, _, rerr := persist.ReadNVPublic(tpm, tpm2.TPMHandle(outside)); rerr != nil {
-		t.Errorf("0x%08X, outside tpm2-kira's places, went", outside)
+		t.Errorf("0x%08X, outside kira's places, went", outside)
 	}
 	for name, swept := range vars {
 		_, serr := os.Stat(filepath.Join(efivars.Dir, name))
@@ -69,7 +69,7 @@ func TestSweepTakesWhatIsLeftAtTpm2KirasPlaces(t *testing.T) {
 		}
 	}
 	// Nothing left: the sweep finds nothing, and says so.
-	if err = NVRAMDeleteCommand(sock, 0, true, false, true, false); err == nil || !strings.Contains(err.Error(), "nothing of tpm2-kira") {
+	if err = NVRAMDeleteCommand(sock, 0, true, false, true, false); err == nil || !strings.Contains(err.Error(), "nothing of kira") {
 		t.Fatalf("again: %v", err)
 	}
 }

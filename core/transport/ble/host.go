@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tpm2-trust/tpm2-kira/core/transport/frame"
+	"github.com/tpm2-trust/kira/core/transport/frame"
 )
 
 // H4 packet types.

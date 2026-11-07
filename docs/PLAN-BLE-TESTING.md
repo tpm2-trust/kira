@@ -19,7 +19,7 @@
 ## 1. What the host is for
 
 One physical machine, QEMU/KVM, nothing else on it, that holds every
-test machine tpm2-kira is tried on:
+test machine kira is tried on:
 
 - the **Linux machines**, one per distribution and boot path (§3), each
   with its own software TPM, Secure Boot, an encrypted disk, a serial
@@ -35,12 +35,12 @@ Three things this gives that the hand-installed VMs cannot:
 
 1. **A defined state.** Every machine is installed by a script from the
    distribution's own installer, its image frozen, and every run starts
-   from that image (§4). A defect found is a defect of tpm2-kira or of
+   from that image (§4). A defect found is a defect of kira or of
    the installation script, never of a VM somebody once fixed by hand
    (AGENTS.md: a test machine's own defect is reported, not repaired).
 2. **The boot itself under test.** With the console on a socket the
    harness sees the code screen, compares the codes with what the TOTP
-   secret says (§6), types the password and the salt at tpm2-kira's
+   secret says (§6), types the password and the salt at kira's
    prompt, and knows whether the disk opened - today a person does that
    and answers yes or no.
 3. **The phone without a phone.** The attestation, the phone salt and
@@ -108,7 +108,7 @@ root steps are `sudo` lines in it), idempotent, with every version in
    wheel does not fit the host; the plan does not need it.
 6. **The hci bridge** (§7.1) built static from `tools/hcibridge` with the
    host's Go, into `/srv/testhost/bin/`, from where the initramfs hooks
-   of a test machine take it (`TPM2_KIRA_TEST_HCI=1`); `oathtool`
+   of a test machine take it (`KIRA_TEST_HCI=1`); `oathtool`
    checked against a known secret and time (§6).
 7. **The check at the end**: `qemu-system-x86_64 --version`, `swtpm
    --version`, `go version`, `emulator -version`, `netsimd` present,
@@ -121,7 +121,7 @@ root steps are `sudo` lines in it), idempotent, with every version in
 
 | name | distribution | boot | initramfs | disk | tests |
 |---|---|---|---|---|---|
-| `arch-uki` | Arch Linux | systemd-boot, **UKI**, Secure Boot with sbctl's keys enrolled | mkinitcpio (systemd hooks) | LUKS2 on the root partition | the seal to PCR 11, `sd-tpm2-kira`, the systemd unlock socket |
+| `arch-uki` | Arch Linux | systemd-boot, **UKI**, Secure Boot with sbctl's keys enrolled | mkinitcpio (systemd hooks) | LUKS2 on the root partition | the seal to PCR 11, `sd-kira`, the systemd unlock socket |
 | `debian-grub` | Debian 13 | **GRUB**, Secure Boot with shim | initramfs-tools | LUKS2 | the seal to PCRs 8 and 9, the `init-premount` script, cryptsetup's askpass |
 | `arch-sha1` (later) | Arch Linux | as `arch-uki` with swtpm started with the SHA-1 bank only (`--tpm2 --pcr-banks sha1`) | | | the `--sha1` path of an old TPM (T450s) |
 
@@ -155,7 +155,7 @@ never booted again:
   `late_command` for the console, the key, the address), passed on the
   kernel command line of a direct-kernel boot (`-kernel`/`-initrd` from
   the ISO, `auto=true priority=critical url=...` served from the host).
-- Both end with the machine shut down, `tpm2-kira` **not** installed, no
+- Both end with the machine shut down, `kira` **not** installed, no
   slot sealed: the package and the sealing are the test's job, on a fresh
   copy, so every run also tests the install hooks.
 
@@ -222,7 +222,7 @@ and acts on the lines that matter:
 | `[ KIRA ] Password for disk <name>:` | types the password from `testhost.conf` |
 | `[ KIRA ] Salt for disk <name>:` | types the salt (the `password+salt` mode) |
 | `Slot #N attested by <phone>` | the phone's verdict reached the machine (§7) |
-| `Please enter passphrase for disk` (cryptsetup's own prompt) | **failure** when a tpm2-kira mode was set: the derived key did not open the disk; the passphrase is typed so the boot can finish and the journal be read |
+| `Please enter passphrase for disk` (cryptsetup's own prompt) | **failure** when a kira mode was set: the derived key did not open the disk; the passphrase is typed so the boot can finish and the journal be read |
 | a login prompt | the boot is complete: the ssh checks of today follow |
 | `PCR mismatch`, `SKIPPED`, a panic, a rescue shell | failure, with the console as evidence |
 | nothing for N seconds while a prompt is expected | failure: the boot hangs (the one timeout, and it names what it waited for) |
@@ -289,17 +289,17 @@ Marify ─ the emulator's virtual controller ─ netsimd / rootcanal (the virtua
   emulator's air, so it is a supported way in, not a side door.
 - **The machine's adapter.** The kernel's `hci_vhci`: a process that
   opens `/dev/vhci` is a controller `hci0`, with the process at the HCI
-  level. tpm2-kira's gate works on an HCI user channel with legacy LE
+  level. kira's gate works on an HCI user channel with legacy LE
   advertising and its own ATT (`core/transport/ble/host.go`, `att.go`), so a
   vhci adapter is a USB dongle to it.
 - **The bridge** (`tools/hcibridge`, ~150 lines of Go, static): copies H4
   packets between `/dev/virtio-ports/hci` and `/dev/vhci`, re-framed -
   `/dev/vhci` takes exactly one packet per `write()`, and a stream
   (`socat`, `cat`) cannot keep the boundaries. In the initramfs with the
-  `hci_vhci` module and a unit `Before=tpm2-kira.service`, added
-  by the hooks only when `TPM2_KIRA_TEST_HCI=1` is in the build's
+  `hci_vhci` module and a unit `Before=kira.service`, added
+  by the hooks only when `KIRA_TEST_HCI=1` is in the build's
   environment - never on a machine that is not a test machine.
-- **control.conf** on the machine: `TPM2_KIRA_ATTEST_ADAPTER=0`.
+- **control.conf** on the machine: `KIRA_ATTEST_ADAPTER=0`.
 
 QEMU carries the TCP side (`-chardev socket,host=127.0.0.1,port=6402`),
 so the initramfs needs no network.
@@ -349,12 +349,12 @@ a run next to the console log.
 
 **Standalone rootcanal** (`pip install rootcanal`, or Bazel from
 google/rootcanal) is the same controller without Android: two machines,
-or a machine and a Go test, on one rootcanal give tpm2-kira's own BLE
+or a machine and a Go test, on one rootcanal give kira's own BLE
 transport a controller-level integration test in CI, without the
 emulator. The emulator is for Marify; rootcanal alone is for
 `core/transport/ble`.
 
-Two consequences of the emulator for tpm2-kira's checks:
+Two consequences of the emulator for kira's checks:
 
 - the emulator's keystore is software: the phone's key attestation does
   not chain to Google's roots, so the machine enrols with

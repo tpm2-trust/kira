@@ -10,7 +10,7 @@ package phonegate
 // protocol with the phone and parses whatever the radio delivers; it is
 // started with the adapter's capabilities and nothing else, and confines
 // itself. The coordinator is the process that already owns the console and
-// the TPM at boot (tpm2-kira-boot run), and starts the worker: it checks
+// the TPM at boot (kira-boot run), and starts the worker: it checks
 // the enrolment record, produces the quotes, and reads the phone's receipt
 // itself. The worker reaches it over the socket pairs it was started with
 // (gate_ipc.go) and can ask for exactly that.
@@ -39,9 +39,9 @@ import (
 	"github.com/google/go-tpm/tpm2/transport"
 
 	"github.com/tpm2-trust/go-tui-slim/secret"
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/core/attest"
+	"github.com/tpm2-trust/kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/nvslot"
 )
 
 // gateIdentity is what the radio worker needs to advertise and to run the
@@ -176,7 +176,7 @@ func (s *GateService) setup(open ChannelOpener, sealIndex uint32, signerPath str
 	} else {
 		found := EnrolledSlots(s.TPM, debug)
 		if len(found) == 0 {
-			return ExitUsage, errors.New("no slot is enrolled for attestation (run 'tpm2-kira phone enrol')")
+			return ExitUsage, errors.New("no slot is enrolled for attestation (run 'kira phone enrol')")
 		}
 		idx = found[0]
 	}

@@ -10,18 +10,18 @@ import (
 	"strings"
 )
 
-// /etc/tpm2-kira/control.conf is tpm2-kira's configuration file (aSSH's,
+// /etc/kira/control.conf is kira's configuration file (aSSH's,
 // assh.conf, is beside it: remote_assh.go), and it holds what the boot
 // image is built with, nothing else: the radio of the
-// attestation by phone (TPM2_KIRA_ATTEST_*) and the image's network and
-// SSH server (TPM2_KIRA_NET_*, TPM2_KIRA_SSH_*, remote_config.go).
+// attestation by phone (KIRA_ATTEST_*) and the image's network and
+// SSH server (KIRA_NET_*, KIRA_SSH_*, remote_config.go).
 // KEY=VALUE lines. How the disk's key is made is not configured anywhere:
 // the boot reads it from the LUKS header's tokens (internal/diskkey/header.go). The
-// file never goes into the boot image, and no script sources it: tpm2-kira
+// file never goes into the boot image, and no script sources it: kira
 // reads it, the image build through its boot plan ('initramfs plan',
 // bootplan.go), which writes the network and SSH settings into the image
 // as files of their own and names the settings of every part it put in -
-// so control tells an image built with other settings. 'tpm2-kira
+// so control tells an image built with other settings. 'kira
 // control' is what writes it; the other commands only read.
 //
 // Next to it, and written by control too: the YubiKey's PIN for the
@@ -30,12 +30,12 @@ import (
 // SSH server (authorized_keys).
 
 // DefaultControlConfigPath is the file.
-const DefaultControlConfigPath = "/etc/tpm2-kira/control.conf"
+const DefaultControlConfigPath = "/etc/kira/control.conf"
 
-// controlConfigPath is DefaultControlConfigPath, or TPM2_KIRA_CONTROL_CONF
+// controlConfigPath is DefaultControlConfigPath, or KIRA_CONTROL_CONF
 // for tests.
 func controlConfigPath() string {
-	if p := os.Getenv("TPM2_KIRA_CONTROL_CONF"); p != "" {
+	if p := os.Getenv("KIRA_CONTROL_CONF"); p != "" {
 		return p
 	}
 	return DefaultControlConfigPath
@@ -50,8 +50,8 @@ func controlConfigPath() string {
 // the boot settings' debug switch in the TPM (bootsettings.go, written by
 // control) makes it log every step.
 type AttestConfig struct {
-	Adapter   int    // TPM2_KIRA_ATTEST_ADAPTER: whose driver goes into the image
-	Bluetooth string // TPM2_KIRA_ATTEST_BLUETOOTH: "auto" (with an enrolled phone), or "always"
+	Adapter   int    // KIRA_ATTEST_ADAPTER: whose driver goes into the image
+	Bluetooth string // KIRA_ATTEST_BLUETOOTH: "auto" (with an enrolled phone), or "always"
 }
 
 // DefaultAttestConfig is used when the file is missing.
@@ -154,7 +154,7 @@ func parseControlLine(cfg *ControlConfig, n int, line string) error {
 		return err
 	}
 	switch key {
-	case "TPM2_KIRA_ATTEST_BLUETOOTH":
+	case "KIRA_ATTEST_BLUETOOTH":
 		switch val {
 		case "", "auto", "always":
 			cfg.Attest.Bluetooth = val
@@ -162,9 +162,9 @@ func parseControlLine(cfg *ControlConfig, n int, line string) error {
 				cfg.Attest.Bluetooth = "auto"
 			}
 		default:
-			return fmt.Errorf("control.conf line %d: TPM2_KIRA_ATTEST_BLUETOOTH must be auto or always, not %q", n, val)
+			return fmt.Errorf("control.conf line %d: KIRA_ATTEST_BLUETOOTH must be auto or always, not %q", n, val)
 		}
-	case "TPM2_KIRA_ATTEST_ADAPTER":
+	case "KIRA_ATTEST_ADAPTER":
 		v, err := strconv.Atoi(strings.TrimPrefix(val, "hci"))
 		if err != nil || v < 0 || v > 255 {
 			return fmt.Errorf("control.conf line %d: invalid adapter %q", n, val)
@@ -213,7 +213,7 @@ func setControlValue(path, key, value string) error {
 // setAttestBluetooth sets whether the boot plan packs Bluetooth into
 // every image, enrolled phone or not.
 func setAttestBluetooth(path, value string) error {
-	return setControlValue(path, "TPM2_KIRA_ATTEST_BLUETOOTH", value)
+	return setControlValue(path, "KIRA_ATTEST_BLUETOOTH", value)
 }
 
 // The PIN's value goes to the signer, to sign with the key, and nowhere

@@ -11,7 +11,7 @@ import (
 // owner's word (AGENTS.md).
 func TestKeyboardSaltKnownAnswer(t *testing.T) {
 	salt := []byte("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
-	if got, want := hex.EncodeToString(KeyboardSalt(salt, []byte("correct9horse"))), "524e3e03ce96cb959926d1b0bf0165cfefccac74c0b4f99bc2b3b00e29737443"; got != want {
+	if got, want := hex.EncodeToString(KeyboardSalt(salt, []byte("correct9horse"))), "c3ebb106a3edc45b918d540d75725b2ba02d6ab21b9cd48458acce533ad90808"; got != want {
 		t.Errorf("KeyboardSalt = %s, want %s", got, want)
 	}
 	if bytes.Equal(KeyboardSalt(salt, []byte("a")), KeyboardSalt(salt, []byte("b"))) {

@@ -4,15 +4,15 @@ The parts of sealing that matter once the basic selection is chosen: the measure
 
 ## The measure point
 
-tpm2-kira checks its policy in the initrd, between two systemd extends that
+kira checks its policy in the initrd, between two systemd extends that
 both happen before `cryptsetup-pre.target`: *after*
 `systemd-pcrphase-initrd.service` has extended `enter-initrd` into PCR 11,
 and *before* `systemd-pcrosseparator.service` extends `os-separator` into
-PCRs 0–7, 9, 12, 13, 14. `tpm2-kira.service` is ordered between the two and
+PCRs 0–7, 9, 12, 13, 14. `kira.service` is ordered between the two and
 is `Type=notify`: while it holds READY back, the PCRs still hold the sealed
 values, so it shows a fresh code every 30 seconds and asks whether it
 matches your authenticator. Enter continues to the passphrase, and so does
-the end of the hold (90 seconds by default, `tpm2-kira-boot run --hold`), so a
+the end of the hold (90 seconds by default, `kira-boot run --hold`), so a
 boot nobody watches goes on by itself. READY is sent then, the separator
 runs, and no code can be computed until the next boot.
 
@@ -29,10 +29,10 @@ verdict, or the end of the hold), the gate ends too, and nothing listens to
 the radio at the passphrase prompt. A phone that is in the middle of its
 answer when the hold runs out gets up to a minute more.
 
-The gate is two processes of the one `tpm2-kira-boot` binary. The display
-is also its *coordinator* (`tpm2-kira-boot run`): it holds the TPM, issues
+The gate is two processes of the one `kira-boot` binary. The display
+is also its *coordinator* (`kira-boot run`): it holds the TPM, issues
 the quotes and reads the phone's signed receipt. The *radio worker*
-(`tpm2-kira-boot gate-child`, which `run` starts as nobody, confined) talks
+(`kira-boot gate-child`, which `run` starts as nobody, confined) talks
 to the phone and has no TPM at all; it asks the coordinator over the socket
 pairs it was started with. What listens to the radio can therefore neither have a
 TOTP code computed nor make up a verdict.
@@ -55,7 +55,7 @@ when given as register source. Where the log cannot be replayed, `slot add` warn
 and falls back to the registers: the key's policy then holds only after the
 separator, which comes after the close, so such a slot shows no code at boot.
 
-Eventlog-derived values describe the *end of firmware*, so tpm2-kira adds
+Eventlog-derived values describe the *end of firmware*, so kira adds
 `enter-initrd` on PCR 11 to reach the measure point. `--measure-point`
 controls this:
 
@@ -73,7 +73,7 @@ appear behave correctly.
 
 Some firmware writes a SHA-1-only event log even when the TPM has a SHA-256 PCR
 bank. The `e` source then has nothing to replay in the selected bank, and
-tpm2-kira refuses rather than sealing the resulting all-zero value:
+kira refuses rather than sealing the resulting all-zero value:
 
 ```
 Error: PCR 0 has no SHA-256 digests in the event log ... (digests present for this PCR: SHA-1).
@@ -85,7 +85,7 @@ changes - the default selection, the fallback slot, the prediction of PCR
 11 or 8/9 are the same as with SHA-256:
 
 ```bash
-tpm2-kira slot add --sha1
+kira slot add --sha1
 ```
 
 The SHA-256 value cannot be derived from a SHA-1 log — different banks hold
@@ -94,14 +94,14 @@ hash of the logged payload, so re-hashing the payloads would be wrong.
 
 ## Custom signing keys
 
-By default, `setup` generates keys at `/etc/tpm2-kira/keys/`. You can supply your own (RSA-2048, ECDSA P-256, or ECDSA P-384):
+By default, `setup` generates keys at `/etc/kira/keys/`. You can supply your own (RSA-2048, ECDSA P-256, or ECDSA P-384):
 
 ```bash
-tpm2-kira slot add --pubkey /path/to/key.pub --privkey /path/to/key.pem
+kira slot add --pubkey /path/to/key.pub --privkey /path/to/key.pem
 ```
 
 Both key files must be mode `0400`, owned by root (or by the user running
-tpm2-kira), not symlinks, and in a directory nobody else can write to; `slot add`
+kira), not symlinks, and in a directory nobody else can write to; `slot add`
 and `slot approve` refuse them otherwise.
 
 The record names no key file: root can replace the record (the EFI
@@ -114,14 +114,14 @@ record holds at most 8 KiB: SECURITY-BACKGROUND §10, *Size*).
 
 ## Multiple slots
 
-tpm2-kira supports up to 16 NVRAM slots (0–15). A plain `slot add` takes two: slot
+kira supports up to 16 NVRAM slots (0–15). A plain `slot add` takes two: slot
 0 for what this boot measured and slot 1 for the fallback (`0e,7e`; on a
 GRUB boot `7e,8e,9e`: every slot there includes PCRs 8 and 9). More, for
 separate secrets or selections:
 
 ```bash
-tpm2-kira slot add --nvram 2
-tpm2-kira slot add --nvram 3 --pcrs "0e,2e,7e"
+kira slot add --nvram 2
+kira slot add --nvram 3 --pcrs "0e,2e,7e"
 ```
 
 `slot add` shows a new slot's first code while this boot is not closed yet, in

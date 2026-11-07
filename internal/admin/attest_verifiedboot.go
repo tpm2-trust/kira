@@ -9,8 +9,8 @@ import (
 
 	"github.com/google/go-tpm/tpm2/transport"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/nvslot"
 )
 
 // bootThroughKira says whether this boot passed the code screen: the boot
@@ -34,13 +34,13 @@ func bootThroughKira(tpmDev transport.TPM) bool {
 // never before (docs/SECURITY-BACKGROUND.md §3.1).
 //
 // requireVerifiedBoot refuses a boot that cannot have been verified: one
-// that never passed tpm2-kira's code screen (PCR 15 not closed), and, for a slot with a TOTP key, one whose PCR values
+// that never passed kira's code screen (PCR 15 not closed), and, for a slot with a TOTP key, one whose PCR values
 // at the code screen were not the approved ones, so no code was shown for
 // the slot. It reports whether that match was established; when the event
 // log cannot tell, the person's answer is what is left.
 func requireVerifiedBoot(tpmDev transport.TPM, sealed *nvslot.SealedBlob, slot uint32) (bool, error) {
 	if !bootThroughKira(tpmDev) {
-		return false, fmt.Errorf("this boot did not pass tpm2-kira's code screen, so nothing verified it, and enrolling\n" +
+		return false, fmt.Errorf("this boot did not pass kira's code screen, so nothing verified it, and enrolling\n" +
 			"would pin an unverified boot on the phone. Reboot through the code screen, compare the\n" +
 			"code with your authenticator, then enrol")
 	}
@@ -56,7 +56,7 @@ func requireVerifiedBoot(tpmDev transport.TPM, sealed *nvslot.SealedBlob, slot u
 	case len(differ) > 0:
 		return false, fmt.Errorf("this boot is not the state slot %d's code is approved for (PCR %s differ), so the\n"+
 			"code screen showed no code for it and nothing verified this boot. Approve the current\n"+
-			"boot chain ('tpm2-kira slot approve', after a kernel update the hook does it), reboot, compare the\n"+
+			"boot chain ('kira slot approve', after a kernel update the hook does it), reboot, compare the\n"+
 			"code with your authenticator, then enrol", slot, joinInts(differ))
 	}
 	return true, nil
@@ -107,7 +107,7 @@ func warnUnclosedBoot(tpmDev transport.TPM) {
 	if bootThroughKira(tpmDev) {
 		return
 	}
-	fmt.Println("NOTE: this boot did not pass tpm2-kira's code screen, so the TPM cannot answer")
+	fmt.Println("NOTE: this boot did not pass kira's code screen, so the TPM cannot answer")
 	fmt.Println("      with the boot key and the phone will call it refused. In a boot through")
 	fmt.Println("      the wired image it reads \"locked until the next boot\", by design.")
 	fmt.Println()

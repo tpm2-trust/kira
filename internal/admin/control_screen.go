@@ -6,7 +6,7 @@ import (
 
 	"github.com/tpm2-trust/go-tui-slim/panel"
 	"github.com/tpm2-trust/go-tui-slim/tui"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/nvslot"
 )
 
 // control's full screen is go-tui-slim's panel: the sections on the left, the selected

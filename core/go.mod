@@ -1,4 +1,4 @@
-module github.com/tpm2-trust/tpm2-kira/core
+module github.com/tpm2-trust/kira/core
 
 go 1.26.0
 
@@ -12,6 +12,6 @@ require (
 require go.yaml.in/yaml/v3 v3.0.4 // indirect
 
 // The EK root store (tpm2-verifier's ekroots): the submodule tpm2-verifier/
-// beside this module, the commit tpm2-kira pins (the workspace's
+// beside this module, the commit kira pins (the workspace's
 // ./pin tpm2-verifier moves it).
 replace github.com/tpm2-trust/tpm2-verifier => ../tpm2-verifier

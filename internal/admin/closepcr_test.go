@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/nvslot"
 )
 
 // logWithClosePCREvent is the Arch test log with one more event, in PCR 15, in
@@ -63,7 +63,7 @@ func TestClosePCRChecked(t *testing.T) {
 		t.Fatalf("a log with a PCR 15 event: %d %v", n, err)
 	}
 	err := checkClosePCRZero()
-	if err == nil || !strings.Contains(err.Error(), "nothing of tpm2-kira's opens") {
+	if err == nil || !strings.Contains(err.Error(), "nothing of kira's opens") {
 		t.Fatalf("the check: %v", err)
 	}
 	if err := approveSSHCASlots(nil, nil, nil); err == nil || !strings.Contains(err.Error(), "cannot approve") {

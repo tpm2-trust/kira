@@ -1,7 +1,7 @@
-// tpm2-kira-boot is what the boot image carries of tpm2-kira: the code
+// kira-boot is what the boot image carries of kira: the code
 // screen and the parts the image's plan names, the close, the Debian
 // keyscript, the SSH server's unprivileged half and the phone's radio
-// worker. Nothing of the administration (tpm2-kira) is in it.
+// worker. Nothing of the administration (kira) is in it.
 package main
 
 import (
@@ -10,17 +10,17 @@ import (
 	"os"
 	"time"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/bootclose"
-	"github.com/tpm2-trust/tpm2-kira/internal/bootrun"
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
-	"github.com/tpm2-trust/tpm2-kira/internal/imageplan"
-	"github.com/tpm2-trust/tpm2-kira/internal/journal"
-	"github.com/tpm2-trust/tpm2-kira/internal/machineid"
-	"github.com/tpm2-trust/tpm2-kira/internal/memlock"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
-	"github.com/tpm2-trust/tpm2-kira/internal/sshscreen"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/bootclose"
+	"github.com/tpm2-trust/kira/internal/bootrun"
+	"github.com/tpm2-trust/kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/imageplan"
+	"github.com/tpm2-trust/kira/internal/journal"
+	"github.com/tpm2-trust/kira/internal/machineid"
+	"github.com/tpm2-trust/kira/internal/memlock"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/phonegate"
+	"github.com/tpm2-trust/kira/internal/sshscreen"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 
 	"github.com/tpm2-trust/go-tui-slim/secret"
 )
@@ -28,8 +28,8 @@ import (
 // Version is set at build time (-X main.Version=...).
 var Version = "dev"
 
-const usage = `tpm2-kira-boot - tpm2-kira in the boot image (the initramfs units and
-scripts run it; on the installed system it is 'tpm2-kira')
+const usage = `kira-boot - kira in the boot image (the initramfs units and
+scripts run it; on the installed system it is 'kira')
 
   run          The code screen: shows the codes, holds the boot until it is
                confirmed, and starts the parts the image's plan names - the
@@ -43,7 +43,7 @@ scripts run it; on the installed system it is 'tpm2-kira')
   gate-child   The phone's radio worker, started by run
   version      The version
 
-Options are the command's own (tpm2-kira-boot <command> -h).
+Options are the command's own (kira-boot <command> -h).
 `
 
 func main() {
@@ -55,7 +55,7 @@ func main() {
 	command, args := os.Args[1], os.Args[2:]
 	switch command {
 	case "version", "-v", "--version":
-		fmt.Printf("tpm2-kira-boot version %s\n", Version)
+		fmt.Printf("kira-boot version %s\n", Version)
 		if diskkey.TestBuildNote != "" {
 			fmt.Println(diskkey.TestBuildNote)
 		}
@@ -66,7 +66,7 @@ func main() {
 	case "ssh-child":
 		// The SSH server's unprivileged half: started by 'run' as nobody.
 		if err := sshscreen.SSHChildCommand(); err != nil {
-			fmt.Fprintf(os.Stderr, "tpm2-kira-boot ssh-child: %v\n", err)
+			fmt.Fprintf(os.Stderr, "kira-boot ssh-child: %v\n", err)
 			os.Exit(1)
 		}
 		return
@@ -79,8 +79,8 @@ func main() {
 	}
 	machineid.TestPaths()
 	bootclose.TestPaths()
-	if os.Geteuid() != 0 && os.Getenv("TPM2_KIRA_UNPRIVILEGED") == "" {
-		fmt.Fprintf(os.Stderr, "tpm2-kira-boot %s: root is needed\n", command)
+	if os.Geteuid() != 0 && os.Getenv("KIRA_UNPRIVILEGED") == "" {
+		fmt.Fprintf(os.Stderr, "kira-boot %s: root is needed\n", command)
 		os.Exit(1)
 	}
 	switch command {
@@ -107,17 +107,17 @@ func main() {
 			close = func(p string) error { return bootclose.Late(p, nil) }
 		}
 		if err := close(*tpm); err != nil {
-			fmt.Fprintf(os.Stderr, "tpm2-kira-boot close: %v\n", err)
+			fmt.Fprintf(os.Stderr, "kira-boot close: %v\n", err)
 			os.Exit(1)
 		}
 	case "unlock-key":
 		// It holds the disk's key on its way to cryptsetup. Its stdout is that key: the
 		// word on a lock it could not take goes to stderr, and no further.
 		if err := secret.LockProcess(); err != nil {
-			fmt.Fprintf(os.Stderr, "tpm2-kira: %v\n", err)
+			fmt.Fprintf(os.Stderr, "kira: %v\n", err)
 		}
 		fs := flag.NewFlagSet("unlock-key", flag.ExitOnError)
-		socket := fs.String("socket", diskkey.DefaultUnlockSocket, "The key socket of 'tpm2-kira-boot run --unlock'")
+		socket := fs.String("socket", diskkey.DefaultUnlockSocket, "The key socket of 'kira-boot run --unlock'")
 		wait := fs.Duration("wait", 5*time.Second, "How long to wait for the socket to appear")
 		fs.Parse(args)
 		volume := fs.Arg(0)
@@ -125,7 +125,7 @@ func main() {
 			volume = os.Getenv("CRYPTTAB_NAME")
 		}
 		if err := diskkey.UnlockKeyCommand(*socket, volume, *wait); err != nil {
-			fmt.Fprintf(os.Stderr, "tpm2-kira-boot: %v\n", err)
+			fmt.Fprintf(os.Stderr, "kira-boot: %v\n", err)
 			os.Exit(1) // a keyscript's exit status is what cryptroot reads
 		}
 	case "machine-id":
@@ -136,14 +136,14 @@ func main() {
 		// status is 0.
 		switch released, err := machineid.Boot(*tpm); {
 		case err != nil:
-			fmt.Fprintf(os.Stderr, "tpm2-kira: the machine-id is not released: %v\n", err)
+			fmt.Fprintf(os.Stderr, "kira: the machine-id is not released: %v\n", err)
 		case released:
-			journal.Narrate("tpm2-kira: the machine-id is released (slot 0's policy held)")
+			journal.Narrate("kira: the machine-id is released (slot 0's policy held)")
 		default:
-			journal.Narrate("tpm2-kira: no sealed machine-id")
+			journal.Narrate("kira: no sealed machine-id")
 		}
 	default:
-		fmt.Fprintf(os.Stderr, "tpm2-kira-boot: unknown command %q\n\n%s", command, usage)
+		fmt.Fprintf(os.Stderr, "kira-boot: unknown command %q\n\n%s", command, usage)
 		os.Exit(2)
 	}
 }
@@ -171,7 +171,7 @@ func runRun(args []string) {
 	if *ssh {
 		var err error
 		if remote, err = sshscreen.OptionsFrom(*sshConf, time.Duration(*sshHold)*time.Second); err != nil {
-			fmt.Fprintf(os.Stderr, "tpm2-kira-boot: the SSH server is not started: %v - the code screen is at the console\n", err)
+			fmt.Fprintf(os.Stderr, "kira-boot: the SSH server is not started: %v - the code screen is at the console\n", err)
 		}
 	}
 	bootrun.Run(*tpm, slotIndex(fs, *nvram), time.Duration(*hold)*time.Second, *unlock, *readyFile, remote, planned, *debug)

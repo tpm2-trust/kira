@@ -5,15 +5,15 @@
 > unencrypted host key, a host key sealed to the TPM, mkinitcpio-systemd-extras'
 > hooks) are in HISTORY.md. The SSH server and the TPM-held host keys are
 > [aSSH](../assh/README.md) (`github.com/tpm2-trust/assh`), a project of
-> its own that tpm2-kira uses as a library, from the git submodule `assh/`.
+> its own that kira uses as a library, from the git submodule `assh/`.
 
-The boot image can bring up a network of its own, and `tpm2-kira-boot run` -
+The boot image can bring up a network of its own, and `kira-boot run` -
 the process that holds the boot at the code screen - then also runs an SSH
 server. The SSH protocol runs in a separate process without privileges, and
 the host key is made in the TPM at every boot and certified by a
 certificate authority that never leaves the TPM either.
 Whoever logs in sees the codes, confirms them, and types the disk's
-password in the session; when tpm2-kira has no key to give, cryptsetup's
+password in the session; when kira has no key to give, cryptsetup's
 own prompt is asked there too. The console shows the same code screen -
 the codes, the phone's line, the network's state - and below it where to
 log in; Enter at the console continues there instead: a person at the
@@ -25,12 +25,12 @@ authenticator as at the console. The phone attests at the machine only
 TLS ([VAULT.md](VAULT.md)).
 
 ```bash
-sudo tpm2-kira control      # the section "Network & SSH": DHCP or static, proposed
+sudo kira control      # the section "Network & SSH": DHCP or static, proposed
                             # from /etc/systemd/network or /etc/network/interfaces;
                             # SSH only when you say yes, the SSH CA created in the TPM;
                             # the image is rebuilt when you quit
 # once, on each client: trust the CA (control prints the line)
-echo "@cert-authority host.example,192.0.2.10 $(cat /etc/tpm2-kira/ssh_ca.pub)" >> ~/.ssh/known_hosts
+echo "@cert-authority host.example,192.0.2.10 $(cat /etc/kira/ssh_ca.pub)" >> ~/.ssh/known_hosts
 ssh root@<address shown on the console>
 ```
 
@@ -45,10 +45,10 @@ Contents: [1 Configuration](#1-configuration) ·
 
 ## 1. Configuration
 
-Two files, both written by `tpm2-kira control` (the section
-"Network & SSH"): `/etc/tpm2-kira/control.conf` holds what is
-tpm2-kira's - the image's network, whether the SSH server runs, how long
-the boot waits; `/etc/tpm2-kira/assh.conf`, beside it, what is aSSH's - the
+Two files, both written by `kira control` (the section
+"Network & SSH"): `/etc/kira/control.conf` holds what is
+kira's - the image's network, whether the SSH server runs, how long
+the boot waits; `/etc/kira/assh.conf`, beside it, what is aSSH's - the
 SSH CA and its slots, the port, the keys that may log in (aSSH's own
 format, `ASSH_*`, read with its `config` package).
 
@@ -56,29 +56,29 @@ format, `ASSH_*`, read with its `config` package).
 
 | Key | Values |
 |---|---|
-| `TPM2_KIRA_NET` | `off` (default), `dhcp`, `static` |
-| `TPM2_KIRA_NET_MATCH` | a MAC address (recommended) or an interface name; empty: every wired interface (DHCP only) |
-| `TPM2_KIRA_NET_ADDRESS` | static: addresses with prefix, space-separated |
-| `TPM2_KIRA_NET_GATEWAY`, `TPM2_KIRA_NET_DNS` | IP addresses, space-separated |
-| `TPM2_KIRA_NET_DHCP_ID` | the identity the image asks the DHCP server with: `auto` (default) the running system's, read at every image build (§2.1); `mac`; or a client identifier in hex (`ff:56:50:…`) |
-| `TPM2_KIRA_NET_ANNOUNCE` | `on` (default): each new address is said to the link (§5.3); `off`: nothing beyond the DHCP client |
-| `TPM2_KIRA_SSH` | `off` (default), `on` (needs a network) |
-| `TPM2_KIRA_SSH_HOLD` | seconds the boot waits for a confirmation; `0` (default): until one comes |
+| `KIRA_NET` | `off` (default), `dhcp`, `static` |
+| `KIRA_NET_MATCH` | a MAC address (recommended) or an interface name; empty: every wired interface (DHCP only) |
+| `KIRA_NET_ADDRESS` | static: addresses with prefix, space-separated |
+| `KIRA_NET_GATEWAY`, `KIRA_NET_DNS` | IP addresses, space-separated |
+| `KIRA_NET_DHCP_ID` | the identity the image asks the DHCP server with: `auto` (default) the running system's, read at every image build (§2.1); `mac`; or a client identifier in hex (`ff:56:50:…`) |
+| `KIRA_NET_ANNOUNCE` | `on` (default): each new address is said to the link (§5.3); `off`: nothing beyond the DHCP client |
+| `KIRA_SSH` | `off` (default), `on` (needs a network) |
+| `KIRA_SSH_HOLD` | seconds the boot waits for a confirmation; `0` (default): until one comes |
 
 `assh.conf` (what control writes; aSSH's README lists every key, and
-tpm2-kira refuses those it has no use for - the authority is its signing
+kira refuses those it has no use for - the authority is its signing
 key, a login is a session of the code screen):
 
 | Key | Values |
 |---|---|
-| `ASSH_CA` | `efi:KIRAasshCA` (default): the SSH CA's EFI variable (its public key in `/etc/tpm2-kira/ssh_ca.pub`), created in the TPM by control (§4) |
+| `ASSH_CA` | `efi:KIRAasshCA` (default): the SSH CA's EFI variable (its public key in `/etc/kira/ssh_ca.pub`), created in the TPM by control (§4) |
 | `ASSH_CA_TYPE` | `p256` (default) or `rsa2048`: what control asked when it created the CA |
 | `ASSH_CA_SLOT_<N>` | a slot's PCRs, `0,2,4,7` with `ASSH_CA_SLOT_0_SIGNED=11` (and `ASSH_PCR_KEY`, `ASSH_PCR_SIGNATURE`, the PCR key's) on a UKI, `0,2,4,7,8,9` on GRUB; control writes two, worked out for this machine (§4). An edit takes effect at the next approval or control, which make the CA's slots these and approve them |
 | `ASSH_CHILD_UIDS` | `0x7FFE0000-0x7FFEFFFF` (default): where `ssh-child`'s uid is chosen from, one no one else has |
-| `ASSH_CA_REF` | `tpm2-kira ssh ca` (default): what the signing key's approvals are bound to |
+| `ASSH_CA_REF` | `kira ssh ca` (default): what the signing key's approvals are bound to |
 | `ASSH_LISTEN` | `:22` (default): the address the server listens on |
-| `ASSH_AUTHORIZED_KEYS` | `/etc/tpm2-kira/authorized_keys` (default), tpm2-kira's own file - control copies root's keys there when asked, edit it for others; any key type OpenSSH has. A line with options in front of the key (`from=`, `command=`) is left out: the options are not honoured. Their sum is part of the SSH part's digest in the boot plan, so control sees a difference without unpacking the image |
-| `ASSH_KEY_ID`, `ASSH_PRINCIPALS`, `ASSH_HOSTKEY_TYPE` | the host certificate's name (`tpm2-kira boot`), its principals (`*`), the host key's type (`p256`) |
+| `ASSH_AUTHORIZED_KEYS` | `/etc/kira/authorized_keys` (default), kira's own file - control copies root's keys there when asked, edit it for others; any key type OpenSSH has. A line with options in front of the key (`from=`, `command=`) is left out: the options are not honoured. Their sum is part of the SSH part's digest in the boot plan, so control sees a difference without unpacking the image |
+| `ASSH_KEY_ID`, `ASSH_PRINCIPALS`, `ASSH_HOSTKEY_TYPE` | the host certificate's name (`kira boot`), its principals (`*`), the host key's type (`p256`) |
 
 The type, the bank and the ref are the CA's for good: a
 different value in assh.conf is an error that says to create the CA again
@@ -123,11 +123,11 @@ network in the image and no SSH server.
 
 ## 2. The image build
 
-`control.conf` itself never goes into the image. The hook calls `tpm2-kira
+`control.conf` itself never goes into the image. The hook calls `kira
 initramfs plan --buildroot DIR [--format mkinitcpio|initramfs-tools]`, the
-boot plan (`tpm2-kira help initramfs`): the network is a part of it when
-`TPM2_KIRA_NET` is set and its settings work, the SSH server when
-`TPM2_KIRA_SSH=on`, the network is in, the SSH CA exists (§4), and a key
+boot plan (`kira help initramfs`): the network is a part of it when
+`KIRA_NET` is set and its settings work, the SSH server when
+`KIRA_SSH=on`, the network is in, the SSH CA exists (§4), and a key
 may log in - each part on its own, so a vault keeps its network when SSH
 cannot be had. It turns the settings into files of the image, and prints
 what the hook has to add (modules - `efivarfs` for the SSH server -,
@@ -137,14 +137,14 @@ so `control` tells an image built with another port or other login keys
 (the SSH part's digest names the image's assh.conf and keys, the
 network's the DHCP identity):
 
-| | Arch (`sd-tpm2-kira`) | Debian (`hooks/tpm2-kira`) |
+| | Arch (`sd-kira`) | Debian (`hooks/kira`) |
 |---|---|---|
-| network | `/etc/systemd/network/10-tpm2-kira.network`; with DHCP the running system's identity (§2.1); systemd-networkd enabled with its user | `/etc/tpm2-kira/remote.conf` (`TPM2_KIRA_NET`, `_MATCH`, `_ADDRESS`, `_GATEWAY`, `_DNS`, `_CLIENTID`, shell-quoted), read by `init-premount/tpm2-kira` |
-| run's flags | `/etc/systemd/system/tpm2-kira.service.d/remote.conf`: `TPM2_KIRA_REMOTE=--ssh --ssh-hold=S`, and no `TimeoutStartSec` when the hold has no limit | `TPM2_KIRA_REMOTE=…` in the same `remote.conf` |
-| aSSH's settings | `/etc/tpm2-kira/assh.conf`, the running system's, read by `run --ssh` | the same |
+| network | `/etc/systemd/network/10-kira.network`; with DHCP the running system's identity (§2.1); systemd-networkd enabled with its user | `/etc/kira/remote.conf` (`KIRA_NET`, `_MATCH`, `_ADDRESS`, `_GATEWAY`, `_DNS`, `_CLIENTID`, shell-quoted), read by `init-premount/kira` |
+| run's flags | `/etc/systemd/system/kira.service.d/remote.conf`: `KIRA_REMOTE=--ssh --ssh-hold=S`, and no `TimeoutStartSec` when the hold has no limit | `KIRA_REMOTE=…` in the same `remote.conf` |
+| aSSH's settings | `/etc/kira/assh.conf`, the running system's, read by `run --ssh` | the same |
 | SSH CA | not in the image: the EFI variable `KIRAasshCA`, read by `run` (efivarfs, mounted by systemd) | the same; `run` mounts efivarfs, the hook adds its module |
-| login keys | where assh.conf says, `/etc/tpm2-kira/authorized_keys` (their sum is in the SSH part's digest, `/etc/tpm2-kira/plan/ssh/<digest>`) | the same |
-| DHCP | systemd-networkd | busybox' `udhcpc` with the identifier (`-x 0x3d:…`, its events in `/etc/tpm2-kira/udhcpc.script`); without one klibc's `ipconfig` (`configure_networking`, as for an NFS root or dropbear-initramfs), which sends none |
+| login keys | where assh.conf says, `/etc/kira/authorized_keys` (their sum is in the SSH part's digest, `/etc/kira/plan/ssh/<digest>`) | the same |
+| DHCP | systemd-networkd | busybox' `udhcpc` with the identifier (`-x 0x3d:…`, its events in `/etc/kira/udhcpc.script`); without one klibc's `ipconfig` (`configure_networking`, as for an NFS root or dropbear-initramfs), which sends none |
 | static | systemd-networkd | busybox `ip` |
 | driver | the matched interface's module (every network driver when none matches on the build machine) | the same; `auto_add_modules net` for every driver |
 | needs | - | busybox in the image (`BUSYBOX`, default `auto`); without it the hook asks for a plan without network (`--no-busybox`), which says so |
@@ -162,8 +162,8 @@ The image asks as the running system does, two ways at once:
   `67f474ef-94a1-4412-88df-d62349d430a9`). `slot add` seals it for slot 0,
   `slot approve` (the hooks run it after every build) seals it again when
   slot 0 was made again, the signing key or `/etc/machine-id` changed. At
-  boot `tpm2-kira-machine-id.service` (Debian: the init-premount script)
-  runs `tpm2-kira-boot machine-id` before the network: in a boot state the
+  boot `kira-machine-id.service` (Debian: the init-premount script)
+  runs `kira-boot machine-id` before the network: in a boot state the
   signing key approved, before the separator, the TPM unseals it, and it
   is written in place to `/run/machine-id` and `/etc/machine-id`. The image
   then has the installed system's machine-id, as safearch's has its own:
@@ -177,7 +177,7 @@ The image asks as the running system does, two ways at once:
   in a state nobody approved releases none, and says so; `slot delete`
   (slot 0, or everything) removes the variable.
 - **The identity copied into the image**, read at every image build
-  (`TPM2_KIRA_NET_DHCP_ID=auto`) from the running system's DHCP client on
+  (`KIRA_NET_DHCP_ID=auto`) from the running system's DHCP client on
   the matched interface - what networkd and Debian's udhcpc ask with
   where the running system's client has an identifier of its own (another
   DUID than networkd's default, NetworkManager's, dhcpcd's), and in a boot
@@ -191,11 +191,11 @@ The image asks as the running system does, two ways at once:
 | none of them (ISC dhclient, by default without an identifier) | unknown: the build warns that the address may differ | networkd: the MAC; Debian: `ipconfig`, none |
 
 The build says which: `Network: in - dhcp, asking as the running system's,
-systemd-networkd on enp1s0 (ff:56:50:…)`. `TPM2_KIRA_NET_DHCP_ID=mac` or an
+systemd-networkd on enp1s0 (ff:56:50:…)`. `KIRA_NET_DHCP_ID=mac` or an
 identifier in hex sets it instead. A network for every wired interface (no
-`TPM2_KIRA_NET_MATCH`) has no one identity to take.
+`KIRA_NET_MATCH`) has no one identity to take.
 
-Nothing else goes in: the SSH server is tpm2-kira itself, and no shell, SSH
+Nothing else goes in: the SSH server is kira itself, and no shell, SSH
 daemon or password agent is added. The build prints each part with why
 it is in or out, `SSH server: in - port 22, host keys certified by the SSH
 CA SHA256:…`. If a setting cannot work - SSH without a network, no CA,
@@ -205,7 +205,7 @@ still boots, with the code screen at the console.
 
 ## 3. Privilege separation
 
-aSSH is a library, not a program tpm2-kira calls: `run` imports
+aSSH is a library, not a program kira calls: `run` imports
 `github.com/tpm2-trust/assh/server` and starts the server itself
 (`server.Start`). What the library does then is split the server in two
 processes of the same binary, and the socket pair between them is a
@@ -214,11 +214,11 @@ from the network holds nothing worth taking, the half that holds the TPM
 never parses a byte from the network.
 
 ```
-tpm2-kira-boot run                              (root: TPM, disk key, code screen)
+kira-boot run                              (root: TPM, disk key, code screen)
   │  has the TPM make this boot's host key, the SSH CA certify it; opens :PORT
   │  starts, handing over the listening socket and a control socket:
   ▼
-tpm2-kira-boot ssh-child                     (a uid of its own; own net/IPC/PID/mount/UTS namespaces;
+kira-boot ssh-child                     (a uid of its own; own net/IPC/PID/mount/UTS namespaces;
   │                                         sandbox on every thread: no new privileges,
   │                                         no executable memory, no file, seccomp)
   │  speaks SSH (golang.org/x/crypto/ssh), checks the login keys
@@ -230,14 +230,14 @@ the session in run: the code screen, Enter, the password prompt
 
 `run` must not parse what arrives from the network before a login: it
 holds the TPM, the disk's key and the code screen. So the SSH protocol
-runs in `tpm2-kira-boot ssh-child` - the same binary started again by `run`,
+runs in `kira-boot ssh-child` - the same binary started again by `run`,
 as the phone's radio worker is (`gate-child`, docs/BOOT-INTEGRATION.md) -
 which gives up everything it does not need
 before it reads a byte:
 
 - **A uid no one else has** (aSSH's `sandbox.ClaimUID`, from `ASSH_CHILD_UIDS`;
   nobody only when none is free), no supplementary groups, so no capabilities:
-  the TPM device and everything in `/etc/tpm2-kira` and `/run/tpm2-kira`
+  the TPM device and everything in `/etc/kira` and `/run/kira`
   are out of reach.
 - **Namespaces of its own** for network, IPC, PID, mount and UTS. It has
   no network but the listening socket it was handed: it cannot connect
@@ -325,10 +325,10 @@ and no secret either: the keys are in the TPM.
      serves the sessions after the close too;
   2. when the code screen is over, whatever `run` did (no SSH server in
      the image, `run` failed or timed out): Arch,
-     `tpm2-kira-close.service` (after `tpm2-kira.service`, before
+     `kira-close.service` (after `kira.service`, before
      `cryptsetup-pre.target`, required by `initrd.target`); Debian,
-     `scripts/local-top/tpm2-kira-close`, before cryptroot, once `run` has made
-     its READY file or is gone, and `scripts/init-bottom/tpm2-kira` once more (a
+     `scripts/local-top/kira-close`, before cryptroot, once `run` has made
+     its READY file or is gone, and `scripts/init-bottom/kira` once more (a
      root that is not local has no `local-top`; a TPM may have come by then). All with
      the TPM in the plan. Before any volume is opened, on both. A
      close tries a refused extend once more; what follows from each outcome is below ("The
@@ -349,15 +349,15 @@ and no secret either: the keys are in the TPM.
   is a new start, which sets PCR 15 back to zero, and the resumed system
   runs no code screen. So the image closes it right before every resume,
   whatever `run` did: Arch, a drop-in on
-  `systemd-hibernate-resume.service` (`ExecStartPre=/usr/bin/tpm2-kira-boot
-  close --resume`; `tpm2-kira-close.service` has run before already); Debian, the
-  `local-top` script `tpm2-kira-close` (`close --resume` too, after its own close),
+  `systemd-hibernate-resume.service` (`ExecStartPre=/usr/bin/kira-boot
+  close --resume`; `kira-close.service` has run before already); Debian, the
+  `local-top` script `kira-close` (`close --resume` too, after its own close),
   before `cryptroot` and `local-premount`'s resume. Where it is closed already, an extend more
   changes nothing. Anything but PCR 15 itself (no TPM at all aside) and the machine
   does not resume: the hibernated session is lost, never the close. Hibernation to unencrypted
   swap is not covered - the kernel may resume it before the image runs -
   and control shows it red.
-- **The approved values** are those of tpm2-kira's measure point: the code
+- **The approved values** are those of kira's measure point: the code
   screen holds the boot ahead of `systemd-pcrosseparator`, which extends
   PCR 0-7 in the running system. They are replayed from the firmware
   event log (`measurepoint.go`), PCR 11 computed from the unified kernel
@@ -388,23 +388,23 @@ and no secret either: the keys are in the TPM.
   **temporary key** - made in the TPM under the NULL hierarchy like the
   certified one, gone at the next reboot, but not certified. The console
   shows its fingerprint and, for each slot, which PCR changed, and `ssh` warns of an
-  unknown host key. Quit `tpm2-kira control` once after that boot, or run
-  `tpm2-kira slot approve`: it approves the new values. Without a TPM there is no SSH
+  unknown host key. Quit `kira control` once after that boot, or run
+  `kira slot approve`: it approves the new values. Without a TPM there is no SSH
   server.
 - **Removing the CA**: switching the SSH server off in `control` asks
   whether the CA goes too - No unless you say so: kept, it serves again
   when SSH is switched on and the clients' `known_hosts` line stays good;
   removed, the CA made later is a new one every client has to trust.
-  `slot delete` without `--nvram` (everything of tpm2-kira) takes it as
+  `slot delete` without `--nvram` (everything of kira) takes it as
   well, after its confirmation. Both remove it as aSSH's `ca remove` does:
   the EFI variable, in the TPM only what is the CA's, and `ssh_ca.pub`.
 
 No `systemd-creds` and no TPM library go into the image: aSSH does the TPM
-work in Go (go-tpm), compiled into tpm2-kira.
+work in Go (go-tpm), compiled into kira.
 
 The running system's own sshd can use the same idea with a CA of its own
 (`assh agent`, bound to the state after the unlock and closed by a PCR
-extended once it started): see aSSH's README. tpm2-kira does not set that
+extended once it started): see aSSH's README. kira does not set that
 up.
 
 ## 5. At boot
@@ -412,7 +412,7 @@ up.
 ### 5.1 Arch (systemd in the initrd)
 
 ```
-tpm2-kira.service (holds READY)
+kira.service (holds READY)
   ├── the TPM makes this boot's host key, the SSH CA certifies it (slot 0 or 1),
   │   opens :PORT, starts 'ssh-child'; the CA closes (PCR 15 extended)
   │   with every slot when the code screen is over
@@ -426,10 +426,10 @@ The network comes up in parallel with the code screen: networkd is not
 ordered after the hold.
 
 - **Confirmed in a session.** The boot is released (READY, the separator
-  runs). The password prompt (tpm2-kira's, for every recipe
+  runs). The password prompt (kira's, for every recipe
   with a typed password) opens in that session. The server keeps running
   until switch-root, so a dropped session can log in again for the
-  prompt. If tpm2-kira has no key to give, cryptsetup's own prompt is
+  prompt. If kira has no key to give, cryptsetup's own prompt is
   asked in the session too (§6).
 - **Enter at the console.** The boot is released, every session is told
   and closed, `ssh-child` ends and the port with it, and the prompt is
@@ -444,19 +444,19 @@ ordered after the hold.
 ### 5.2 Debian (initramfs-tools)
 
 ```
-init-premount/tpm2-kira
-  ├── tpm2-kira-boot run --ssh ...              (background, as on Arch)
+init-premount/kira
+  ├── kira-boot run --ssh ...              (background, as on Arch)
   └── the network, in the background: waits up to 180 s for the interface (MAC,
       name, or the first wired one), then udhcpc with the client identifier
       or ipconfig without one (DHCP), or ip (static);
-      log /run/initramfs/tpm2-kira.log, device in /run/tpm2-kira/net-device
-local-top/tpm2-kira-close
-  └── 'tpm2-kira-boot close' waits for the code screen's end (run's file, or run gone)
+      log /run/initramfs/kira.log, device in /run/kira/net-device
+local-top/kira-close
+  └── 'kira-boot close' waits for the code screen's end (run's file, or run gone)
       - the hold is there, until the code is confirmed - and closes; a failure reboots
 local-top/cryptroot (last: its prerequisites name the others)
-  └── keyscript=/lib/cryptsetup/scripts/tpm2-kira: 'tpm2-kira-boot unlock-key' asks
+  └── keyscript=/lib/cryptsetup/scripts/kira: 'kira-boot unlock-key' asks
       run's socket
-init-bottom/tpm2-kira
+init-bottom/kira
   └── SIGTERM to run (sessions told, 'ssh-child' ends; KILL after 5 s),
       'killall ipconfig', the interface's addresses and routes flushed, the link
       set down, /run/net-<dev>.conf removed
@@ -469,8 +469,8 @@ would stay beside theirs.
 ### 5.3 The network's line and the announcement
 
 Whenever the image has a network, `run` watches it (`internal/netstate`; the
-image's `/etc/tpm2-kira/remote.conf` names the mode, the interface and
-`TPM2_KIRA_NET_ANNOUNCE`, on both distributions) and configures nothing:
+image's `/etc/kira/remote.conf` names the mode, the interface and
+`KIRA_NET_ANNOUNCE`, on both distributions) and configures nothing:
 networkd or the image's scripts bring it up.
 
 - **The line.** The code screen carries the network's state, on the console
@@ -481,7 +481,7 @@ networkd or the image's scripts bring it up.
   and each change goes into the boot's log (`network: ...`); after the code
   screen the console is the prompt's, and nothing more is said. Without a code
   screen (the vault alone) the line is said all the same.
-- **The announcement** (`TPM2_KIRA_NET_ANNOUNCE=on`, the default). A machine
+- **The announcement** (`KIRA_NET_ANNOUNCE=on`, the default). A machine
   that gets an address back - its own of the last boot, or another machine's -
   can stay unreachable while the switch, the gateway or a host beside it holds
   an old entry. Each new address is said three times, a second apart: an IPv4
@@ -494,7 +494,7 @@ networkd or the image's scripts bring it up.
 
 ## 6. cryptsetup's own prompt
 
-When tpm2-kira has no key to give (no token on the volume, Ctrl-C at its
+When kira has no key to give (no token on the volume, Ctrl-C at its
 prompt, a wrong answer, a vault that refused), cryptsetup asks for itself.
 `run` asks the same question in the session that has the prompt, beside
 the console. The first answer counts; a question answered at the console
@@ -521,27 +521,27 @@ In the session it reads: `cryptsetup asks: Please unlock disk vda3_crypt
   predictable.
 - **known_hosts.** One line per client trusts the CA:
   `@cert-authority host.example,192.0.2.10 ecdsa-sha2-nistp256 AAAA…`
-  (`tpm2-kira control` prints it; the key is `/etc/tpm2-kira/ssh_ca.pub`).
+  (`kira control` prints it; the key is `/etc/kira/ssh_ca.pub`).
   A client without it sees an unknown host key at every boot. The running
   system keeps its own OpenSSH host key; a plain `known_hosts` entry for
   it does not cover the image (a certificate is checked against the CA
   line only).
-- **The log.** Arch: `journalctl -b -u tpm2-kira.service`. Debian:
-  `/run/initramfs/tpm2-kira.log` (it stays after the boot), with the
+- **The log.** Arch: `journalctl -b -u kira.service`. Debian:
+  `/run/initramfs/kira.log` (it stays after the boot), with the
   network's lines.
 - **After the boot.** Nothing of it is left: the server ends at
   switch-root (Arch) or at init-bottom (Debian), the image's address is
-  removed (Debian), no tpm2-kira process remains.
+  removed (Debian), no kira process remains.
 
 ## 8. Commands
 
 ```
-tpm2-kira control                       the section "Network & SSH"
-tpm2-kira initramfs plan --buildroot DIR [--format mkinitcpio|initramfs-tools]
+kira control                       the section "Network & SSH"
+kira initramfs plan --buildroot DIR [--format mkinitcpio|initramfs-tools]
                            [--conf PATH] [--tpm PATH]
                                         what the hooks call (§2): a part that cannot be had stays out, and says why
-tpm2-kira-boot ssh-child                  the SSH protocol, started by 'run --ssh' alone (§3)
-tpm2-kira-boot run --ssh [--ssh-hold S] [--ssh-conf PATH]
+kira-boot ssh-child                  the SSH protocol, started by 'run --ssh' alone (§3)
+kira-boot run --ssh [--ssh-hold S] [--ssh-conf PATH]
                                         set by the image (§2): be the SSH server too, as the
                                         image's assh.conf says
 ```
@@ -551,7 +551,7 @@ tpm2-kira-boot run --ssh [--ssh-hold S] [--ssh-conf PATH]
 | File | What |
 |---|---|
 | `internal/admin/remote_config.go` | the settings, their check, the networkd file, the proposal from networkd and ifupdown |
-| `internal/admin/remote_assh.go` | assh.conf: tpm2-kira's defaults, the keys it refuses |
+| `internal/admin/remote_assh.go` | assh.conf: kira's defaults, the keys it refuses |
 | `internal/admin/remote_dhcpid.go` | the image's DHCP identity: the running system's, read from its DHCP client |
 | `internal/admin/control_remote.go` | control's step |
 | `internal/admin/bootplan.go` | the boot plan: whether the network and the SSH server go in, and their files for both formats |
@@ -564,8 +564,8 @@ tpm2-kira-boot run --ssh [--ssh-hold S] [--ssh-conf PATH]
 | `assh/hostkey` | the CA in the TPM, its slots and approvals, the per-boot host key and its certificate, the temporary key |
 | `assh/config` | assh.conf: its keys, writing it, making a CA's slots the file's |
 | `internal/sshscreen/agent.go` | cryptsetup's own prompt in the session (§6) |
-| `initramfs/mkinitcpio/install/sd-tpm2-kira` | the Arch hook's part |
-| `initramfs/initramfs-tools/hooks/tpm2-kira`, `scripts/init-premount/tpm2-kira`, `scripts/init-bottom/tpm2-kira` | the Debian hook and scripts |
+| `initramfs/mkinitcpio/install/sd-kira` | the Arch hook's part |
+| `initramfs/initramfs-tools/hooks/kira`, `scripts/init-premount/kira`, `scripts/init-bottom/kira` | the Debian hook and scripts |
 
 ## 10. Tests
 
@@ -618,7 +618,7 @@ in the TPM's own state; `internal/bootclose` is what a boot does with the outcom
 | 2 | it did not move, the TPM answers: `shEnable` cleared with the owner's empty authorization, then `ehEnable` and `phEnable` with the platform's (its authorization random first: a resume from S3 sets `phEnable` again) | closed, degraded: under the owner nothing answers, however the PCRs stand: no slot object, no SSH CA, no owner NV index. Keys under the NULL hierarchy and extends still work. `TPM2_Startup(CLEAR)` restores all at the next boot; a resume from S3 keeps it. A firmware that locked the platform refuses `ehEnable` and `phEnable`, which is said and is no failure | goes on: the passphrase and a temporary host key work, the console and `control` say it in red |
 | 3 | an owner password refused that: PCR 7 extended | closed, degraded: every slot reads PCR 7, so every approval is out | as 2 |
 | 5 | no device after the wait (30 s from the boot's first wait for it, below), and no firmware sign of a TPM (no TPM2 or TCPA ACPI table, no event log, nothing the stub measured) | nothing to close | goes on, no error |
-| 6 | the firmware has a TPM and it does not answer | one hard reboot, counted in the EFI variable `KIRAcloseReboot`. The next time in a row: no reboot and no wait for the device; a closer keeps asking (`tpm2-kira-late-close.service`, in the image and in the root) and closes the moment the TPM answers. A close that holds removes the count | goes on: the passphrase alone, `control` red |
+| 6 | the firmware has a TPM and it does not answer | one hard reboot, counted in the EFI variable `KIRAcloseReboot`. The next time in a row: no reboot and no wait for the device; a closer keeps asking (`kira-late-close.service`, in the image and in the root) and closes the moment the TPM answers. A close that holds removes the count | goes on: the passphrase alone, `control` red |
 | 7 | the TPM answers and refuses all of 1-3 | hard reboot, not counted (Arch `FailureAction=reboot-force`, Debian `reboot -f`, then SysRq `b`, then an endless loop) | stops, as long as that lasts |
 
 `FailureAction=reboot-force` says "proceeding in 5s" and sleeps them in PID 1 (`emergency-action.c`);
@@ -627,7 +627,7 @@ for `systemctl reboot -ff`), so it stays.
 
 **One wait per boot.** `machine-id`, `run` and the close ask for the TPM's device in that order
 (`internal/bootwait`). The first that does not find it notes when, in
-`/run/tpm2-kira/tpm-wait-since`, and each waits only until its own time after that: 5 s for the first
+`/run/kira/tpm-wait-since`, and each waits only until its own time after that: 5 s for the first
 two, 30 s for the close. A device that comes within the 30 s closes the boot as usual; it misses the
 codes of this boot if it comes after the 5 s. The note only shortens a wait: the device is looked for
 all the same, and what follows from its absence reads nothing there. It lies in the initrd's own
@@ -649,18 +649,18 @@ the resume's close leaves it alone.
   hand". A TPM in that state keeps the machine rebooting until the person takes the
   way out:
   - **Arch (UKI):** Secure Boot off in the firmware, which moves PCR 7, then at
-    systemd-boot's menu `e` and the word `tpm2-kira.noclose` (the stub ignores a
+    systemd-boot's menu `e` and the word `kira.noclose` (the stub ignores a
     passed command line while Secure Boot is on, systemd-stub(7)). Masking the unit
     does not do: `initrd.target` requires it, and systemd freezes. Secure Boot on
     again afterwards.
   - **Debian (GRUB):** at GRUB's menu `e` (the superuser password `control`
     advises), `break=premount` on the `linux` line, which moves PCR 8. A shell comes
-    before anything of tpm2-kira's runs; there `rm -r /etc/tpm2-kira/plan/tpm` and
+    before anything of kira's runs; there `rm -r /etc/kira/plan/tpm` and
     `exit`, and the disk's prompts follow.
   - **Either:** rescue media with the LUKS passphrase.
 
   In both boots no slot answers, the command line being outside every approval. On
-  them nothing closes PCR 15: should the TPM mend in that boot, `tpm2-kira-boot
+  them nothing closes PCR 15: should the TPM mend in that boot, `kira-boot
   close` by hand, and reboot.
 - An owner password takes step 2 away unless the platform's authorization is empty;
   step 3 is left.
@@ -670,7 +670,7 @@ the resume's close leaves it alone.
 - **Every slot reads the image, so a boot of an image neither signed nor
   approved opens nothing.** One rule: PCR 7 and the image's PCRs, slot 0 with
   the platform (0, 2, 4). On a UKI boot (Arch) the image is PCR 11, signed by
-  tpm2-kira's PCR key for `enter-initrd` once `control` has written it into
+  kira's PCR key for `enter-initrd` once `control` has written it into
   `/etc/kernel/uki.conf`: a boot of an image merely signed by the db key, which
   a boot with PCR 15 at zero and a shell before the close would need, meets no
   slot unless the PCR key signed it too. **Any image ever signed with the PCR key
@@ -700,7 +700,7 @@ the resume's close leaves it alone.
   command line: keep such addons unsigned, too. Without Secure Boot both go,
   which PCR 7 says.
 - **The close is done by software.** `run` and the image extend PCR 15;
-  a boot where neither runs (an image without tpm2-kira, booted under the
+  a boot where neither runs (an image without kira, booted under the
   same Secure Boot keys) leaves the CA - and the slots, whose objects read
   PCR 15 too - open for that boot - see the first limit. Anything that
   extends PCR 15 earlier (a crypttab volume with `tpm2-measure-pcr=`

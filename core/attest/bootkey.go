@@ -62,9 +62,9 @@ const (
 	bootSealedSize = BootCodeLen + 16
 	bootProofSize  = sha256.Size
 
-	labelBootKey   = "tpm2-kira/boot-key/v1"
-	labelBootProof = "tpm2-kira/boot-proof/v1"
-	labelBootSig   = "tpm2-kira/boot-signature/v1"
+	labelBootKey   = "kira/boot-key/v1"
+	labelBootProof = "kira/boot-proof/v1"
+	labelBootSig   = "kira/boot-signature/v1"
 )
 
 // Boot key states in Evidence.

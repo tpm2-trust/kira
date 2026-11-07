@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The serial-console test: tpm2-kira's recipes at the console, without its
+"""The serial-console test: kira's recipes at the console, without its
 boot SSH server, on the machines of tools/localvm.py.
 
     tools/serialtest.py --target both            # or arch, or debian
@@ -12,7 +12,7 @@ the case up over the guest's sshd, rebuilds the boot image, and reboots;
 the boot is then answered at the serial console alone, as a person at the
 machine would:
 
-  totp      slot add --totp, no keyslot of tpm2-kira's: the codes of slots
+  totp      slot add --totp, no keyslot of kira's: the codes of slots
             0 and 1 at the console are the ones computed from the secrets
             (on Debian's GRUB slot 1 reads 7, 8 and 9); Enter; the passphrase opens the
             disk; the close (PCR 15) ended the slots
@@ -62,7 +62,7 @@ localvm = load("localvm")
 Fail = (vmtest.Fail, localvm.Fail)
 CASES = ["totp", "hashpwd2", "tpmsalt", "lostrecord"]
 WRONG = "not-the-password"
-# The system's own prompt after tpm2-kira's key opened nothing: systemd's
+# The system's own prompt after kira's key opened nothing: systemd's
 # agent (Arch) or cryptsetup's askpass (Debian).
 SYSTEM_PROMPT = r"(Please enter passphrase for disk \S+|Please unlock disk \S+):[^\n]*$"
 
@@ -102,7 +102,7 @@ class Case:
     def closed(self, what):
         """The boot image closed the boot (PCR 15) when the code screen was
         over: slot info says slot 0 is closed, whatever its methods."""
-        rc, out = self.m.run("tpm2-kira slot info --nvram 0 2>&1", save=f"slot-info-{what}.log")
+        rc, out = self.m.run("kira slot info --nvram 0 2>&1", save=f"slot-info-{what}.log")
         return self.check(f"{what}: the close ended slot 0 until the next boot (PCR 15)",
                           "closed until the next boot (PCR 15)" in out, out[-400:])
 
@@ -116,19 +116,19 @@ class Case:
 
     def rebuild(self, want):
         if self.lv.name == "arch":
-            # What control's mkinitcpio step writes: sd-tpm2-kira into
+            # What control's mkinitcpio step writes: sd-kira into
             # HOOKS, before sd-encrypt (AdoptHook).
-            rc, out = self.m.run("grep -q '^HOOKS=.*sd-tpm2-kira' /etc/mkinitcpio.conf || "
-                                 "sed -i '/^HOOKS=/s/sd-encrypt/sd-tpm2-kira sd-encrypt/' /etc/mkinitcpio.conf; grep ^HOOKS= /etc/mkinitcpio.conf")
-            self.check("HOOKS carry sd-tpm2-kira before sd-encrypt", "sd-tpm2-kira sd-encrypt" in out, out[-300:])
+            rc, out = self.m.run("grep -q '^HOOKS=.*sd-kira' /etc/mkinitcpio.conf || "
+                                 "sed -i '/^HOOKS=/s/sd-encrypt/sd-kira sd-encrypt/' /etc/mkinitcpio.conf; grep ^HOOKS= /etc/mkinitcpio.conf")
+            self.check("HOOKS carry sd-kira before sd-encrypt", "sd-kira sd-encrypt" in out, out[-300:])
         out = self.m.rebuild()
         self.check("the image is rebuilt" + (f" ({want})" if want else ""), re.search(want, out) is not None if want else True, out[-800:])
 
     def route(self):
-        """Routes the volume's key through tpm2-kira as a person does after
+        """Routes the volume's key through kira as a person does after
         luks enrol: the line 'luks route' says it should read, written into
         its file (control's WriteRouteFix, by hand)."""
-        rc, out = self.m.run(f"tpm2-kira luks route --json {self.m.luks_dev} 2>/dev/null", save="route.json")
+        rc, out = self.m.run(f"kira luks route --json {self.m.luks_dev} 2>/dev/null", save="route.json")
         try:
             findings = json.loads(out[out.index("["):]) if "[" in out else []
         except ValueError:
@@ -150,11 +150,11 @@ class Case:
             text = base64.b64encode("\n".join(lines).encode()).decode()
             rc, _ = self.m.run(f"echo {text} | base64 -d > {f['file']}")
             fixed += rc == 0
-        rc, out = self.m.run(f"tpm2-kira luks route {self.m.luks_dev} 2>&1; echo rc=$?", save="route.log")
-        return self.check("the volume's key is routed through tpm2-kira (luks route)", "rc=0" in out, out[-500:])
+        rc, out = self.m.run(f"kira luks route {self.m.luks_dev} 2>&1; echo rc=$?", save="route.log")
+        return self.check("the volume's key is routed through kira (luks route)", "rc=0" in out, out[-500:])
 
     def enrol(self, args, name, answers, want):
-        s = self.m.session(f"sudo tpm2-kira luks enrol {self.m.luks_dev} {args}", name)
+        s = self.m.session(f"sudo kira luks enrol {self.m.luks_dev} {args}", name)
         try:
             for rx, text in answers:
                 s.expect(rx, 900)
@@ -170,14 +170,14 @@ class Case:
     # ── the cases ────────────────────────────────────────────────────────
 
     def totp(self):
-        rc, out = self.m.run("tpm2-kira setup --local 2>&1", save="setup.log")
+        rc, out = self.m.run("kira setup --local 2>&1", save="setup.log")
         self.check("setup --local", "Setup Complete" in out, out[-400:])
-        rc, out = self.m.run("tpm2-kira slot add --totp 2>&1", save="slot-add.log")
+        rc, out = self.m.run("kira slot add --totp 2>&1", save="slot-add.log")
         secrets = re.findall(r"^Secret: ([A-Z2-7]+)", out, re.M)
         slots = 2
         if not self.check(f"slot add --totp seals {slots} slot(s), each with its secret", len(secrets) == slots, out[-600:]):
             return
-        # The volume routed through tpm2-kira, as control's step does: its
+        # The volume routed through kira, as control's step does: its
         # prompt waits for the code screen. (Not routed, Debian's cryptsetup
         # asks at the same time, and Enter goes to it.)
         if not self.route():
@@ -208,7 +208,7 @@ class Case:
         if not self.enrol("--password typed --salt typed", "luks-enrol-recovery",
                           [(r"^Password: ?$", vmtest.TEST_PASSWORD), (r"The same password again: ?$", vmtest.TEST_PASSWORD),
                            (r"Salt \(asked for at boot the same way\): ?$", vmtest.TEST_SALT), (r"to authorise: ?$", self.lv.passphrase)],
-                          r"keyslot (\d+) added: tpm2-kira, 0x1100 "):
+                          r"keyslot (\d+) added: kira, 0x1100 "):
             return
         if not self.route():
             return
@@ -225,22 +225,22 @@ class Case:
             self.check("the password and the salt are asked at the console", False, str(e))
         self.save_console(mark, "hashpwd2")
         if self.up("hashpwd2"):
-            rc, out = self.m.run("journalctl -b -u tpm2-kira.service 2>/dev/null; cat /run/initramfs/tpm2-kira.log 2>/dev/null", save="boot-hashpwd2.log")
+            rc, out = self.m.run("journalctl -b -u kira.service 2>/dev/null; cat /run/initramfs/kira.log 2>/dev/null", save="boot-hashpwd2.log")
             self.check("the key provider answered the volume (0x1100)", re.search(r"answered|key (was )?made|0x1100", out) is not None, out[-500:])
 
     def tpmsalt(self):
-        rc, out = self.m.run("tpm2-kira setup --local 2>&1", save="setup.log")
+        rc, out = self.m.run("kira setup --local 2>&1", save="setup.log")
         self.check("setup --local", "Setup Complete" in out, out[-400:])
-        rc, out = self.m.run("tpm2-kira slot add --nvram 0 2>&1", save="slot-add.log")
+        rc, out = self.m.run("kira slot add --nvram 0 2>&1", save="slot-add.log")
         self.check("slot add without --totp: no TOTP key, no secret shown", rc == 0 and "Secret:" not in out and "without a TOTP code" in out, out[-500:])
         if not self.enrol("--salt tpm", "luks-enrol-tpm-salt",
                           [(r"Password \(typed at the machine at every boot\): ?$", vmtest.TPM_SALT_PASSWORD),
                            (r"The same password again: ?$", vmtest.TPM_SALT_PASSWORD), (r"to authorise: ?$", self.lv.passphrase)],
-                          r"keyslot (\d+) added: tpm2-kira, 0x1200 "):
+                          r"keyslot (\d+) added: kira, 0x1200 "):
             return
         if not self.route():
             return
-        rc, out = self.m.run("tpm2-kira status 2>&1", save="status.log")
+        rc, out = self.m.run("kira status 2>&1", save="status.log")
         self.check("status: slot 0's methods are the TPM salt alone", "methods: TPM salt" in out, out[-600:])
         self.rebuild(r"TPM salt:\s+in")
         mark = self.reboot()
@@ -256,7 +256,7 @@ class Case:
             return
         self.closed("tpmsalt")
 
-        # The fallback: a wrong password; tpm2-kira's prompt again (Debian's
+        # The fallback: a wrong password; kira's prompt again (Debian's
         # cryptsetup tries the keyscript again) or the system's own (Arch's
         # systemd-cryptsetup); there Ctrl-C, then the system's prompt.
         mark = self.reboot()
@@ -266,7 +266,7 @@ class Case:
             self.lv.send(WRONG + "\r")
             m, _ = self.expect(r"(Password for disk \S+: ?$|" + SYSTEM_PROMPT + ")", mark2, 300)
             if m.group(0).startswith("Password for disk"):
-                self.check("fallback: after a wrong password tpm2-kira asks again", True)
+                self.check("fallback: after a wrong password kira asks again", True)
                 self.lv.send("\x03")
             self.expect(SYSTEM_PROMPT, mark2, 300)
             self.lv.send(self.lv.passphrase + "\r")
@@ -277,13 +277,13 @@ class Case:
         self.up("fallback")
 
     def lostrecord(self):
-        rc, out = self.m.run("tpm2-kira setup --local 2>&1", save="setup.log")
+        rc, out = self.m.run("kira setup --local 2>&1", save="setup.log")
         self.check("setup --local", "Setup Complete" in out, out[-400:])
-        rc, out = self.m.run("tpm2-kira slot add --nvram 0 2>&1", save="slot-add.log")
+        rc, out = self.m.run("kira slot add --nvram 0 2>&1", save="slot-add.log")
         if not self.enrol("--salt tpm", "luks-enrol-tpm-salt",
                           [(r"Password \(typed at the machine at every boot\): ?$", vmtest.TPM_SALT_PASSWORD),
                            (r"The same password again: ?$", vmtest.TPM_SALT_PASSWORD), (r"to authorise: ?$", self.lv.passphrase)],
-                          r"keyslot (\d+) added: tpm2-kira, 0x1200 "):
+                          r"keyslot (\d+) added: kira, 0x1200 "):
             return
         if not self.route():
             return
@@ -291,7 +291,7 @@ class Case:
         var = "/sys/firmware/efi/efivars/KIRAslot0-67f474ef-94a1-4412-88df-d62349d430a9"
         rc, out = self.m.run(f"chattr -i {var}; rm {var} && echo removed")
         self.check("the record removed by hand (the EFI variable KIRAslot0)", "removed" in out, out[-300:])
-        rc, out = self.m.run("tpm2-kira status 2>&1", save="status-lost.log")
+        rc, out = self.m.run("kira status 2>&1", save="status-lost.log")
         self.check("status: slot 0 is incomplete, its record gone", "slot 0 is incomplete" in out and "KIRAslot0) is gone" in out, out[-800:])
         mark = self.reboot()
         try:
@@ -306,14 +306,14 @@ class Case:
         self.save_console(mark, "lostrecord")
         if not self.up("lostrecord"):
             return
-        rc, out = self.m.run("tpm2-kira slot delete --nvram 0 2>&1", save="slot-delete.log")
-        rc, out = self.m.run("tpm2-kira status 2>&1", save="status-after-delete.log")
+        rc, out = self.m.run("kira slot delete --nvram 0 2>&1", save="slot-delete.log")
+        rc, out = self.m.run("kira status 2>&1", save="status-after-delete.log")
         # slot delete takes what is in the TPM; the LUKS keyslot bound to the
         # slot stays (the header is control's and luks remove's), and is
         # what is left of the slot now.
         note = next((l for l in out.splitlines() if "slot 0 is incomplete" in l), "")
         self.check("slot delete takes the slot's indices; the keyslot bound to it is what is left",
-                   re.search(r"slot 0 is incomplete - keyslot \d+ of \S+ left", note) is not None and "luks remove" in note and "generation" not in note and "'tpm2-kira slot delete --nvram" not in note, out[-800:])
+                   re.search(r"slot 0 is incomplete - keyslot \d+ of \S+ left", note) is not None and "luks remove" in note and "generation" not in note and "'kira slot delete --nvram" not in note, out[-800:])
 
     def run(self):
         try:
@@ -366,7 +366,7 @@ def main():
         t.start()
     for t in threads:
         t.join()
-    print(f"tpm2-kira {short}, serial-console test, {run_dir}")
+    print(f"kira {short}, serial-console test, {run_dir}")
     allok = True
     for name in names:
         for ok, line in results.get(name, []):

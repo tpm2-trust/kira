@@ -1,7 +1,7 @@
 # The vault: the disk's salt from a vault
 
 The vault is remote attestation over TLS: before it releases its part of
-the disk's key, tpm2-kira-vault verifies a quote of this TPM against the
+the disk's key, kira-vault verifies a quote of this TPM against the
 slot's approved boot state. The code (at the console or over SSH) and the
 phone (at the machine) are the other two ways the boot is checked.
 
@@ -10,9 +10,9 @@ phone (at the machine) are the other two ways the boot is checked.
 > command line, or over its operator REST interface, where the approval
 > can carry an operator's **pepper** that goes into the key (§12).
 >
-> Two programs: **tpm2-kira** on the machine, and **tpm2-kira-vault**, a
+> Two programs: **kira** on the machine, and **kira-vault**, a
 > separate service with a TPM of its own, in its own repository beside this
-> one (`../tpm2-kira-vault`). Their contract is the Go package
+> one (`../kira-vault`). Their contract is the Go package
 > `vaultproto` in this repository. What is planned beyond it is
 > [PLAN-VAULT.md](PLAN-VAULT.md); how the recipes of the disk's key
 > compare, [DISK-KEY.md](DISK-KEY.md).
@@ -28,8 +28,8 @@ Without the vault, the recovery recipe and the recovery passphrase stay
 the way in.
 
 ```bash
-vault#    tpm2-kira-vault token create --name db-03     # prints the line below
-machine#  tpm2-kira luks enrol /dev/sda2 --password tpm --salt vault \
+vault#    kira-vault token create --name db-03     # prints the line below
+machine#  kira luks enrol /dev/sda2 --password tpm --salt vault \
               --url https://vault:8443 --pin sha256:… --token …
 ```
 
@@ -46,9 +46,9 @@ Contents: [1 The idea](#1-the-idea) ·
 
 ```
 salt     = hex( HKDF-SHA256(ikm = R, salt = P or none,
-                            info = "tpm2-kira/vault/salt/v1" ‖ lp(label), len = 32) )
+                            info = "kira/vault/salt/v1" ‖ lp(label), len = 32) )
 password = typed at the machine                                   (0x1400, 0x1401)
-         | hex( HKDF-SHA256(ikm = L, info = "tpm2-kira/vault/password/v1" ‖ lp(label)) )
+         | hex( HKDF-SHA256(ikm = L, info = "kira/vault/password/v1" ‖ lp(label)) )
                                                                   (0x2400, 0x2401)
 key      = the combiner's: Argon2id(password, salt), base64 and a newline
 ```
@@ -118,53 +118,53 @@ vault cannot do: open a disk.
 **On the vault host** (a machine with a TPM 2.0), as root:
 
 ```bash
-make -C tpm2-kira-vault build && sudo make -C tpm2-kira-vault install   # /usr/bin and the unit
-tpm2-kira-vault init --url https://vault.example:8443 --pcrs 7
-systemctl enable --now tpm2-kira-vault
+make -C kira-vault build && sudo make -C kira-vault install   # /usr/bin and the unit
+kira-vault init --url https://vault.example:8443 --pcrs 7
+systemctl enable --now kira-vault
 # open TCP 8443 in the firewall for the machines
 ```
 
 `init` checks that the TPM can seal and unseal, and creates
-`/var/lib/tpm2-kira-vault` (0700): the vault's TLS root (ECDSA P-256,
+`/var/lib/kira-vault` (0700): the vault's TLS root (ECDSA P-256,
 valid 20 years) and a leaf it signs for the vault's host or address
 (valid a year, made again from the root with fewer than 30 days left, at
 start and while serving), the configuration. It prints the **pin**
 (`sha256:` over the root's SubjectPublicKeyInfo) and the **vault recovery
 key**, shown once: write it down and keep it offline (§6.5).
-`tpm2-kira-vault tls root` prints the root, for the machines and the
+`kira-vault tls root` prints the root, for the machines and the
 operators: each verifies the vault's chain against it. `--pcrs ""` binds the device keys to the TPM only, not to the
 vault's boot state; init warns about that.
 
 **For each machine:**
 
-1. The machine's boot image needs its network: `tpm2-kira control`,
+1. The machine's boot image needs its network: `kira control`,
    the section "Network & SSH" (SSH.md §1); the network is enough,
    SSH is not needed. `vault enrol` warns when it is off.
-2. On the vault: `tpm2-kira-vault token create --name NAME [--mode
+2. On the vault: `kira-vault token create --name NAME [--mode
    approve] [--ttl 1h]`. It prints the token, the URL, the pin and the
    exact command for the machine. A token works once. For a machine the
    vault knows already (a new TPM, a new slot): `--replace DEVICE`.
-3. The root to the machine: `tpm2-kira-vault tls root > vault-ca.pem`,
+3. The root to the machine: `kira-vault tls root > vault-ca.pem`,
    copied over (it is no secret). On the machine it goes into
-   `/etc/tpm2-kira/vault-ca.pem` - by hand, or with `--ca vault-ca.pem`
+   `/etc/kira/vault-ca.pem` - by hand, or with `--ca vault-ca.pem`
    at the enrolment below, which takes it only when its key is the pin:
    the pin, which comes with the token, authenticates the root. The boot
    image carries the bundle; without it the image has no vault part, and
    `control` says so.
 4. On the machine, with a recovery passphrase in another keyslot - in
-   `tpm2-kira control`, "Disk unlock", "Salt from a vault": it
+   `kira control`, "Disk unlock", "Salt from a vault": it
    sets up the network when there is none, asks the URL, the pin and the
    token, whether the password is held by the TPM (unattended) or typed,
    and the pepper, and the root's file; asks the vault whether it answers,
    verified against the root and the pin,
    before anything is enrolled, and shows afterwards, at every look,
    whether the vault still knows this device. Or by hand:
-   `tpm2-kira luks enrol <device> [--password tpm] --salt vault [--pepper]
+   `kira luks enrol <device> [--password tpm] --salt vault [--pepper]
    --url … --pin … --token … [--ca FILE] [--nvram N] [--label L] [--name NAME]`. It
    enrols with the vault, asks the password (typed recipes) and the
    pepper, adds the keyslot (authorised by the recovery passphrase,
-   asked) and marks it. Or in steps (unattended): `tpm2-kira vault enrol …
-   --out /run/tpm2-kira/luks.key`, `cryptsetup luksAddKey`, `tpm2-kira
+   asked) and marks it. Or in steps (unattended): `kira vault enrol …
+   --out /run/kira/luks.key`, `cryptsetup luksAddKey`, `kira
    luks mark <device> --keyslot N --password tpm --salt vault`.
 5. The image is rebuilt (the root bundle goes in): the vault's address
    and pin are in the slot's blob. The next boot unlocks unattended (`0x2400`), or asks the
@@ -173,12 +173,12 @@ vault's boot state; init warns about that.
 **With operator approval and a pepper** (§12):
 
 ```bash
-vault#    tpm2-kira-vault config set operator-listen :8444    # serve stopped; or init --operator-listen :8444
-vault#    tpm2-kira-vault operator add alice                  # the bearer token, once, and a curl line
-machine#  tpm2-kira luks enrol /dev/sda2 --password tpm --salt vault --pepper --url … --pin … --token …
+vault#    kira-vault config set operator-listen :8444    # serve stopped; or init --operator-listen :8444
+vault#    kira-vault operator add alice                  # the bearer token, once, and a curl line
+machine#  kira luks enrol /dev/sda2 --password tpm --salt vault --pepper --url … --pin … --token …
                                                               # asks the pepper twice
-vault#    tpm2-kira-vault requests answer                     # approve, deny or skip; asks the pepper
-vault#    tpm2-kira-vault tls root > vault-ca.pem             # the operators' copy, no secret
+vault#    kira-vault requests answer                     # approve, deny or skip; asks the pepper
+vault#    kira-vault tls root > vault-ca.pem             # the operators' copy, no secret
 anywhere$ curl --cacert vault-ca.pem -H "Authorization: Bearer $TOKEN" \
               https://vault:8444/v1/requests
 anywhere$ curl --cacert vault-ca.pem -H "Authorization: Bearer $TOKEN" \
@@ -191,7 +191,7 @@ anywhere$ curl --cacert vault-ca.pem -H "Authorization: Bearer $TOKEN" \
 key (as slot approve):
 
 1. Refuse unless the recovery keyslot is confirmed (`luks enrol` checks
-   the device has a keyslot that is not tpm2-kira's).
+   the device has a keyslot that is not kira's).
 2. Give the slot what it lacks: the attestation part (device ID,
    attestation key, the EK algorithm with a certificate if the TPM has
    one) and the release key under the slot's policy. A slot already
@@ -245,7 +245,7 @@ sequenceDiagram
   recipe's key made ends the hold on its own; the key provider then
   answers the volume (Arch: systemd-cryptsetup on the key socket; Debian:
   the keyscript) with it. With a typed password, the salt is kept and
-  the password asked at tpm2-kira's prompt after the hold.
+  the password asked at kira's prompt after the hold.
 - **L first** (unattended recipes). When the TPM does not open the local
   part, this boot state is not one the signing key approved, and the
   vault is not asked.
@@ -265,7 +265,7 @@ sequenceDiagram
   second; an answer - a refusal, a vault whose key is not the pinned one -
   is final.
 - **The vault's TLS.** TLS 1.3; the chain must end at a root of
-  `/etc/tpm2-kira/vault-ca.pem` (in the image), be for the vault's host
+  `/etc/kira/vault-ca.pem` (in the image), be for the vault's host
   or address and within its dates against the machine's clock (the RTC:
   a wrong clock refuses the vault, and says so); then a key of the
   verified chain must be the pin (`vaultproto.ClientConfig`). The bundle
@@ -277,7 +277,7 @@ sequenceDiagram
   SSH session continues, and cryptsetup's own prompt follows - also in
   the SSH session (SSH.md §6) - where the recovery passphrase works.
 - **What it says.** On the console and in the log (Arch: the journal;
-  Debian: `/run/initramfs/tpm2-kira.log`):
+  Debian: `/run/initramfs/kira.log`):
 
 ```
 vault: slot 0: asking the vault at https://172.17.2.198:8443 for the disk's remote part ...
@@ -294,19 +294,19 @@ or `vault: slot 0: no key: the vault refused: "the device is revoked"`.
 With a typed password the line is `vault: slot 0: released; the salt is
 opened`, and the password is asked after the code screen. Without
 anything from the vault, the volume's next recipe is the fallback -
-another device-held salt, then the recovery recipe at tpm2-kira's prompt
+another device-held salt, then the recovery recipe at kira's prompt
 (at the console, or in the SSH session), saying "no key from the vault
 (…)"; a volume without one gets `unlock: no key for vda3_crypt: …;
 cryptsetup's own prompt follows`, where a plain passphrase works.
 
-When a volume has several of tpm2-kira's keyslots, they are tried in the
+When a volume has several of kira's keyslots, they are tried in the
 recipes' order ([DISK-KEY.md](DISK-KEY.md#the-recipes)): the unattended
 recipes (they need nobody), then the device-held salts with a typed
 password, the recovery recipe last.
 
 ## 6. The vault
 
-`tpm2-kira-vault`, one binary, no cgo, run by a hardened systemd unit
+`kira-vault`, one binary, no cgo, run by a hardened systemd unit
 (root without capabilities beyond binding the port, only `/dev/tpmrm0`,
 `ProtectSystem=strict`, its state and runtime directories, a system call
 filter, no core dumps). Without `CAP_DAC_OVERRIDE`, root reaches the TPM
@@ -347,7 +347,7 @@ holds the private half.
 ### 6.3 Admin interface and operator interface
 
 **Admin:** HTTP over a root-only Unix socket
-(`/run/tpm2-kira-vault/admin.sock`, 0600); the CLI is its client: `GET
+(`/run/kira-vault/admin.sock`, 0600); the CLI is its client: `GET
 /v1/devices[/{id}]`, `POST /v1/devices/{id}/revoke|unrevoke|unlock|mode`,
 `GET /v1/requests`, `POST /v1/requests/{id}/approve|deny`, `POST
 /v1/tokens`, `GET /v1/audit[?follow=1]`, `GET|POST /v1/operators`,
@@ -361,7 +361,7 @@ auto and approve.
 ### 6.4 State directory
 
 ```
-/var/lib/tpm2-kira-vault/
+/var/lib/kira-vault/
   config.json           listen address, URL, the vault's PCRs, TPM path, admin socket, recovery public key
   tls/ca.pem, ca-key.pem the root (20 years) and its key: the vault's identity, the pin's key
   tls/cert.pem, key.pem the leaf it serves (1 year), made again from the root when due
@@ -379,9 +379,9 @@ refuse while `serve` holds its lock.
 ### 6.5 Recovery
 
 - **The vault's boot state changed** (a firmware update, a Secure Boot
-  change): `systemctl stop tpm2-kira-vault; tpm2-kira-vault reseal [--pcrs
+  change): `systemctl stop kira-vault; kira-vault reseal [--pcrs
   7]` (asks the recovery key; from stdin when not a terminal); `systemctl
-  start tpm2-kira-vault`. `reseal` opens the K_dev copies and seals each
+  start kira-vault`. `reseal` opens the K_dev copies and seals each
   to the current PCR values (and a new selection, given `--pcrs`).
 - **The recovery key is lost and the boot state changed:** the records
   cannot be opened. Each machine unlocks with its recovery passphrase and
@@ -389,7 +389,7 @@ refuse while `serve` holds its lock.
 - **The vault is gone:** machines fall back to cryptsetup's prompt and
   their recovery passphrase. A backup of the state directory needs the
   same TPM, or the recovery key and `reseal` on the new one.
-- **A machine was reported stolen:** `tpm2-kira-vault device revoke
+- **A machine was reported stolen:** `kira-vault device revoke
   DEVICE`.
 
 ### 6.6 Commands
@@ -423,28 +423,28 @@ approval; the operator interface carries it as `{"pepper":"…"}`.
 
 - **Configuration.** None in control.conf: the vault's URL and pin are in
   the slot's blob, signed with it, so an enrolment needs no rebuild. The
-  network is the image's (`TPM2_KIRA_NET_*`, SSH.md). The image may have no
+  network is the image's (`KIRA_NET_*`, SSH.md). The image may have no
   resolver: an IP address in the URL needs none.
 - **The blob.** Attestation method 2 (SECURITY-BACKGROUND.md §10): URL,
   pin, label, the wrapped L (unattended recipes), whether a pepper goes
   into the salt, and for an unattended recipe with a pepper the pepper
   check. The attestation part carries the device ID,
   the attestation key and the release key, shared with the phone method.
-- **The LUKS token.** Type `tpm2-kira-2400` (`-2401`, `-1400`, `-1401`),
+- **The LUKS token.** Type `kira-2400` (`-2401`, `-1400`, `-1401`),
   the recipe's number, bound to the slot (`"slot"`) and carrying the
   label. `luks status` and `status`
   describe it; deleting the slot makes the keyslot dirty.
 - **Commands:**
 
 ```
-tpm2-kira luks enrol <device> [--password tpm] --salt vault --url URL --pin PIN --token T [--ca FILE]
+kira luks enrol <device> [--password tpm] --salt vault --url URL --pin PIN --token T [--ca FILE]
                      [--pepper] [--nvram N] [--label L] [--name NAME] [--existing-key-file F]
-tpm2-kira luks mark  <device> --keyslot N [--password tpm] --salt vault [--pepper] [--nvram N]
-tpm2-kira vault enrol   --url URL --pin PIN --token T [--ca FILE] --out PATH [--pepper] [--nvram N] [--label L] [--name NAME] [--yes]
-tpm2-kira vault status  [--nvram N]     the slot's vault, and whether it answers for this machine
-tpm2-kira vault unenrol [--nvram N]     the vault method and L out of the blob; revoke on the vault,
+kira luks mark  <device> --keyslot N [--password tpm] --salt vault [--pepper] [--nvram N]
+kira vault enrol   --url URL --pin PIN --token T [--ca FILE] --out PATH [--pepper] [--nvram N] [--label L] [--name NAME] [--yes]
+kira vault status  [--nvram N]     the slot's vault, and whether it answers for this machine
+kira vault unenrol [--nvram N]     the vault method and L out of the blob; revoke on the vault,
                                         remove the keyslot by hand
-tpm2-kira status                        "enrolled with the vault at …"; notes a vault keyslot
+kira status                        "enrolled with the vault at …"; notes a vault keyslot
                                         whose slot has no vault, and a vault without a keyslot
 ```
 
@@ -460,7 +460,7 @@ JSON over HTTPS, `[]byte` as base64 (`core/vaultproto/proto.go`):
 | `POST /v1/release` | `ReleaseRequest`: request ID, device ID, the quote (TPMS_ATTEST and its signature), the PCR values, generation, approval signature, the PCR key's signature for a slot with PCR 11 signed, the digests of PCR 7's events in the event log | `ReleaseResponse`: `released` with the wrapped R (and, for a pepper device, the operator's pepper wrapped for the TPM: K by MakeCredential for (EK, release key Name), the pepper under K), `pending` with `retry_after`, or `denied` with the reason |
 
 Errors are 4xx with `{"error": …}`. The quote's qualifying data is
-`SHA-256("tpm2-kira/vault/release/v1" ‖ lp(device ID) ‖ lp(request ID) ‖
+`SHA-256("kira/vault/release/v1" ‖ lp(device ID) ‖ lp(request ID) ‖
 lp(nonce))`. `VerifyRelease` checks, against the device pinned at
 enrolment: the quote is signed by its AK, is a TPM quote
 (`TPM_GENERATED_VALUE`, `TPM_ST_ATTEST_QUOTE`) with that qualifying data,
@@ -468,7 +468,7 @@ covers exactly the pinned selection, and the values reproduce its digest;
 the generation is not below the minimum; the signing key's approval
 verifies over `H(ApprovedPolicy(PolicyPCR(values), genIndexName, gen) ‖
 policyRef)`. The policy digests are computed in software and are the very
-functions tpm2-kira seals with (`internal/nvslot/policy.go` calls them).
+functions kira seals with (`internal/nvslot/policy.go` calls them).
 
 ## 9. Threats
 
@@ -500,10 +500,10 @@ recovery keyslot is mandatory, and the console prompt is always there.
 | `internal/nvslot/attestation.go` | attestation method 2 |
 | `internal/admin/luks.go`, `internal/diskkey/recipe.go`, `internal/diskkey/header.go`, `internal/diskkey/unlock.go` | the recipe, the token, the key provider |
 | `internal/bootrun/run.go` | the attempt started with `run`, ended with the hold; a key made ends it |
-| `../tpm2-kira-vault/internal/server` | the machine-facing protocol and the rules (§6.1), the admin interface |
-| `../tpm2-kira-vault/internal/keys` | AES-GCM, the recovery key, the TPM sealer |
-| `../tpm2-kira-vault/internal/state` | the state directory, tokens, the lock, the audit log |
-| `../tpm2-kira-vault/packaging/` | the systemd unit |
+| `../kira-vault/internal/server` | the machine-facing protocol and the rules (§6.1), the admin interface |
+| `../kira-vault/internal/keys` | AES-GCM, the recovery key, the TPM sealer |
+| `../kira-vault/internal/state` | the state directory, tokens, the lock, the audit log |
+| `../kira-vault/packaging/` | the systemd unit |
 
 ## 11. Tests
 
@@ -514,21 +514,21 @@ recovery keyslot is mandatory, and the console prompt is always there.
   something that is not a quote; an approval of the slot is accepted without a change on
   the vault; the JSON field names. The vault's `TestSecureBootStates`,
   `TestChangedPCR7IsRefusedAndShown`, `TestRequestShowsSecureBoot`.
-- **tpm2-kira, unit** (`internal/admin/vault_test.go`): the key's derivation
+- **kira, unit** (`internal/admin/vault_test.go`): the key's derivation
   (labels, order, pepper), the vault method in the blob, the pinned client
   (the right key, another key, a vault not reached, its error words
   without escape sequences), the key provider and the recipe's order, the
   token.
-- **tpm2-kira, swtpm** (`TestVaultPepper`): the pepper asked at
+- **kira, swtpm** (`TestVaultPepper`): the pepper asked at
   enrolment and never sent; a mistyped pepper caught and the vault asked
   again; a release without a pepper refused.
-- **tpm2-kira, swtpm** (`TestVaultKeyRoundTrip`): enrolment against a
+- **kira, swtpm** (`TestVaultKeyRoundTrip`): enrolment against a
   vault that speaks the protocol (a wrong token refused, the AK proven, a
   second enrolment refused); the boot's key equals the enrolment's; the
   vault's PolicyPCR digest equals the TPM's trial session; after a PCR
   moved the TPM refuses L and the vault is not asked, and asked directly
   the vault refuses the quote; unenrolment.
-- **tpm2-kira-vault, unit**: enrolment and release with a simulated
+- **kira-vault, unit**: enrolment and release with a simulated
   machine, tokens (wrong, expired, reused, replace), a wrong AK proof,
   challenge expiry and reuse, rollback, the lock and unlock, revoke, the
   rate limit, approve mode (approve, deny, expiry, an approved request of
@@ -538,7 +538,7 @@ recovery keyslot is mandatory, and the console prompt is always there.
   directory, wiped on expiry and revocation); the operator interface
   (401s, the endpoints allowed and refused, the body limit, the failed-
   authentication limit, a removed operator); all on an injected clock.
-- **tpm2-kira-vault, swtpm**: the sealer under PolicyPCR, unsealing
+- **kira-vault, swtpm**: the sealer under PolicyPCR, unsealing
   refused after a PCR moved, `reseal` with the recovery key; the vault end
   to end with a moved PCR and `reseal`, and a pepper device approved over
   the operator interface with a bearer token.
@@ -591,7 +591,7 @@ from the machines' so the two can be firewalled apart, off until
 `operator_listen` is set (`init --operator-listen :8444`, or `config set
 operator-listen :8444` with serve stopped). Same certificate, TLS 1.3:
 operators verify it against the vault's root (curl: `--cacert
-vault-ca.pem`, from `tpm2-kira-vault tls root`, as `operator add`
+vault-ca.pem`, from `kira-vault tls root`, as `operator add`
 prints).
 
 | Endpoint | |
@@ -620,7 +620,7 @@ A device enrolled with `--keyboard-pepper` (recipe `0x1402`; [DISK-KEY.md](DISK-
 is enrolled as any other, R and all, with `keyboard` in its enrolment. Every release of R then
 carries `keyboard` beside it: a seed drawn for this boot, `TPM2_MakeCredential` for the EK and the
 slot's release key, so it opens where R opens. The layout it stands for, which the person types a
-pepper of their own through at the machine, is in `tpm2-kira-vault requests` (drawn on a US keyboard:
+pepper of their own through at the machine, is in `kira-vault requests` (drawn on a US keyboard:
 each key above the character it types) and in `keyboard_keys` and `layout` of `GET /v1/requests`, as
 a request in state `released`, for 15 minutes (`LayoutTTL`). It is kept in memory alone, never in the
 audit, which says only "with a one-time keyboard". The pepper never reaches the vault, and the vault

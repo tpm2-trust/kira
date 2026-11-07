@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	. "github.com/tpm2-trust/tpm2-kira/core/attest"
+	. "github.com/tpm2-trust/kira/core/attest"
 )
 
 func seedOf(b byte) []byte { return bytes.Repeat([]byte{b}, KeyboardSeedSize) }

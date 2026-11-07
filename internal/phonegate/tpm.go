@@ -18,10 +18,10 @@ import (
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpm2/transport"
 
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/core/attest"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 )
 
 // TPM-facing half of attestation: AK and EK handling, quotes and credential
@@ -190,7 +190,7 @@ func ReadEKCertChain(tpmDev transport.TPM, leaf []byte) []byte {
 
 // EKIssuerCacheDir keeps the issuers fetched for the EK chain; a var for
 // the tests. Anything in it is an untrusted intermediate like the TPM's.
-var EKIssuerCacheDir = "/var/cache/tpm2-kira/ek-issuers"
+var EKIssuerCacheDir = "/var/cache/kira/ek-issuers"
 
 // EKFetchFailed remembers, for this process, the URLs that failed: an
 // offline machine pays the timeout once per run, not per overview.
@@ -526,17 +526,17 @@ func (b *TPMBackend) ProveBootKey(ch *attest.BootChallenge, context, quoteDigest
 	case errors.Is(err, nvslot.ErrClosed):
 		// The booted system: the close (PCR 15) ended the slot until the next boot.
 		if b.Debug {
-			fmt.Printf("tpm2-kira: boot key: %v\n", err)
+			fmt.Printf("kira: boot key: %v\n", err)
 		}
 		return nil, attest.BootKeyLocked
 	case errors.Is(err, ErrBootKeyRefused):
 		if b.Debug {
-			fmt.Printf("tpm2-kira: boot key: %v\n", err)
+			fmt.Printf("kira: boot key: %v\n", err)
 		}
 		return nil, attest.BootKeyRefused
 	case err != nil:
 		if b.Debug {
-			fmt.Printf("tpm2-kira: boot key: %v\n", err)
+			fmt.Printf("kira: boot key: %v\n", err)
 		}
 		return nil, attest.BootKeyFailed
 	}

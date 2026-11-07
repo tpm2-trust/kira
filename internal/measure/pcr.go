@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/untrusted"
+	"github.com/tpm2-trust/kira/internal/untrusted"
 
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpm2/transport"
@@ -272,7 +272,7 @@ func explainEventlogBankError(tpmDev transport.TPM, specs []PCRSpec, hashAlgo PC
 		return fmt.Errorf("%s"+
 			"PCRs 0-7 do not change between the measure point and seal time, so reading\n"+
 			"them from the TPM registers gives the same value and the same protection.\n\n"+
-			"Try instead:\n\n    tpm2-kira slot add --pcrs \"%s\"\n",
+			"Try instead:\n\n    kira slot add --pcrs \"%s\"\n",
 			msg, PCRSpecsToString(registerSpecs))
 	}
 
@@ -280,7 +280,7 @@ func explainEventlogBankError(tpmDev transport.TPM, specs []PCRSpec, hashAlgo PC
 		return fmt.Errorf("%s"+
 			"This TPM has no %s PCR bank either, so the register source cannot be used.\n"+
 			"The only remaining option is the SHA-1 bank:\n\n"+
-			"    tpm2-kira slot add --sha1 --pcrs \"%s\"\n\n"+
+			"    kira slot add --sha1 --pcrs \"%s\"\n\n"+
 			"WARNING: SHA-1 is broken against collision attacks and is deprecated for\n"+
 			"new deployments. Prefer firmware that provides a SHA-256 event log, or a\n"+
 			"TPM with a SHA-256 PCR bank, and treat this as a stopgap.\n",
@@ -365,7 +365,7 @@ func readEventlogValues(tpmDev transport.TPM, indices []int, hashAlgo PCRHashAlg
 // UKI and/or TPM registers). This is the single shared implementation used by seal,
 // unseal and reseal paths.
 //
-// Values describe tpm2-kira's measure point in the initrd, which is where the TPM
+// Values describe kira's measure point in the initrd, which is where the TPM
 // checks the policy, not the end of firmware and not the running system.
 func ReadPCRValues(tpmDev transport.TPM, specs []PCRSpec, hashAlgo PCRHashAlgo, mode MeasurePointMode, point MeasurePoint, debug bool) (*ReadPCRValuesResult, error) {
 	// Separate PCRs by source
@@ -437,7 +437,7 @@ func ReadPCRValues(tpmDev transport.TPM, specs []PCRSpec, hashAlgo PCRHashAlgo, 
 
 	// Compute UKI-based PCR values natively: parse the image and replay the
 	// section measurements systemd-stub performs, then the boot phases already
-	// measured by the time tpm2-kira runs.
+	// measured by the time kira runs.
 	if len(ukiPCRIndices) > 0 {
 		for _, spec := range specs {
 			if !spec.Source.FromImage() {

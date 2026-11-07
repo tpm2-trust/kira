@@ -1,7 +1,7 @@
 package diskkey
 
 // How a volume's key is made is written in its own LUKS2 header: the
-// tpm2-kira token carries the mode and the slot (luks.go). At boot the key
+// kira token carries the mode and the slot (luks.go). At boot the key
 // provider reads the header of the volume that asks - there is no
 // configured unlock mode, nothing to copy into the initramfs and nothing
 // to rebuild after an enrolment. The initrd has no cryptsetup binary to
@@ -25,7 +25,7 @@ var luks2Magic = []byte("LUKS\xba\xbe")
 // header size is 4 MiB.
 const maxLuks2Header = 4 << 20
 
-// ReadLuks2Tokens reads the tpm2-kira tokens of a LUKS2 device straight
+// ReadLuks2Tokens reads the kira tokens of a LUKS2 device straight
 // from its header, without cryptsetup: for the initrd, where there is
 // none. Keyslot numbers are not resolved here; the tokens alone say how a
 // key is made and which slot it is bound to.
@@ -84,9 +84,9 @@ var (
 // the kernel command line, a crypttab line (systemd's /etc/crypttab in the
 // initrd), or cryptsetup-initramfs's target=/source= lines on Debian.
 func VolumeDevice(volume string) (string, error) {
-	// TPM2_KIRA_CRYPTTAB names an extra crypttab, for the integration
+	// KIRA_CRYPTTAB names an extra crypttab, for the integration
 	// tests, whose volumes live on no kernel command line.
-	if extra := os.Getenv("TPM2_KIRA_CRYPTTAB"); extra != "" {
+	if extra := os.Getenv("KIRA_CRYPTTAB"); extra != "" {
 		if data, err := os.ReadFile(extra); err == nil {
 			if dev := crypttabDevice(string(data), volume); dev != "" {
 				return dev, nil
@@ -158,7 +158,7 @@ func sourceDevice(source string) string {
 
 // UnlockRecipe says how the key of a volume is made, read from its LUKS2
 // header the moment it asks: the recipes of its keyslots in the order
-// they are tried (RecipesOfTokens), none - not tpm2-kira's to answer, and why
+// they are tried (RecipesOfTokens), none - not kira's to answer, and why
 // says so for the journal. Cached per volume: the header does not change
 // while the initrd runs.
 type UnlockRecipe struct {
@@ -186,7 +186,7 @@ func (r *UnlockRecipe) ForVolume(volume string) (recipes []Recipe, why string) {
 	}
 	r.cache[volume] = recipes
 	if len(recipes) == 0 {
-		return nil, dev + " has no keyslot of tpm2-kira's"
+		return nil, dev + " has no keyslot of kira's"
 	}
 	return recipes, ""
 }
@@ -232,12 +232,12 @@ func routedUUIDs(cmdline, socket string) []string {
 }
 
 // DebianKeyscript is the keyscript cryptsetup-initramfs runs for a volume
-// whose crypttab line routes it through tpm2-kira.
-const DebianKeyscript = "/lib/cryptsetup/scripts/tpm2-kira"
+// whose crypttab line routes it through kira.
+const DebianKeyscript = "/lib/cryptsetup/scripts/kira"
 
-// routedDevices are the devices of the volumes routed through tpm2-kira:
+// routedDevices are the devices of the volumes routed through kira:
 // on the kernel command line (rd.luks.key=<UUID>=socket; a systemd
-// initrd), or by a crypttab line that names tpm2-kira's keyscript
+// initrd), or by a crypttab line that names kira's keyscript
 // (Debian's image).
 func routedDevices(socket string) []string {
 	var devs []string

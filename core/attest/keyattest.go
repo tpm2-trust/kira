@@ -61,7 +61,7 @@ func loadPhoneRoots() []*trustVendor {
 // its anchor key: bound to this enrolment session's channel binding.
 func AnchorAttestationChallenge(cb []byte) []byte {
 	h := sha256.New()
-	h.Write([]byte("tpm2-kira/anchor-attest/v1"))
+	h.Write([]byte("kira/anchor-attest/v1"))
 	h.Write(cb)
 	return h.Sum(nil)
 }

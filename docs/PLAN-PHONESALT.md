@@ -7,12 +7,12 @@
 > combiner's ([DISK-KEY.md](DISK-KEY.md#the-recipes), HISTORY.md).
 
 > **Naming:** what this plan calls the *factor* is the **phone salt** to a
-> person: the command is `tpm2-kira phone salt …`, the unlock mode
+> person: the command is `kira phone salt …`, the unlock mode
 > `password+phonesalt`, the app says "phone salt". The Go identifiers keep
 > `Factor`.
 >
 > **Status:** in implementation on `feat/hashpwd` (2026-10-07). Done: the
-> combiner inside tpm2-kira (`internal/diskkey/combine.go`, the password+salt
+> combiner inside kira (`internal/diskkey/combine.go`, the password+salt
 > derivation), the release key under the slot's approval
 > (`core/attest/releasekey.go`), wrap, unwrap and the salt derivation
 > (`internal/phonegate/factor.go`), the phone's part (Evidence tags 15-17, the kept
@@ -37,7 +37,7 @@
 
 At the passphrase prompt the machine attests to the phone, as in
 [PLAN-BLE.md](PLAN-BLE.md). If the phone is satisfied, it returns a small
-wrapped secret that only this machine's TPM can open. tpm2-kira unwraps it and
+wrapped secret that only this machine's TPM can open. kira unwraps it and
 passes it — as a *salt* — to an external key-derivation tool. That tool asks
 for the user's password and derives the LUKS key from both.
 
@@ -45,7 +45,7 @@ for the user's password and derives the LUKS key from both.
 sequenceDiagram
     participant U as You
     participant P as Phone
-    participant K as tpm2-kira (initrd)
+    participant K as kira (initrd)
     participant T as TPM
     participant C as systemd-cryptsetup
 
@@ -55,13 +55,13 @@ sequenceDiagram
     K->>T: TPM2_ActivateCredential(RK, EK)
     T-->>K: factor secret F
     K->>K: salt = FactorSalt(F) (§3), F wiped
-    U->>K: password, at tpm2-kira's prompt
+    U->>K: password, at kira's prompt
     K->>K: Combine(password, salt): Argon2id (§1.2)
     K->>C: the key, over the key socket (DISK-KEY.md)
 ```
 
 The combiner is the password+salt derivation (Argon2id), inside
-tpm2-kira (§1.2).
+kira (§1.2).
 
 ### 1.1 Why a factor and not the passphrase
 
@@ -82,14 +82,14 @@ one.
 
 ### 1.2 One program
 
-The combiner is inside tpm2-kira (`internal/diskkey/combine.go`): the password+salt
+The combiner is inside kira (`internal/diskkey/combine.go`): the password+salt
 derivation - Argon2id (1 GiB, 16 passes, 4 lanes, 64 bytes), base64
 without padding, the trailing newline that is part of the key (the
 compatibility it keeps: SECURITY-BACKGROUND.md §5.9). The decision of 2026-10-07: the password, the salt and the derived
 key never cross a process boundary, a shell variable or a file in `/run`;
-the password is typed at tpm2-kira's prompt, the salt comes out of the
+the password is typed at kira's prompt, the salt comes out of the
 TPM in the same process, the key goes to `systemd-cryptsetup` through the
-key socket (DISK-KEY.md). What tpm2-kira still does not do is touch a
+key socket (DISK-KEY.md). What kira still does not do is touch a
 LUKS keyslot: enrolment writes the derived key once to a file on tmpfs
 for `cryptsetup luksAddKey` (§6).
 
@@ -130,7 +130,7 @@ at unlock, in the initrd:
     wipe F
 
 factor(F, label) := hex( HKDF-SHA256(ikm = F, salt = "",
-                         info = "tpm2-kira/factor/v1" ‖ u16be(len(label)) ‖ label, len = 32) )
+                         info = "kira/factor/v1" ‖ u16be(len(label)) ‖ label, len = 32) )
 ```
 
 The length of the label is two bytes big-endian, not the protocol's `lp` (four bytes
@@ -163,7 +163,7 @@ What they still lack is the password, and the combiner's cost per guess.
 
 Rotation (`phone salt rotate`) creates a new `F` and therefore a new LUKS key: the
 user must enrol the new key through the combiner and remove the old keyslot.
-tpm2-kira prints those steps; it does not perform them.
+kira prints those steps; it does not perform them.
 
 ---
 
@@ -236,15 +236,15 @@ system, which the post hook runs after each image build. The phone's
 ## 5. The answer
 
 There is no provider interface: the factor is consumed where it is
-produced. `tpm2-kira-boot run` serves the volume's key to `systemd-cryptsetup`
-on `/run/tpm2-kira/unlock.sock` (DISK-KEY.md). With a factor enrolled,
+produced. `kira-boot run` serves the volume's key to `systemd-cryptsetup`
+on `/run/kira/unlock.sock` (DISK-KEY.md). With a factor enrolled,
 its answer for a volume is:
 
 ```
 1.  the phone's verdict is in, and it returned the credential (§4)
 2.  F     = unwrapFactor(credential)            TPM, release key under the slot's policy
 3.  salt  = FactorSalt(F, label)                 64 hex characters; F wiped
-4.  pw    = the password typed at tpm2-kira's prompt
+4.  pw    = the password typed at kira's prompt
 5.  key   = Combine(pw, salt)                    Argon2id; pw and salt wiped
 6.  write key to systemd-cryptsetup; wipe
 ```
@@ -258,7 +258,7 @@ the factor - and the recovery passphrase of §7.3. Whether the factor was
 released is said on the console before the prompt, so a boot that the
 phone did not approve is recognisable before anything is typed.
 
-The derivation string of the salt, `tpm2-kira/factor/v1`, and the derivation's
+The derivation string of the salt, `kira/factor/v1`, and the derivation's
 parameters are the contract with every enrolled keyslot; a change to
 either is a new string and a re-enrolment.
 
@@ -267,7 +267,7 @@ either is a new string and a re-enrolment.
 On the booted, unlocked system, with a phone enrolled (`phone enrol`):
 
 ```
-tpm2-kira phone salt enrol [--nvram N] [--label STR] --out PATH
+kira phone salt enrol [--nvram N] [--label STR] --out PATH
 ```
 
 1. Refuse unless the user confirms a second LUKS keyslot exists (§7.3).
@@ -292,12 +292,12 @@ tpm2-kira phone salt enrol [--nvram N] [--label STR] --out PATH
    steps; nothing else is kept:
 
 ```
-Key written to /run/tpm2-kira/luks.key
+Key written to /run/kira/luks.key
 
-Next steps - tpm2-kira does not touch your keyslots:
-    cryptsetup luksAddKey /dev/nvme0n1p2 /run/tpm2-kira/luks.key
-    cryptsetup open --test-passphrase /dev/nvme0n1p2 --key-file /run/tpm2-kira/luks.key
-    rm /run/tpm2-kira/luks.key
+Next steps - kira does not touch your keyslots:
+    cryptsetup luksAddKey /dev/nvme0n1p2 /run/kira/luks.key
+    cryptsetup open --test-passphrase /dev/nvme0n1p2 --key-file /run/kira/luks.key
+    rm /run/kira/luks.key
 ```
 
 ## 7. Boot integration
@@ -315,9 +315,9 @@ rather than an emergency shell.
 
 ### 7.2 No units
 
-The key socket already orders everything: `tpm2-kira-unlock.socket` is
+The key socket already orders everything: `kira-unlock.socket` is
 `Before=cryptsetup-pre.target`, the request arrives after the separator,
-and `tpm2-kira-boot run` answers it (§5). No derivation unit, no key file in
+and `kira-boot run` answers it (§5). No derivation unit, no key file in
 `/run/cryptsetup-keys.d`, no `keyfile-erase`. The Debian `keyscript=`
 variant is the same answer written to stdout; not built.
 
@@ -386,21 +386,21 @@ A flat battery, a lost phone or a broken adapter means the primary keyslot
 does not open. The recovery keyslot (§7.3) is mandatory. A hardware token
 (FIDO2 `hmac-secret`) feeding the same combiner into a *separate* keyslot is a
 reasonable everyday fallback; it is independent of this plan and needs nothing
-from tpm2-kira.
+from kira.
 
 ---
 
-### 8.4 Only the tpm2-kira that added or approved the slot
+### 8.4 Only the kira that added or approved the slot
 
 The release key's policy is the slot's approval (§3.2), and the approval
 is a signature over the PCR values the signing key computed for one
 image - on a UKI system PCR 11, which `systemd-stub` extends with the
-measurement of the initrd, and the initrd contains the tpm2-kira binary.
-So "the tpm2-kira that approved the slot" is not a claim the binary makes
+measurement of the initrd, and the initrd contains the kira binary.
+So "the kira that approved the slot" is not a claim the binary makes
 about itself; it is what the stub measured and what the signing key
 approved. A different binary in the image changes PCR 11, the approval
 no longer verifies, and neither a code nor the factor comes out. Nothing
-in tpm2-kira measures tpm2-kira: a self-measurement into a free PCR would
+in kira measures kira: a self-measurement into a free PCR would
 be made by the thing it is meant to check, and a replaced binary would
 extend the old binary's hash. The measuring is done by the firmware and
 the stub, which is where it can be trusted; Secure Boot over the UKI
@@ -411,10 +411,10 @@ rebuild is what keeps the approval on the current image.
 ## 9. CLI
 
 ```
-tpm2-kira phone salt enrol    [--nvram N] [--label STR] --out PATH
-tpm2-kira phone salt status   [--nvram N] [--json]
-tpm2-kira phone salt rotate   [--nvram N] [--label STR] --out PATH
-tpm2-kira phone salt unenrol  [--nvram N]              # does not touch keyslots
+kira phone salt enrol    [--nvram N] [--label STR] --out PATH
+kira phone salt status   [--nvram N] [--json]
+kira phone salt rotate   [--nvram N] [--label STR] --out PATH
+kira phone salt unenrol  [--nvram N]              # does not touch keyslots
 ```
 
 There is no `factor release`: the release is `run`'s answer on the key
@@ -478,7 +478,7 @@ Phase 1 depends on the same go/no-go as
 ## 13. Open
 
 1. **The hardware run** on the T450s: enrol the phone again (record
-   version 3), `phone salt enrol`, reboot, the password at tpm2-kira's prompt,
+   version 3), `phone salt enrol`, reboot, the password at kira's prompt,
    the volume open; then a mistyped password (systemd's prompt follows),
    a boot without the phone (the passphrase prompt, then the recovery
    passphrase at systemd's), and a boot after a kernel update without a
@@ -489,9 +489,9 @@ Phase 1 depends on the same go/no-go as
    init-premount script runs the display and the gate as today; the gate's
    coordinator keeps the salt in memory only, so on Debian - where the
    display ends before `cryptroot` runs - the salt has to outlive it. The
-   plan: `run` writes the salt to `/run/tpm2-kira/salt` (tmpfs in the
+   plan: `run` writes the salt to `/run/kira/salt` (tmpfs in the
    initramfs, mode 0600) when a factor was opened; a `keyscript=` of the
-   `crypttab` entry, `tpm2-kira-boot unlock-key <volume>`, reads it, asks for
+   `crypttab` entry, `kira-boot unlock-key <volume>`, reads it, asks for
    the password on the console, derives the key, prints it to stdout and
    removes the file; without the file it asks for the passphrase and
    prints that. `cryptsetup`'s own retry handles a wrong answer. The

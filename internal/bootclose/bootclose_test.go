@@ -18,8 +18,8 @@ import (
 	"github.com/tpm2-trust/assh/hostkey"
 	"golang.org/x/sys/unix"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/bootwait"
-	"github.com/tpm2-trust/tpm2-kira/internal/efivars"
+	"github.com/tpm2-trust/kira/internal/bootwait"
+	"github.com/tpm2-trust/kira/internal/efivars"
 )
 
 // setup gives a test its own paths, and a device path with nothing there.
@@ -43,7 +43,7 @@ func setup(t *testing.T) string {
 		}
 	}
 	Wait, out, LateEvery = 10*time.Millisecond, io.Discard, 10*time.Millisecond
-	return "/dev/tpm2-kira-test-none"
+	return "/dev/kira-test-none"
 }
 
 func firmwareHasTPM(t *testing.T) {
@@ -425,7 +425,7 @@ func TestCountWithoutFirmwareSignWaits(t *testing.T) {
 	}
 }
 
-// What /run/tpm2-kira and the count say never skips a close: a TPM that is there is
+// What /run/kira and the count say never skips a close: a TPM that is there is
 // closed, whatever they say.
 func TestNothingWrittenSkipsTheClose(t *testing.T) {
 	setup(t)
@@ -498,7 +498,7 @@ func awaitRunReturns(t *testing.T, ready, pid string, within time.Duration) bool
 }
 
 // The close before a volume waits as long as the code screen holds, and goes on with
-// the file made or with run gone: After=tpm2-kira.service, ready or gone.
+// the file made or with run gone: After=kira.service, ready or gone.
 func TestAwaitRun(t *testing.T) {
 	dir := t.TempDir()
 	ready, pidFile := dir+"/ready", dir+"/pid"

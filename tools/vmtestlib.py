@@ -228,11 +228,11 @@ def menu_options(text):
 
 
 class Vault:
-    """tpm2-kira-vault for the run: built from the vault's source, in a
+    """kira-vault for the run: built from the vault's source, in a
     container with swtpm (tools/vmtest-vault), its port published on this
     machine, created fresh for the run and removed after it."""
 
-    NAME = "tpm2-kira-vmtest-vault"
+    NAME = "kira-vmtest-vault"
 
     def __init__(self, src, url, port, op_port, run_dir):
         self.src, self.url, self.port, self.op_port = src, url, port, op_port
@@ -252,9 +252,9 @@ class Vault:
         for f in ("Dockerfile", "entrypoint.sh"):
             subprocess.run(["cp", "-p", os.path.join(REPO, "tools", "vmtest-vault", f), ctx], check=True)
         env = dict(os.environ, CGO_ENABLED="0")
-        p = subprocess.run(["go", "build", "-o", os.path.join(ctx, "tpm2-kira-vault"), "."], cwd=self.src, env=env, capture_output=True, text=True)
+        p = subprocess.run(["go", "build", "-o", os.path.join(ctx, "kira-vault"), "."], cwd=self.src, env=env, capture_output=True, text=True)
         if p.returncode != 0:
-            raise Fail("building tpm2-kira-vault: " + p.stderr[-800:])
+            raise Fail("building kira-vault: " + p.stderr[-800:])
         # Host networking for the build: name resolution inside a build
         # container is the host's to get right, and is not always.
         self._sh(["docker", "build", "--network", "host", "-q", "-t", self.NAME, ctx])
@@ -308,20 +308,20 @@ class Vault:
 
     def admin(self, *args):
         with self.lock:
-            return self._sh(["docker", "exec", self.NAME, "tpm2-kira-vault"] + list(args))
+            return self._sh(["docker", "exec", self.NAME, "kira-vault"] + list(args))
 
     def admin_input(self, text, *args):
         """An admin command answered on its stdin, as an operator at the
         vault's terminal answers it (a pipe: one line per answer)."""
         with self.lock:
-            p = subprocess.run(["docker", "exec", "-i", self.NAME, "tpm2-kira-vault"] + list(args),
+            p = subprocess.run(["docker", "exec", "-i", self.NAME, "kira-vault"] + list(args),
                                input=text, capture_output=True, text=True)
             return p.returncode, p.stdout + p.stderr
 
     def stop(self):
         with open(os.path.join(self.dir, "vault.log"), "w") as f:
             f.write(self._sh(["docker", "logs", self.NAME], check=False))
-            f.write("\n--- audit\n" + self._sh(["docker", "exec", self.NAME, "tpm2-kira-vault", "audit"], check=False))
+            f.write("\n--- audit\n" + self._sh(["docker", "exec", self.NAME, "kira-vault", "audit"], check=False))
         self._sh(["docker", "rm", "-f", self.NAME], check=False)
 
 

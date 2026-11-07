@@ -9,17 +9,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/admin"
-	"github.com/tpm2-trust/tpm2-kira/internal/bootclose"
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
-	"github.com/tpm2-trust/tpm2-kira/internal/machineid"
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/memlock"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
-	"github.com/tpm2-trust/tpm2-kira/internal/vaultkey"
+	"github.com/tpm2-trust/kira/internal/admin"
+	"github.com/tpm2-trust/kira/internal/bootclose"
+	"github.com/tpm2-trust/kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/machineid"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/memlock"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/phonegate"
+	"github.com/tpm2-trust/kira/internal/signing"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/vaultkey"
 )
 
 // Version is the application version, set by build flags
@@ -33,7 +33,7 @@ var Version = "dev"
 // statuses (failAttest), a bad --pin-fd 2 (parseSigning).
 func fail(err error) {
 	signing.CloseTokenSessions()
-	fmt.Fprintf(os.Stderr, "tpm2-kira: FAILED: %v\n", err)
+	fmt.Fprintf(os.Stderr, "kira: FAILED: %v\n", err)
 	os.Exit(1)
 }
 
@@ -69,9 +69,9 @@ func failUsage(err error) { failAttest(phonegate.ExitUsage, err) }
 
 // requireRoot ends the run when it is not root's: everything but the help,
 // the version and the PCR reference reads or writes what is root's alone
-// (the TPM, the keys in /etc/tpm2-kira, the LUKS headers, the initramfs).
+// (the TPM, the keys in /etc/kira, the LUKS headers, the initramfs).
 // control says so on its own screen. The test suite runs the binary as a
-// user against a software TPM: TPM2_KIRA_UNPRIVILEGED=1 skips the check.
+// user against a software TPM: KIRA_UNPRIVILEGED=1 skips the check.
 func requireRoot(command string, args []string) {
 	machineid.TestPaths()
 	bootclose.TestPaths()
@@ -79,13 +79,13 @@ func requireRoot(command string, args []string) {
 	case "version", "-v", "--version", "help", "-h", "--help", "pcrtips":
 		return
 	}
-	if os.Geteuid() == 0 || os.Getenv("TPM2_KIRA_UNPRIVILEGED") != "" {
+	if os.Geteuid() == 0 || os.Getenv("KIRA_UNPRIVILEGED") != "" {
 		return
 	}
 	if command == "control" {
 		admin.ControlNeedsRoot()
 	} else {
-		fmt.Fprintf(os.Stderr, "tpm2-kira %s: root is needed - sudo tpm2-kira %s\n", command, strings.Join(os.Args[1:], " "))
+		fmt.Fprintf(os.Stderr, "kira %s: root is needed - sudo kira %s\n", command, strings.Join(os.Args[1:], " "))
 	}
 	os.Exit(1)
 }
@@ -139,7 +139,7 @@ func main() {
 
 	// The global options, before the command: the defaults of the
 	// command's own options of the same names.
-	globalFlags := flag.NewFlagSet("tpm2-kira", flag.ExitOnError)
+	globalFlags := flag.NewFlagSet("kira", flag.ExitOnError)
 	tpmPath := globalFlags.String("tpm", tpmdev.DefaultPath, "Path to TPM device")
 	globalFlags.Func("nvram", "A slot, 0-15, or a full NV index", func(v string) error {
 		n, err := strconv.ParseUint(v, 0, 32)
@@ -214,7 +214,7 @@ func main() {
 			fail(err)
 		}
 	case "version", "-v", "--version":
-		fmt.Printf("tpm2-kira version %s\n", Version)
+		fmt.Printf("kira version %s\n", Version)
 		if diskkey.TestBuildNote != "" {
 			fmt.Println(diskkey.TestBuildNote)
 		}
@@ -394,7 +394,7 @@ func runSlotAdd(args []string, tpmPath string, debugFlag bool) {
 	useSHA1 := fs.Bool("sha1", false, "Use SHA-1 PCR bank instead of SHA-256 (use only if firmware does not support SHA-256 eventlog)")
 	pubKeyPath := fs.String("pubkey", signing.DefaultPublicKeyPath, "Path to signing public key PEM (X.509 certificate or raw public key)")
 	privKeyPath := fs.String("privkey", signing.DefaultPrivateKeyPath, "Path to signing private key: PEM, or the YubiKey key file from setup --yubikey")
-	measurePoint := fs.String("measure-point", "auto", "Account for systemd's userspace PCR extends before tpm2-kira runs (auto, on, off)")
+	measurePoint := fs.String("measure-point", "auto", "Account for systemd's userspace PCR extends before kira runs (auto, on, off)")
 	verifyUKI := fs.Bool("verify-uki", true, "Check the built-in PCR 11 computation against this boot's event log before sealing")
 	withTOTP := fs.Bool("totp", false, "Seal a TOTP key too: a code at boot to compare with your authenticator app")
 
@@ -455,7 +455,7 @@ func runSlotApprove(args []string, tpmPath string, debugFlag bool) {
 	debug := fs.Bool("debug", debugFlag, "Enable debug output")
 	pubKeyPath := fs.String("pubkey", "", "Path to signing public key PEM (default: derived from --privkey, or preserved from blob)")
 	privKeyPath := fs.String("privkey", "", "Path to signing private key: PEM, or the YubiKey key file from setup --yubikey")
-	measurePoint := fs.String("measure-point", "auto", "Account for systemd's userspace PCR extends before tpm2-kira runs (auto, on, off)")
+	measurePoint := fs.String("measure-point", "auto", "Account for systemd's userspace PCR extends before kira runs (auto, on, off)")
 	requireKey := fs.Bool("require-key", false, "Fail instead of reporting SKIPPED when the signing key (YubiKey) is unavailable")
 	ifMoved := fs.Bool("if-moved", false, "Approve only what the images on the EFI system partition moved (PCR 4); never seals a moved phone channel")
 	unattended := fs.Bool("unattended", false, "No person is here (the hooks): never asks, and a moved phone channel stays as it is")
@@ -530,8 +530,8 @@ func runSlotNVRAM(args []string, tpmPath string, debugFlag bool) {
 	nvram := fs.Uint("nvram", nvramDefault(nvslot.NVRAMSlotStart), "TPM NVRAM index")
 	debug := fs.Bool("debug", debugFlag, "Enable debug output")
 	yes := fs.Bool("yes", false, "delete: confirm deleting every slot (only needed without --nvram); an index of another shape stays")
-	force := fs.Bool("force", false, "delete: remove an index of another shape at tpm2-kira's own places, shown and not asked about")
-	sweep := fs.Bool("sweep", false, "delete, without --nvram: also everything else at tpm2-kira's places - other indices in its NV range (an earlier version's layout, another program's), aSSH's SSH CA indices, every EFI variable of its GUID - shown first, whatever its shape")
+	force := fs.Bool("force", false, "delete: remove an index of another shape at kira's own places, shown and not asked about")
+	sweep := fs.Bool("sweep", false, "delete, without --nvram: also everything else at kira's places - other indices in its NV range (an earlier version's layout, another program's), aSSH's SSH CA indices, every EFI variable of its GUID - shown first, whatever its shape")
 
 	fs.Parse(args)
 
@@ -564,7 +564,7 @@ func runSlotNVRAM(args []string, tpmPath string, debugFlag bool) {
 // gate, and a verifier that exits 0 on a failed check is not a verifier.
 func failAttest(code int, err error) {
 	signing.CloseTokenSessions()
-	fmt.Fprintf(os.Stderr, "tpm2-kira: FAILED: %v\n", err)
+	fmt.Fprintf(os.Stderr, "kira: FAILED: %v\n", err)
 	os.Exit(code)
 }
 
@@ -610,12 +610,12 @@ func runLuks(args []string, tpmPath string, debugFlag bool) {
 		tpm := fs.String("tpm", tpmPath, "Path to TPM device (a bound recipe: the slot is checked)")
 		keyslot := fs.Int("keyslot", -1, "The LUKS keyslot to mark (required)")
 		password, salt, pepper, keyboard := recipeFlags(fs)
-		nvram := fs.Uint("nvram", nvramDefault(0), "The tpm2-kira slot the keyslot is bound to, deleted with it (default 0; a bound recipe: the slot whose part, phone or vault it needs)")
+		nvram := fs.Uint("nvram", nvramDefault(0), "The kira slot the keyslot is bound to, deleted with it (default 0; a bound recipe: the slot whose part, phone or vault it needs)")
 		label := fs.String("label", "luks", "The key's label (a bound recipe)")
 		debug := fs.Bool("debug", debugFlag, "Enable debug output")
 		fs.Parse(deviceLast(args[1:]))
 		if fs.NArg() != 1 || *keyslot < 0 {
-			fail(fmt.Errorf("usage: tpm2-kira luks mark <device> --keyslot N --password typed|tpm --salt typed|tpm|phone|vault [--pepper|--keyboard-pepper]"))
+			fail(fmt.Errorf("usage: kira luks mark <device> --keyslot N --password typed|tpm --salt typed|tpm|phone|vault [--pepper|--keyboard-pepper]"))
 		}
 		recipe, err := diskkey.RecipeOf(*password, *salt, *pepper, *keyboard)
 		if err != nil {
@@ -629,12 +629,12 @@ func runLuks(args []string, tpmPath string, debugFlag bool) {
 		fs := flag.NewFlagSet("luks enrol", flag.ExitOnError)
 		tpm := fs.String("tpm", tpmPath, "Path to TPM device (a bound recipe)")
 		password, salt, pepper, keyboard := recipeFlags(fs)
-		nvram := fs.Uint("nvram", nvramDefault(0), "The tpm2-kira slot the keyslot is bound to, deleted with it (default 0; the phone's salt: the slot whose phone keeps it; the vault's: the slot enrolled with the vault)")
+		nvram := fs.Uint("nvram", nvramDefault(0), "The kira slot the keyslot is bound to, deleted with it (default 0; the phone's salt: the slot whose phone keeps it; the vault's: the slot enrolled with the vault)")
 		label := fs.String("label", "luks", "The key's label (a bound recipe)")
 		vaultURL := fs.String("url", "", "the vault's salt: the vault, https://host:port")
-		vaultPin := fs.String("pin", "", "the vault's salt: the pin of the vault's key, sha256:… as 'tpm2-kira-vault token create' prints it")
+		vaultPin := fs.String("pin", "", "the vault's salt: the pin of the vault's key, sha256:… as 'kira-vault token create' prints it")
 		vaultToken := fs.String("token", "", "the vault's salt: the one-time enrolment token")
-		vaultCA := fs.String("ca", "", "the vault's salt: a file with the vault's root certificate ('tpm2-kira-vault tls root'), added to "+vaultkey.RootsPath+" when its key is the pin")
+		vaultCA := fs.String("ca", "", "the vault's salt: a file with the vault's root certificate ('kira-vault tls root'), added to "+vaultkey.RootsPath+" when its key is the pin")
 		name := fs.String("name", "", "the vault's salt: the machine's name at the vault (default: the host name)")
 		privKey := fs.String("privkey", "", "Signing key, needed for every hand-over (default: "+signing.DefaultPrivateKeyPath+")")
 		pubKey := fs.String("pubkey", "", "Signing public key, for the record check (default: "+signing.DefaultPublicKeyPath+")")
@@ -645,7 +645,7 @@ func runLuks(args []string, tpmPath string, debugFlag bool) {
 		debug := fs.Bool("debug", debugFlag, "Enable debug output")
 		parseSigning(fs, deviceLast(args[1:]))
 		if fs.NArg() != 1 {
-			fail(fmt.Errorf("usage: tpm2-kira luks enrol <device> --password typed|tpm --salt typed|tpm|phone|vault [--pepper|--keyboard-pepper]"))
+			fail(fmt.Errorf("usage: kira luks enrol <device> --password typed|tpm --salt typed|tpm|phone|vault [--pepper|--keyboard-pepper]"))
 		}
 		recipe, err := diskkey.RecipeOf(*password, *salt, *pepper, *keyboard)
 		if err != nil {
@@ -672,18 +672,18 @@ func runLuks(args []string, tpmPath string, debugFlag bool) {
 		jsonOut := fs.Bool("json", false, "Machine-readable output")
 		fs.Parse(args[1:])
 		if err := admin.LuksRoute(fs.Args(), cmdlines, *crypttab, *jsonOut); err != nil {
-			fmt.Fprintf(os.Stderr, "tpm2-kira: %v\n", err)
+			fmt.Fprintf(os.Stderr, "kira: %v\n", err)
 			os.Exit(1) // the hook reads it
 		}
 	case "remove":
 		fs := flag.NewFlagSet("luks remove", flag.ExitOnError)
-		keyslot := fs.Int("keyslot", -1, "The keyslot to remove, one tpm2-kira marked (required)")
+		keyslot := fs.Int("keyslot", -1, "The keyslot to remove, one kira marked (required)")
 		existing := fs.String("existing-key-file", "", "A file with a remaining passphrase to authorise luksKillSlot (scripts; by default asked)")
 		tpm := fs.String("tpm", tpmPath, "Path to TPM device (the TPM salt goes with its last keyslot)")
 		privKey := fs.String("privkey", "", "Signing key, for the slot's blob (default: "+signing.DefaultPrivateKeyPath+")")
 		parseSigning(fs, deviceLast(args[1:]))
 		if fs.NArg() != 1 || *keyslot < 0 {
-			fail(fmt.Errorf("usage: tpm2-kira luks remove <device> --keyslot N"))
+			fail(fmt.Errorf("usage: kira luks remove <device> --keyslot N"))
 		}
 		if err := admin.LuksRemove(admin.LuksRemoveOptions{Device: fs.Arg(0), Keyslot: *keyslot, ExistingKeyFile: *existing, TPMPath: *tpm, PrivKeyPath: *privKey}); err != nil {
 			fail(err)
@@ -707,8 +707,8 @@ func runVault(args []string, tpmPath string, debugFlag bool) {
 	case "enrol", "enroll":
 		vaultURL := fs.String("url", "", "The vault, https://host:port (required)")
 		pin := fs.String("pin", "", "The pin of the vault's key, sha256:… (required)")
-		token := fs.String("token", "", "The one-time enrolment token from 'tpm2-kira-vault token create' (required)")
-		ca := fs.String("ca", "", "A file with the vault's root certificate ('tpm2-kira-vault tls root'), added to "+vaultkey.RootsPath+" when its key is the pin")
+		token := fs.String("token", "", "The one-time enrolment token from 'kira-vault token create' (required)")
+		ca := fs.String("ca", "", "A file with the vault's root certificate ('kira-vault tls root'), added to "+vaultkey.RootsPath+" when its key is the pin")
 		label := fs.String("label", "luks", "The key's label")
 		name := fs.String("name", "", "The machine's name at the vault (default: the host name)")
 		out := fs.String("out", "", "Where the derived key is written, on tmpfs, for cryptsetup luksAddKey (required)")
@@ -738,11 +738,11 @@ func runVault(args []string, tpmPath string, debugFlag bool) {
 	}
 }
 
-const vaultUsage = `tpm2-kira vault enrol | status | unenrol [options]
+const vaultUsage = `kira vault enrol | status | unenrol [options]
 
 The disk's key from two TPMs (docs/VAULT.md, the recipe --password tpm --salt vault): a
 local part kept in this machine's TPM and a remote part kept by
-tpm2-kira-vault, each opening only in a boot state the slot's signing key
+kira-vault, each opening only in a boot state the slot's signing key
 approved. The vault releases its part to a fresh quote of such a state;
 the boot then unlocks unattended. Without the vault, the recovery
 passphrase in its own keyslot opens the disk at cryptsetup's prompt.
@@ -751,7 +751,7 @@ passphrase in its own keyslot opens the disk at cryptsetup's prompt.
                  'cryptsetup luksAddKey' ('luks enrol --password tpm --salt vault'
                  does all of it in one step):
                    --url https://host:port --pin sha256:… --token TOKEN
-                                (all three from 'tpm2-kira-vault token create')
+                                (all three from 'kira-vault token create')
                    --out PATH   the key file, on tmpfs (required)
                    --label STR  default luks
                    --name STR   the machine's name at the vault
@@ -765,8 +765,8 @@ passphrase in its own keyslot opens the disk at cryptsetup's prompt.
                  blob (--nvram N, --privkey PATH, --pin-fd N); revoke the device on the
                  vault and remove the keyslot by hand
 
-The image needs its network at boot: TPM2_KIRA_NET in control.conf
-(tpm2-kira control, "Network & SSH").
+The image needs its network at boot: KIRA_NET in control.conf
+(kira control, "Network & SSH").
 `
 
 // recipeFlags are a keyslot's recipe on the command line: where the
@@ -846,7 +846,7 @@ func runPhoneSalt(args []string, tpmPath string, debugFlag bool) {
 	}
 }
 
-const factorUsage = `tpm2-kira phone salt enrol | rotate | status | unenrol [options]
+const factorUsage = `kira phone salt enrol | rotate | status | unenrol [options]
 
   --keyboard-pepper   enrol: a pepper of yours as well (docs/DISK-KEY.md), 8 to 64 of a-z and
                       0-9, asked here; at every boot you type it through the one-time keyboard
@@ -856,7 +856,7 @@ The phone salt (docs/PLAN-PHONESALT.md): the salt of the disk's key,
 kept by the verifier that attests this machine - today the phone enrolled
 with 'phone enrol', over Bluetooth LE - as a value only this machine's
 TPM can open, in a boot its signing key approved. The phone hands it back
-after a verdict you accept; at boot tpm2-kira asks for your password and
+after a verdict you accept; at boot kira asks for your password and
 derives the key from both (Argon2id, the recipe
 0x1300). Without the phone, the recovery passphrase in its
 own keyslot opens the disk at cryptsetup's prompt.
@@ -995,8 +995,8 @@ func runPhone(args []string, tpmPath string, debugFlag bool) {
 	}
 }
 
-// attestUsage is the page of 'tpm2-kira help phone'.
-const attestUsage = `tpm2-kira phone <subcommand> [options]
+// attestUsage is the page of 'kira help phone'.
+const attestUsage = `kira phone <subcommand> [options]
 
 Phone attestation: a phone with the Marify app verifies this boot over
 Bluetooth LE - the TPM quotes the PCRs, the phone judges them against the
@@ -1016,7 +1016,7 @@ machine's screen (docs/PLAN-PHONE.md).
                                                    (Android key attestation, Google roots)?
   phone gate      Serve attestation requests by hand until a phone returns a
                   receipt; this process uses the TPM itself. In the boot image
-                  the radio worker is 'tpm2-kira-boot gate', beside run.
+                  the radio worker is 'kira-boot gate', beside run.
                   --adapter N --timeout DUR --adapter-wait DUR --privkey PATH --pin-fd N
   phone status    Show enrolled phones per slot and whether the blob is signed
                   by this machine's signing key (--json); exits 1 if not
@@ -1053,7 +1053,7 @@ func runInitramfs(args []string, tpmPath string, debugFlag bool) {
 	fs.Parse(args[1:])
 	o := admin.PlanOptions{TPMPath: *tpm, ConfigPath: *conf, KernelLog: *kernelLog, FwDir: *fwDir, NoBusybox: *noBusybox, Debug: *debug}
 	if err := admin.InitramfsPlanCommand(o, *buildroot, *format, os.Stdout); err != nil {
-		fmt.Fprintf(os.Stderr, "tpm2-kira: %v\n", err)
+		fmt.Fprintf(os.Stderr, "kira: %v\n", err)
 		os.Exit(phonegate.ExitUsage)
 	}
 }

@@ -71,7 +71,7 @@ type attribute struct {
 
 func uuid16(v uint16) []byte { return []byte{byte(v), byte(v >> 8)} }
 
-// gattDB is the fixed database for the tpm2-kira service.
+// gattDB is the fixed database for the kira service.
 type gattDB struct {
 	attrs                         []*attribute
 	rxHandle, txHandle, cccHandle uint16
@@ -98,7 +98,7 @@ func newGATTDB(deviceName string, info []byte) *gattDB {
 	add(&attribute{typ: uuid16(uuidAppearance), value: []byte{0, 0}, readable: true})
 	gap.groupEnd = uint16(len(db.attrs))
 
-	// tpm2-kira service.
+	// kira service.
 	svc := add(&attribute{typ: uuid16(uuidPrimaryService), value: ServiceUUID.LE(), readable: true})
 	next := uint16(len(db.attrs) + 2)
 	charDecl(propWriteNoResp|propWrite, next, RXCharUUID.LE())

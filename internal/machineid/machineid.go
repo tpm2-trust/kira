@@ -25,16 +25,16 @@ import (
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpm2/transport"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/bootwait"
-	"github.com/tpm2-trust/tpm2-kira/internal/efivars"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/bootwait"
+	"github.com/tpm2-trust/kira/internal/efivars"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 )
 
-// GUID is the vendor GUID of tpm2-kira's own EFI variables.
+// GUID is the vendor GUID of kira's own EFI variables.
 const GUID = nvslot.VarGUID
 
-// Var is the variable that keeps the sealed machine-id, under tpm2-kira's
+// Var is the variable that keeps the sealed machine-id, under kira's
 // GUID.
 const Var = "KIRAmachineID"
 
@@ -53,10 +53,10 @@ var (
 )
 
 // TestPaths points the EFI variables and the machine-id files at a test's
-// directory when TPM2_KIRA_TEST_DIR is set: the test suite runs the
+// directory when KIRA_TEST_DIR is set: the test suite runs the
 // binaries, and they must not touch the host's efivarfs or machine-id.
 func TestPaths() {
-	dir := os.Getenv("TPM2_KIRA_TEST_DIR")
+	dir := os.Getenv("KIRA_TEST_DIR")
 	if dir == "" {
 		return
 	}
@@ -93,7 +93,7 @@ func ReadID(path string) (string, error) {
 }
 
 func idHash(id string) []byte {
-	h := sha256.Sum256([]byte("tpm2-kira machine-id\x00" + id))
+	h := sha256.Sum256([]byte("kira machine-id\x00" + id))
 	return h[:]
 }
 
@@ -192,7 +192,7 @@ func Load() (*Sealed, error) {
 	}
 	var s Sealed
 	if err := json.Unmarshal(b, &s); err != nil || s.Version != version {
-		return nil, fmt.Errorf("%s is not a sealed machine-id of this version: seal it again (tpm2-kira slot approve)", efivars.Name(Var))
+		return nil, fmt.Errorf("%s is not a sealed machine-id of this version: seal it again (kira slot approve)", efivars.Name(Var))
 	}
 	return &s, nil
 }
@@ -244,7 +244,7 @@ func writeInPlace(path string, b []byte) error {
 	return f.Close()
 }
 
-// Boot is 'tpm2-kira-boot machine-id', run before the image's network: it
+// Boot is 'kira-boot machine-id', run before the image's network: it
 // releases the sealed machine-id when slot 0's policy holds. Nothing there
 // is no error; the error says why it was not released, and the boot goes
 // on without it.

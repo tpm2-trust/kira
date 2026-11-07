@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/measure"
 )
 
 func TestWarnAboutBootChainCoverage(t *testing.T) {
@@ -21,7 +21,7 @@ func TestWarnAboutBootChainCoverage(t *testing.T) {
 		{"0,7,11u", false, ""},
 		{"0,7,8e,9e", false, ""},
 		{"0,7,9,12", false, ""},
-		{"0,7", true, `tpm2-kira slot add --pcrs "0,7,11u"`},
+		{"0,7", true, `kira slot add --pcrs "0,7,11u"`},
 	} {
 		specs, err := measure.ParsePCRSpecs(tc.pcrs)
 		if err != nil {

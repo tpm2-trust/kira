@@ -2,9 +2,9 @@
 // the parts it starts from the image's plan.
 package bootrun
 
-// The TOTP display at the passphrase prompt (tpm2-kira-boot run).
+// The TOTP display at the passphrase prompt (kira-boot run).
 //
-// tpm2-kira.service orders itself after systemd-pcrphase-initrd.service
+// kira.service orders itself after systemd-pcrphase-initrd.service
 // (enter-initrd on PCR 11) and before systemd-pcrosseparator.service, and is
 // Type=notify. While it holds READY=1 back, the PCRs still hold the sealed
 // values, so it asks the TPM for a fresh code every 30 seconds and shows it
@@ -15,7 +15,7 @@ package bootrun
 // until the next boot; the key never left the TPM, and the display has
 // nothing left to show, so it exits. Right before READY, run closes the
 // boot (PCR 15, which every slot object's own policy reads), and the image
-// closes it again after (tpm2-kira-close.service; Debian's local-top, before
+// closes it again after (kira-close.service; Debian's local-top, before
 // cryptroot, which waits for this READY's file, and its init-bottom).
 //
 // A slot that is enrolled with a phone is verified by that phone instead: a
@@ -49,18 +49,18 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/bootclose"
-	"github.com/tpm2-trust/tpm2-kira/internal/bootwait"
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
-	"github.com/tpm2-trust/tpm2-kira/internal/imageplan"
-	"github.com/tpm2-trust/tpm2-kira/internal/journal"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
-	"github.com/tpm2-trust/tpm2-kira/internal/sbstate"
-	"github.com/tpm2-trust/tpm2-kira/internal/screen"
-	"github.com/tpm2-trust/tpm2-kira/internal/sshscreen"
-	"github.com/tpm2-trust/tpm2-kira/internal/totp"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/bootclose"
+	"github.com/tpm2-trust/kira/internal/bootwait"
+	"github.com/tpm2-trust/kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/imageplan"
+	"github.com/tpm2-trust/kira/internal/journal"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/phonegate"
+	"github.com/tpm2-trust/kira/internal/sbstate"
+	"github.com/tpm2-trust/kira/internal/screen"
+	"github.com/tpm2-trust/kira/internal/sshscreen"
+	"github.com/tpm2-trust/kira/internal/totp"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 
 	"github.com/google/go-tpm/tpm2/transport"
 	"golang.org/x/sys/unix"
@@ -71,7 +71,7 @@ import (
 const HoldDefault = 90 * time.Second
 
 // holdUnlimited is a hold that ends only with a confirmation: the SSH
-// server's TPM2_KIRA_SSH_HOLD=0.
+// server's KIRA_SSH_HOLD=0.
 const holdUnlimited = 100 * 365 * 24 * time.Hour
 
 // hintPrinter puts sshscreen.ConsoleHint on the console while the SSH
@@ -470,7 +470,7 @@ func StartCoordinator(tpmPath, signerPath string, debug bool) (*phonegate.GateSe
 	path := tpmdev.PreferResourceManager(tpmPath)
 	tpmDev, err := tpmdev.Open(path)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "tpm2-kira: the phone check is unavailable: cannot open the TPM at %s: %v\n", path, err)
+		fmt.Fprintf(os.Stderr, "kira: the phone check is unavailable: cannot open the TPM at %s: %v\n", path, err)
 		return nil, func() {}
 	}
 	if s, err := nvslot.ReadBootSettings(tpmDev); err == nil && s.Debug {
@@ -479,7 +479,7 @@ func StartCoordinator(tpmPath, signerPath string, debug bool) (*phonegate.GateSe
 	svc := phonegate.NewGateService(tpmDev, 0, "", debug)
 	stopWorker, err := phonegate.StartRadioWorker(svc, debug)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "tpm2-kira: the phone check is unavailable: the radio worker does not start: %v\n", err)
+		fmt.Fprintf(os.Stderr, "kira: the phone check is unavailable: the radio worker does not start: %v\n", err)
 		tpmDev.Close()
 		return nil, func() {}
 	}
@@ -513,7 +513,7 @@ func Run(tpmPath string, nvramIndex uint32, hold time.Duration, unlockSocket, re
 	go func() {
 		defer close(over)
 		if planned.TPM && !bootwait.Await(tpmPath, imageplan.TPMWait) {
-			fmt.Fprintf(os.Stderr, "tpm2-kira: %s did not appear; no code this boot\n", tpmPath)
+			fmt.Fprintf(os.Stderr, "kira: %s did not appear; no code this boot\n", tpmPath)
 		}
 		for _, p := range ps.inOrder() {
 			p.start(bd)
@@ -580,9 +580,9 @@ func showCodes(bd *board, ps parts, tpmPath string, nvramIndex uint32, planned i
 			}
 			if len(slots) == 0 {
 				if nvramIndex == 0 {
-					return nil, fmt.Errorf("%w in NVRAM slots 0x%08X - 0x%08X (run 'tpm2-kira slot add')", ErrNoSlots, nvslot.NVRAMSlotStart, nvslot.NVRAMSlotEnd)
+					return nil, fmt.Errorf("%w in NVRAM slots 0x%08X - 0x%08X (run 'kira slot add')", ErrNoSlots, nvslot.NVRAMSlotStart, nvslot.NVRAMSlotEnd)
 				}
-				return nil, fmt.Errorf("%w at NVRAM index 0x%08X (run 'tpm2-kira slot add')", ErrNoSlots, nvramIndex)
+				return nil, fmt.Errorf("%w at NVRAM index 0x%08X (run 'kira slot add')", ErrNoSlots, nvramIndex)
 			}
 			return slots, nil
 		},
@@ -651,7 +651,7 @@ func (ps parts) release(bd *board, by string, closes bool) {
 	if bd.readyFile != "" {
 		// No systemd to tell: the image's close waits for this file (or for run gone).
 		if err := os.WriteFile(bd.readyFile, nil, 0o600); err != nil {
-			fmt.Fprintf(os.Stderr, "tpm2-kira: the image's close is not told that the code screen is over: %v\n", err)
+			fmt.Fprintf(os.Stderr, "kira: the image's close is not told that the code screen is over: %v\n", err)
 		}
 	}
 	ps.unlock.released(bd, by)
@@ -664,10 +664,10 @@ var notifyReady = sdNotifyReady
 // count it.
 var closeBoot = func(tpmPath string) {
 	if err := bootclose.Now(tpmPath); err != nil {
-		fmt.Fprintf(os.Stderr, "tpm2-kira: %v\n", err)
+		fmt.Fprintf(os.Stderr, "kira: %v\n", err)
 		return
 	}
-	journal.Narrate("tpm2-kira: the boot is closed (PCR 15): no slot and no SSH CA until the next boot")
+	journal.Narrate("kira: the boot is closed (PCR 15): no slot and no SSH CA until the next boot")
 }
 
 // showScreen is the code screen: on the console, and with the SSH server
@@ -816,9 +816,9 @@ func waitPromptTurn() {
 
 // nextPrompt names what follows the code screen, in the words of the
 // routed volume's recipes in the order they are tried: "the password
-// prompt" when tpm2-kira asks (the password is what the person types; the
+// prompt" when kira asks (the password is what the person types; the
 // salt is typed too, or comes from the phone), "cryptsetup's prompt" when
-// nothing of tpm2-kira's answers; an unattended recipe comes first when
+// nothing of kira's answers; an unattended recipe comes first when
 // the volume has one, and what follows it is asked only without its key.
 func nextPrompt(recipes []diskkey.Recipe) string {
 	if len(recipes) == 0 {

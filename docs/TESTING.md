@@ -57,14 +57,14 @@ Four levels, from seconds to a whole boot:
 |---|---|---|
 | unit | Go | the logic: blobs, policies, recipes, the board, the parsers |
 | integration | Go, swtpm, socat | the binaries against a software TPM: sealing, codes, run, the unlock socket, SSH |
-| the VM test (`tools/vmtest.py`, its helpers in `tools/vmtestlib.py`) | fresh, encrypted VMs; docker; the built packages | tpm2-kira's whole life on a real machine: install, `control`, reboots unlocked over SSH, the vault, hibernation |
+| the VM test (`tools/vmtest.py`, its helpers in `tools/vmtestlib.py`) | fresh, encrypted VMs; docker; the built packages | kira's whole life on a real machine: install, `control`, reboots unlocked over SSH, the vault, hibernation |
 | the phone against a VM (`tools/phone-vm-test.py`) | the VMs, the Android SDK's emulator, KVM | Marify's real BLE code and session against the real gate: enrolment, a phone salt's hand-over, boots attested in the initrd, the pepper typed through the phone's layout |
 | the acceptance run (`tools/acceptance.py`) | a machine you watch | the same install checks, with you at the console for the reboot |
 
 ## Unit and integration tests
 
 ```bash
-make test-unit              # no TPM; tpm2-kira's packages, then the core's (core/, a module of its own)
+make test-unit              # no TPM; kira's packages, then the core's (core/, a module of its own)
 make test-integration       # swtpm and socat: sudo pacman -S swtpm socat (apt install swtpm swtpm-tools socat)
 make test-all
 make fuzz                   # the parsers of untrusted input, FUZZTIME per target (30s)
@@ -72,9 +72,9 @@ tools/vulncheck.py ./...    # known vulnerabilities the code calls into
 ```
 
 Tests run with `-count=1` and wait for a state, never for a time
-(AGENTS.md). The integration suite builds both binaries, `tpm2-kira` and
-`tpm2-kira-boot`, as they ship (static, no cgo) and runs them as a user
-against swtpm (`TPM2_KIRA_UNPRIVILEGED=1`).
+(AGENTS.md). The integration suite builds both binaries, `kira` and
+`kira-boot`, as they ship (static, no cgo) and runs them as a user
+against swtpm (`KIRA_UNPRIVILEGED=1`).
 
 ## The proof: 15-20 minutes
 
@@ -119,7 +119,7 @@ runs when named in `--only`:
 | `vault-alone` | the unattended recipe, Secure Boot on: a boot nobody touches, the vault alone |
 | `typed-vault` | the operator-approved typed vault (0x1401), Secure Boot on |
 | `keyboard-vault` | a pepper typed through the vault's one-time keyboard (0x1402): two boots with other layouts, a pepper not of the layout's form asked again, a wrong pepper opening nothing, the right one the disk, Secure Boot on |
-| `V3` | Arch: the resume with tpm2-kira masked, the close alone |
+| `V3` | Arch: the resume with kira masked, the close alone |
 | `V6` | `control` on unencrypted swap |
 | `no-tpm` | V4 step 5: a boot with no TPM at all |
 | `V4-reverted` | Debian: the resume with the TPM back |
@@ -137,13 +137,13 @@ then one full proof. A run expected over 10 minutes is announced first.
 ## The VM test
 
 `tools/vmtest.py` takes fresh, encrypted test VMs through everything a
-person does with tpm2-kira, answers every prompt as a person would, and
+person does with kira, answers every prompt as a person would, and
 writes a report per machine with every session's transcript.
 
 ### What it needs
 
 - **The VMs.** Each with its root on LUKS (the passphrase known), a TPM
-  2.0 (swtpm is fine), sshd, and a user with sudo; tpm2-kira not
+  2.0 (swtpm is fine), sshd, and a user with sudo; kira not
   installed, kept as a snapshot the run goes back to (`reset` below): the
   run installs packages, writes the TPM's NV, an SSH CA into an EFI
   variable, keyslots and a new boot image. (The EFI variable survives
@@ -152,8 +152,8 @@ writes a report per machine with every session's transcript.
   Debian package (`packaging/build-packages.sh`, which the run calls) -
   nothing is built on a VM.
 
-- **docker**, and the tpm2-kira-vault source beside this repository
-  (`../tpm2-kira-vault`): the run starts the vault itself (below).
+- **docker**, and the kira-vault source beside this repository
+  (`../kira-vault`): the run starts the vault itself (below).
 - **The machines on this host instead:** `tools/localvm.py` runs both with
   qemu, swtpm and OVMF, with no hypervisor and no root, and resets them to
   their snapshot. See `tools/LOCALVM.md` for setting them up from an
@@ -178,7 +178,7 @@ writes a report per machine with every session's transcript.
   reset = ssh root@pve 'qm rollback 196 fresh && qm start 196'
 
   [vault]
-  src = ../tpm2-kira-vault
+  src = ../kira-vault
   url = https://172.17.2.174      # where the VMs reach this machine
   port = 443
   ```
@@ -251,7 +251,7 @@ None of these is a final proof, and their reports' first lines say so.
 `vault-alone`, `typed-vault`, `keyboard-vault` and `firmware-refuses` start from the snapshot `setup-secure`.
 
 ```bash
-tools/secureboot-vm.py both       # only the snapshot secureboot: real keys in the firmware, no tpm2-kira
+tools/secureboot-vm.py both       # only the snapshot secureboot: real keys in the firmware, no kira
 tools/vmtest.py --config ../.local/vms/vmtest-local.conf --target both --only secure-boot --keep-setup   # from fresh: secureboot, setup-secure
 tools/vmtest.py --config ../.local/vms/vmtest-local.conf --target both --only revoked,firmware-refuses   # from setup-secure
 ```
@@ -292,8 +292,8 @@ What keeps the tag out of a release: `packaging/aur/PKGBUILD`, `debian/rules` an
 built, which refuses a binary Go recorded a build tag for or that holds the test
 build's mark; `internal/diskkey/release_test.go` holds the recipes to that, and shows
 it on real builds of both kinds; every VM test checks its package the same way before
-it touches a machine, and that `tpm2-kira version` says nothing of a test build. A
-test build says what it is in `version` and in `tpm2-kira status`. The vault, the
+it touches a machine, and that `kira version` says nothing of a test build. A
+test build says what it is in `version` and in `kira status`. The vault, the
 phone, aSSH and safearch derive nothing with this cost: they hand over salts,
 parts and peppers; only `diskkey.Combine` runs it, in the two binaries of one package.
 
@@ -322,7 +322,7 @@ The setup:
    with its SSH CA, debug at boot, the image rebuilt when control is left.
    The key that may log in at boot is a test key the run makes; the CA's
    `@cert-authority` line goes into the run's own known_hosts.
-7. **The image:** `tpm2-kira-boot` and no `tpm2-kira`, no control.conf,
+7. **The image:** `kira-boot` and no `kira`, no control.conf,
    the plan's parts, no unit or script that starts a gate (`run` starts
    its children itself).
 
@@ -360,21 +360,21 @@ boot on the console (the serial log), in the SSH session and in the boot's log; 
 `control`'s overview under `--all`.
 
 **Under `--all`, removal:** `control` switches the SSH server off and asks before it removes the SSH
-CA - No keeps the EFI variable and `ssh_ca.pub`; `slot delete --yes` then takes everything of tpm2-kira:
+CA - No keeps the EFI variable and `ssh_ca.pub`; `slot delete --yes` then takes everything of kira:
 no index of its range is left in the TPM, the `KIRAasshCA` variable and `ssh_ca.pub` are gone, and a
 second run finds nothing.
 
 ### The vault of the run
 
-The run builds tpm2-kira-vault from `[vault] src` and starts it in a
+The run builds kira-vault from `[vault] src` and starts it in a
 container (`tools/vmtest-vault/`: Arch with swtpm as the vault's TPM),
 listening on `[vault] port` of this machine, created for the run and
 removed after it - the VMs reach it at `[vault] url`. By hand:
 
 ```bash
-docker logs tpm2-kira-vmtest-vault                       # the pin and the recovery key of init
-docker exec tpm2-kira-vmtest-vault tpm2-kira-vault devices
-docker exec tpm2-kira-vmtest-vault tpm2-kira-vault audit
+docker logs kira-vmtest-vault                       # the pin and the recovery key of init
+docker exec kira-vmtest-vault kira-vault devices
+docker exec kira-vmtest-vault kira-vault audit
 ```
 
 The image is built with the host's network (`docker build --network
@@ -390,7 +390,7 @@ and a test VM on one simulated Bluetooth LE, with nobody at the keyboard:
 ```mermaid
 flowchart LR
   EMU["emulator: Marify,<br/>RealMachineTest"] <--> NS["netsimd<br/>--hci-port 7302"]
-  NS <-->|"TCP ↔ COM3 (ttyS2),<br/>btattach -P h4"| VM["VM: tpm2-kira's gate"]
+  NS <-->|"TCP ↔ COM3 (ttyS2),<br/>btattach -P h4"| VM["VM: kira's gate"]
   DRV["phone-vm-test.py"] -->|"adb: am instrument"| EMU
   DRV -->|"vmtest.py --only setup,phone"| VM
 ```

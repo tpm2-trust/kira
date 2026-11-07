@@ -9,9 +9,9 @@ import (
 	"strings"
 )
 
-// PCR11Phases are the words systemd extends into PCR 11 after tpm2-kira's
+// PCR11Phases are the words systemd extends into PCR 11 after kira's
 // boot check, in boot order: systemd-pcrnvdone.service's nvpcr-separator
-// (systemd 258+; tpm2-kira.service orders itself before it), then
+// (systemd 258+; kira.service orders itself before it), then
 // systemd-pcrphase's phases. The digest is the bank's hash of the literal
 // word (no NUL, no salt), so they are universal constants. Enrolment runs
 // in the booted system, where PCR 11 holds some ordered subset of these

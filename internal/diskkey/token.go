@@ -5,9 +5,9 @@ import (
 	"strings"
 )
 
-// tokenTypePrefix starts the type of every token of tpm2-kira's; the
+// tokenTypePrefix starts the type of every token of kira's; the
 // recipe's number follows (Recipe.TokenType).
-const tokenTypePrefix = "tpm2-kira"
+const tokenTypePrefix = "kira"
 
 // LuksToken is the token's JSON: the recipe of the keyslot's key, and, for
 // a recipe bound to a slot (Recipe.Bound), the slot whose TPM part, phone
@@ -20,7 +20,7 @@ type LuksToken struct {
 	Slot     *int     `json:"slot,omitempty"`
 	Label    string   `json:"label,omitempty"`
 	Created  string   `json:"created"`
-	// Obsolete marks a token of tpm2-kira's that is not one of the current
+	// Obsolete marks a token of kira's that is not one of the current
 	// recipes (another version's): shown so the keyslot can be enrolled
 	// again, used for nothing else.
 	Obsolete bool `json:"-"`
@@ -28,7 +28,7 @@ type LuksToken struct {
 
 // ParseKiraToken reads one token's JSON when it is ours. Its recipe must
 // be one, and the type must carry its number; any other token of
-// tpm2-kira's is obsolete.
+// kira's is obsolete.
 func ParseKiraToken(raw json.RawMessage) (LuksToken, bool) {
 	var head struct {
 		Type string `json:"type"`
@@ -54,7 +54,7 @@ func NewLuksToken(r Recipe, keyslot string, slot int, label, created string) Luk
 	return t
 }
 
-// BoundTo says whether the keyslot is bound to the given tpm2-kira slot.
+// BoundTo says whether the keyslot is bound to the given kira slot.
 // An obsolete token binds nothing: it is re-marked, never acted on.
 func (t *LuksToken) BoundTo(slot int) bool {
 	return !t.Obsolete && t.Slot != nil && *t.Slot == slot

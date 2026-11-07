@@ -1,6 +1,6 @@
 // Package sbstate reads the firmware's Secure Boot state from its EFI
 // variables and says, in one line, what is wrong with it. It needs no TPM: the
-// boot's lines come from here as well. It never stops anything: tpm2-kira informs,
+// boot's lines come from here as well. It never stops anything: kira informs,
 // and has no enforced mode.
 package sbstate
 
@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/tpm2-trust/go-uefi-slim/efivar"
-	"github.com/tpm2-trust/tpm2-kira/internal/efivars"
+	"github.com/tpm2-trust/kira/internal/efivars"
 )
 
 // State is what the firmware says. Known is false when either variable cannot be

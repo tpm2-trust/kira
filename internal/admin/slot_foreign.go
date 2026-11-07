@@ -1,6 +1,6 @@
 package admin
 
-// An index of another shape at one of tpm2-kira's own places: an earlier
+// An index of another shape at one of kira's own places: an earlier
 // build's or another program's. Only a person can tell, so it goes on a
 // person's word, having seen it (nvslot.TakeForeign).
 
@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/google/go-tpm/tpm2"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/nvslot"
 )
 
 // nvAttributeWords is an NV index's attributes in words, the TPM's own names.
@@ -56,21 +56,21 @@ func nameAlgWord(alg tpm2.TPMIAlgHash) string {
 }
 
 // foreignText shows the index's public area, and why it may not be
-// tpm2-kira's.
+// kira's.
 func foreignText(f nvslot.Foreign) string {
 	policy := "none"
 	if n := len(f.Public.AuthPolicy.Buffer); n > 0 {
 		policy = fmt.Sprintf("yes, %d bytes", n)
 	}
 	return fmt.Sprintf(`
-At the %s: an NV index of another shape than tpm2-kira defines there.
+At the %s: an NV index of another shape than kira defines there.
   handle          0x%08X
   attributes      %s
   defined here    %s
   name algorithm  %s
   size            %d bytes
   auth policy     %s
-It may not be tpm2-kira's: an earlier build defined it otherwise, or another program put it here, and that program's data would go with it. The place is tpm2-kira's own, and sealing a slot would replace it as well.
+It may not be kira's: an earlier build defined it otherwise, or another program put it here, and that program's data would go with it. The place is kira's own, and sealing a slot would replace it as well.
 `, kiraIndexRole(f.Index), f.Index, nvAttributeWords(f.Public.Attributes), nvAttributeWords(f.Want.Attributes),
 		nameAlgWord(f.Public.NameAlg), f.Public.DataSize, policy)
 }
@@ -108,13 +108,13 @@ func slotDeleteForeign(out io.Writer, yes, force bool) nvslot.TakeForeign {
 // a place named by itself.
 func foreignRemedy(nvram uint32) string {
 	if nvslot.ValidateBlobIndex(nvram) != nil && !nvslot.OwnPlace(nvram) {
-		return fmt.Sprintf("0x%08X is not one of tpm2-kira's own places, and nothing here removes what is there, --force neither.", nvram)
+		return fmt.Sprintf("0x%08X is not one of kira's own places, and nothing here removes what is there, --force neither.", nvram)
 	}
 	arg := fmt.Sprintf("0x%08X", nvram)
 	if nvslot.ValidateBlobIndex(nvram) == nil {
 		arg = fmt.Sprint(nvslot.SlotNumber(nvram))
 	}
-	return fmt.Sprintf("An index of another shape stays until a person says so: 'tpm2-kira control' (the slot's line) or 'tpm2-kira slot delete --nvram %s' at a terminal shows it and asks; 'tpm2-kira slot delete --nvram %s --force' removes it without asking.", arg, arg)
+	return fmt.Sprintf("An index of another shape stays until a person says so: 'kira control' (the slot's line) or 'kira slot delete --nvram %s' at a terminal shows it and asks; 'kira slot delete --nvram %s --force' removes it without asking.", arg, arg)
 }
 
 // foreignCause is why a slot is dirty when an index of it has another shape.
@@ -123,5 +123,5 @@ func foreignCause(foreign []nvslot.Foreign) string {
 	for _, f := range foreign {
 		at = append(at, fmt.Sprintf("%s (0x%08X)", kiraIndexRole(f.Index), f.Index))
 	}
-	return "at the " + strings.Join(at, " and the ") + " is an index of another shape than tpm2-kira defines there: an earlier build's, or another program's"
+	return "at the " + strings.Join(at, " and the ") + " is an index of another shape than kira defines there: an earlier build's, or another program's"
 }

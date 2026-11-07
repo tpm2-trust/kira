@@ -10,13 +10,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
-	"github.com/tpm2-trust/tpm2-kira/core/transport/ble"
-	"github.com/tpm2-trust/tpm2-kira/core/transport/frame"
-	"github.com/tpm2-trust/tpm2-kira/internal/journal"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/core/attest"
+	"github.com/tpm2-trust/kira/core/transport/ble"
+	"github.com/tpm2-trust/kira/core/transport/frame"
+	"github.com/tpm2-trust/kira/internal/journal"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/signing"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 )
 
 // GateOptions configures `phone gate`.
@@ -59,7 +59,7 @@ func openChannelByHand(privPath string) ChannelOpener {
 	}
 }
 
-// AttestGate is 'tpm2-kira phone gate': one process that holds the TPM
+// AttestGate is 'kira phone gate': one process that holds the TPM
 // and serves attestation requests until a phone returns a receipt, and
 // reports the outcome as an exit code. At boot the gate is two processes
 // instead (gate_child.go).
@@ -158,7 +158,7 @@ func RunGateRadio(host GateHost, o GateOptions, step func(string, ...any), ended
 		ServiceData: attest.BuildServiceData(attest.AdvFlagAttest, RandBytes(4), ident.AdvKey),
 		Info:        AttestInfo(InfoModeAttest, id.Capabilities),
 	}
-	journal.Narrate("tpm2-kira: waiting for attestation of %q (open the app on your phone)", ident.FriendlyName)
+	journal.Narrate("kira: waiting for attestation of %q (open the app on your phone)", ident.FriendlyName)
 	host.Report(GateWaiting)
 
 	res, err := WaitForReceipt(p, adv, o.Timeout, func(conn *frame.Conn) (*attest.AttestResult, error) {
@@ -167,7 +167,7 @@ func RunGateRadio(host GateHost, o GateOptions, step func(string, ...any), ended
 		if svc, ok := host.(*GateService); ok {
 			// No code screen next to a gate run by hand: say it here.
 			if st, _ := svc.Status(); st.Code != "" {
-				fmt.Printf("tpm2-kira: code for your phone: %s (the phone must show the same)\n", st.Code)
+				fmt.Printf("kira: code for your phone: %s (the phone must show the same)\n", st.Code)
 			}
 		}
 		if res == nil || res.Receipt == nil {
@@ -179,14 +179,14 @@ func RunGateRadio(host GateHost, o GateOptions, step func(string, ...any), ended
 	}, journal.Narrator{Prio: journal.PrioInfo}, time.Now)
 	if errors.Is(err, ErrNoPhoneReachable) {
 		GateFail("phone not reachable: no phone connected over Bluetooth within %s.\n"+
-			"tpm2-kira:   This is not a TPM or boot-integrity failure. Check that the phone\n"+
-			"tpm2-kira:   is close to this machine, Bluetooth is on and the Marify app is open.", o.Timeout)
+			"kira:   This is not a TPM or boot-integrity failure. Check that the phone\n"+
+			"kira:   is close to this machine, Bluetooth is on and the Marify app is open.", o.Timeout)
 		host.Report(GateUnavailable)
 		return ExitUnavailable
 	}
 	if err != nil && isOver() {
 		// The phone check lasts as long as the code screen.
-		journal.Narrate("tpm2-kira: the code screen has ended; the phone was not asked in time for this boot")
+		journal.Narrate("kira: the code screen has ended; the phone was not asked in time for this boot")
 		return ExitUnavailable
 	}
 	if err != nil {
@@ -206,7 +206,7 @@ func GateSteps(debug bool) func(string, ...any) {
 	}
 	start := time.Now()
 	return func(format string, args ...any) {
-		journal.NarrateAt(journal.PrioDebug, "tpm2-kira: gate +%.1fs: "+format, append([]any{time.Since(start).Seconds()}, args...)...)
+		journal.NarrateAt(journal.PrioDebug, "kira: gate +%.1fs: "+format, append([]any{time.Since(start).Seconds()}, args...)...)
 	}
 }
 
@@ -265,11 +265,11 @@ func WaitForReceipt(acc phoneAcceptor, adv ble.Advertisement, timeout time.Durat
 		conn, err := acc.Accept(adv, frame.DefaultBudget, wait)
 		if errors.Is(err, ble.ErrAcceptTimeout) {
 			if attempt == 1 {
-				fmt.Fprintln(out, "tpm2-kira: no phone reachable yet: nothing has connected over Bluetooth.")
-				fmt.Fprintln(out, "tpm2-kira:   Open Marify on your phone, close to this machine, with Bluetooth on.")
+				fmt.Fprintln(out, "kira: no phone reachable yet: nothing has connected over Bluetooth.")
+				fmt.Fprintln(out, "kira:   Open Marify on your phone, close to this machine, with Bluetooth on.")
 			}
 			if timeout <= 0 || now().Sub(start) < timeout {
-				fmt.Fprintf(out, "tpm2-kira: phone not reachable yet (round %d), still waiting ...\n", attempt)
+				fmt.Fprintf(out, "kira: phone not reachable yet (round %d), still waiting ...\n", attempt)
 			}
 			continue
 		}
@@ -282,7 +282,7 @@ func WaitForReceipt(acc phoneAcceptor, adv ble.Advertisement, timeout time.Durat
 			if err == nil {
 				err = errors.New("no receipt")
 			}
-			fmt.Fprintf(out, "tpm2-kira: a phone connected, but the session ended without a receipt (%v); waiting again ...\n", err)
+			fmt.Fprintf(out, "kira: a phone connected, but the session ended without a receipt (%v); waiting again ...\n", err)
 			continue
 		}
 		return res, nil
@@ -294,7 +294,7 @@ func debugProgress(debug bool) attest.Progress {
 		return nil
 	}
 	return func(_ attest.ProgressLevel, format string, args ...any) {
-		journal.NarrateAt(journal.PrioDebug, "tpm2-kira: "+format, args...)
+		journal.NarrateAt(journal.PrioDebug, "kira: "+format, args...)
 	}
 }
 
@@ -302,29 +302,29 @@ func reportReceipt(res *attest.AttestResult, recordVerified bool) int {
 	// Even a verified record is only as good as the initramfs holding the
 	// key it was verified with (SECURITY.md); the phone's screen is the verdict.
 	if recordVerified {
-		defer journal.Narrate("tpm2-kira:   (enrolment record verified: signed by this machine's key and current; your phone's screen is authoritative)")
+		defer journal.Narrate("kira:   (enrolment record verified: signed by this machine's key and current; your phone's screen is authoritative)")
 	} else {
-		defer journal.Narrate("tpm2-kira:   (not verified on this machine: your phone's screen is authoritative)")
+		defer journal.Narrate("kira:   (not verified on this machine: your phone's screen is authoritative)")
 	}
 	who := "your phone"
 	c := res.Check
 	switch {
 	case c.Authentic && c.Verdict == attest.VerdictOK:
-		journal.Narrate("tpm2-kira: ATTESTED by %s: boot state matches a known-good profile", who)
+		journal.Narrate("kira: ATTESTED by %s: boot state matches a known-good profile", who)
 		return ExitAttested
 	case c.Authentic && c.Verdict == attest.VerdictApproved:
-		journal.Narrate("tpm2-kira: APPROVED on %s: boot state changed and was approved by you", who)
+		journal.Narrate("kira: APPROVED on %s: boot state changed and was approved by you", who)
 		return ExitAttested
 	case c.Verdict == attest.VerdictReject && (c.Authentic || c.Ack == attest.AckRejectNoted):
-		fmt.Fprintf(os.Stderr, "tpm2-kira: REJECTED by %s: the phone does not trust this boot.\n", who)
-		fmt.Fprintln(os.Stderr, "tpm2-kira: Do not type a passphrase before checking further (compare the TOTP code).")
+		fmt.Fprintf(os.Stderr, "kira: REJECTED by %s: the phone does not trust this boot.\n", who)
+		fmt.Fprintln(os.Stderr, "kira: Do not type a passphrase before checking further (compare the TOTP code).")
 		return ExitRejected
 	case c.Ack == attest.AckBadSignature:
-		fmt.Fprintf(os.Stderr, "tpm2-kira: ANCHOR MISMATCH: the receipt was not signed by the enrolled phone (%s).\n", c.Detail)
-		fmt.Fprintln(os.Stderr, "tpm2-kira: This is either a wrong phone or an attack.")
+		fmt.Fprintf(os.Stderr, "kira: ANCHOR MISMATCH: the receipt was not signed by the enrolled phone (%s).\n", c.Detail)
+		fmt.Fprintln(os.Stderr, "kira: This is either a wrong phone or an attack.")
 		return ExitAnchor
 	default:
-		fmt.Fprintf(os.Stderr, "tpm2-kira: receipt not accepted: %s\n", c.Detail)
+		fmt.Fprintf(os.Stderr, "kira: receipt not accepted: %s\n", c.Detail)
 		return ExitInternal
 	}
 }

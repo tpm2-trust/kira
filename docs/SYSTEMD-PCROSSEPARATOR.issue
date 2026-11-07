@@ -9,7 +9,7 @@ Affected host: w-mrw (Arch Linux, systemd 261.3-1-arch, mkinitcpio 42-1)
 ## 1. Symptom
 
 After a routine `pacman -Syyu` on 2026-09-12, the PCR values displayed by the
-tpm2-kira pre-unlock measure point (initramfs, before LUKS unlock) no longer
+kira pre-unlock measure point (initramfs, before LUKS unlock) no longer
 matched the expected/sealed values.
 
     PCR0 expected (sealed blob / eventlog replay) : ca606bea...
@@ -59,7 +59,7 @@ Two observations did the real diagnostic work:
   values.
 - **Suspend/resume re-measurement.** Rejected: `0` suspend events this boot,
   and the wrong values were already present in the initramfs.
-- **tpm2-kira extending PCRs itself.** Rejected: the only `tpm2_pcrextend`
+- **kira extending PCRs itself.** Rejected: the only `tpm2_pcrextend`
   calls in the tree are in `integration_test.go` against swtpm PCR 23.
 - **UKI rebuild changing measurements.** Rejected: explains PCR 4/11/12 at
   most, cannot explain PCR 2/3/6/7.
@@ -99,7 +99,7 @@ Journal for the unit confirms all twelve extends executed in the sha256 bank.
     = ff5b9d73dad709633ae76adf444012b57e913a12ed7403c3931145862f35f841
 
 in early userspace, ordered **before `cryptsetup-pre.target`** — i.e. before
-the tpm2-kira measure point and before any LUKS unseal.
+the kira measure point and before any LUKS unseal.
 
 Verified arithmetically (exact matches):
 
@@ -150,7 +150,7 @@ setups where no pre-boot stage exists at all.
 
 ## 7. Impact
 
-### 7.1 On tpm2-kira eventlog-source PCRs (`0e`, `7e`, ...) — STRUCTURAL
+### 7.1 On kira eventlog-source PCRs (`0e`, `7e`, ...) — STRUCTURAL
 
 The separator is **not** written to `/sys/kernel/security/tpm0/binary_bios_measurements`.
 That file is the firmware's TCG log; systemd records its own measurements in
@@ -187,12 +187,12 @@ alone did not explain:
 - **PCR 9** is *not* explained by replay + one separator. It is
   `replay + os-separator + 4x nvpcr-init:{verity,hardware,cryptsetup,login}`,
   measured by `systemd-tpm2-setup` ("4 NvPCRs initialized"), which runs in the
-  real root **after the disk is unlocked**. So PCR 9 is correct at tpm2-kira's
+  real root **after the disk is unlocked**. So PCR 9 is correct at kira's
   measure point; it is the *post-boot register* that is polluted.
   An earlier conclusion that "the event log does not describe PCR 9" was WRONG:
   it compared a post-boot register against a measure-point prediction.
 - **PCR 11** receives `enter-initrd` from `systemd-pcrphase-initrd.service`
-  74 ms before tpm2-kira starts, so the measure point includes it too. This is
+  74 ms before kira starts, so the measure point includes it too. This is
   unrelated to the separator and predates it.
 
 Consequence: the live register at reseal time is a valid reference **only** for
@@ -201,20 +201,20 @@ cannot be used to validate a prediction.
 
 ## 8. Decision
 
-**Chosen: keep the separator, order tpm2-kira after it, and model the extra
+**Chosen: keep the separator, order kira after it, and model the extra
 extend in the eventlog/predict calculation.**
 
 `systemd-pcrosseparator.service` is `Type=oneshot` with `RemainAfterExit=yes`,
 so `After=` genuinely waits for completion, and once it is done nothing else
 extends PCRs 0-7, 9, 12-14 before switch-root.
 
-### Rejected: ordering tpm2-kira *before* the separator
+### Rejected: ordering kira *before* the separator
 
 Tempting, because `e` and `p` already target end-of-firmware and would need no
-code change, and because it would decouple tpm2-kira from systemd's early-boot
+code change, and because it would decouple kira from systemd's early-boot
 behaviour entirely. Rejected for two reasons:
 
-1. `tpm2-kira-boot run` is a **continuous loop** (`internal/nvslot/scan.go`, `RunCommand`) that
+1. `kira-boot run` is a **continuous loop** (`internal/nvslot/scan.go`, `RunCommand`) that
    re-evaluates the sealed slots against live PCRs on every iteration, for the
    whole duration of the password prompt. The separator must fire before
    `cryptsetup-pre.target`, i.e. *during* that loop. Sealed to pre-separator
@@ -283,7 +283,7 @@ Simple, but loses eventlog-based prediction for the affected indices.
 
     # ordering relative to our own unit
     journalctl -b -o short-precise \
-      -u systemd-pcrosseparator.service -u tpm2-kira.service
+      -u systemd-pcrosseparator.service -u kira.service
 
 ## 10a. Resolution as implemented
 
@@ -303,11 +303,11 @@ Simple, but loses eventlog-based prediction for the affected indices.
   `docs/pentest2/vuln-0001` (arbitrary command execution from a planted blob,
   since the command string was stored in the blob and executed by `slot approve`).
 - Blob version 7 records `measure_point_extends` and `measure_point_detection`,
-  so `tpm2-kira slot info` states what was applied, and verification reproduces the
+  so `kira slot info` states what was applied, and verification reproduces the
   sealed values rather than re-detecting.
-- `tpm2-kira.service` gained `After=systemd-pcrosseparator.service` and
+- `kira.service` gained `After=systemd-pcrosseparator.service` and
   `After=systemd-pcrphase-initrd.service`. Previously there was **no ordering
-  edge at all** between tpm2-kira and these units, so which side of the extends
+  edge at all** between kira and these units, so which side of the extends
   the measure point landed on was non-deterministic.
 - The mkinitcpio install hook inspects `$BUILDROOT`, prints which measure-point
   units are active, and records the verdict for the post hook to pass to

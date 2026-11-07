@@ -7,11 +7,11 @@ import (
 	"os"
 
 	"github.com/tpm2-trust/go-tui-slim/secret"
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/phonegate"
+	"github.com/tpm2-trust/kira/internal/signing"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 )
 
 // The salt in this TPM (recipe 0x1200): a part T drawn here, wrapped for
@@ -57,7 +57,7 @@ func tpmSaltKey(o FactorEnrolOptions) ([]byte, uint32, error) {
 
 	raw, sealed, err := phonegate.ReadSlot(tpmDev, idx)
 	if err != nil {
-		return nil, 0, fmt.Errorf("slot %d holds no sealed blob (%v): seal first with 'tpm2-kira slot add --nvram %d'", slot, err, slot)
+		return nil, 0, fmt.Errorf("slot %d holds no sealed blob (%v): seal first with 'kira slot add --nvram %d'", slot, err, slot)
 	}
 	if err := nvslot.VerifyBlobSignature(raw, sealed, priv.Public()); err != nil {
 		return nil, 0, foreignSlotError(slot, err)

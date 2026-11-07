@@ -44,15 +44,15 @@ Ensure TPM 2.0 is enabled in your BIOS/UEFI settings.
 # Check current permissions
 ls -la /dev/tpmrm0
 
-# tpm2-kira runs as root: every command but the help refuses otherwise
-sudo tpm2-kira status
+# kira runs as root: every command but the help refuses otherwise
+sudo kira status
 ```
 
 **TOTP code doesn't match after update:**
 ```bash
-tpm2-kira slot approve
+kira slot approve
 ```
-If approve also fails, check `tpm2-kira slot info` to see which PCRs changed and verify you have the correct signing key available.
+If approve also fails, check `kira slot info` to see which PCRs changed and verify you have the correct signing key available.
 
 **The phone is not asked at boot; the kernel says hci0's firmware is missing:**
 The image has the Bluetooth driver but not the adapter's firmware. The image
@@ -60,10 +60,10 @@ build learns the firmware's name from the kernel log of a boot that loaded
 it, and not every boot does: an Intel controller keeps its firmware over a
 warm reboot and then names none. The boot plan reads every boot the journal
 keeps and remember what they found per adapter
-(`/var/lib/tpm2-kira/bt-firmware/`); `control`'s overview shows the
+(`/var/lib/kira/bt-firmware/`); `control`'s overview shows the
 firmware on its Bluetooth line, red when none is known.
 ```bash
-sudo tpm2-kira initramfs plan                         # what the next image gets, and why not
+sudo kira initramfs plan                         # what the next image gets, and why not
 journalctl -k -o cat | grep -E 'Bluetooth: hci[0-9]+:' # what the kernel logged
 lsinitcpio /boot/EFI/Linux/arch-linux.efi | grep -iE 'firmware|bluetooth|bt'
 ```
@@ -72,12 +72,12 @@ firmware and logs it), boot, and rebuild with `mkinitcpio -P`. More in
 [DEBUG-BLE.md](DEBUG-BLE.md).
 
 **"Failed to start Early TPM SRK Setup" on the console (Arch, systemd 262):**
-systemd's own `systemd-tpm2-setup-early.service`, in the initrd, not tpm2-kira's: it
+systemd's own `systemd-tpm2-setup-early.service`, in the initrd, not kira's: it
 finds the SRK and saves its public key, then fails to initialize systemd's NvPCRs
 (`/usr/lib/nvpcr/*.nvpcr`: "Failed to initialize NvPCR index: No such file or
-directory") and exits 1. The same happens without tpm2-kira installed (a fresh VM,
+directory") and exits 1. The same happens without kira installed (a fresh VM,
 2026-11-07); `systemd-tpm2-setup.service` in the booted system then finishes. Nothing of
-tpm2-kira's uses the SRK or the NvPCRs (its slots are NV indices 0x01803000 and up, its
+kira's uses the SRK or the NvPCRs (its slots are NV indices 0x01803000 and up, its
 objects under its own storage primary), and the boot unlocks all the same.
 ```bash
 journalctl -b -u systemd-tpm2-setup-early.service -u systemd-tpm2-setup.service -o cat
@@ -86,13 +86,13 @@ journalctl -b -u systemd-tpm2-setup-early.service -u systemd-tpm2-setup.service 
 **Debug output** (the codes themselves are only on the boot's code screen; with
 "Debug at boot" in `control` the boot's log says every step):
 ```bash
-tpm2-kira --debug slot info
+kira --debug slot info
 ```
 
 **Check current PCR values vs. sealed values:**
 ```bash
-tpm2-kira slot info            # shows what was sealed
-tpm2-kira pcrtips         # explains what each PCR measures
+kira slot info            # shows what was sealed
+kira pcrtips         # explains what each PCR measures
 ```
 
 ## Diagnosing PCR mismatches
@@ -127,7 +127,7 @@ reconstruction rules and constants.
 **A failed command exits 1**, with the reason on stderr after a fixed marker:
 
 ```
-tpm2-kira: FAILED: <reason>
+kira: FAILED: <reason>
 ```
 
 What must never break a build or an update on it says so where it calls: the
