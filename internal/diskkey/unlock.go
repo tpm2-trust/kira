@@ -528,7 +528,10 @@ func ConsoleAsk(volume, what, note string) ([]byte, error) {
 var errPassphraseCancelled = errors.New("cancelled at the prompt")
 
 // rawTerminal is the terminal a prompt has in raw mode, and how it was:
-// there is one console, and an open prompt may end with the process.
+// there is one console, and an open prompt may end with the process. Not
+// go-tui-slim's termguard, which gives the terminal back on a signal and then
+// ends the process by it: at boot run takes SIGTERM itself (shutdown,
+// switch-root) and ends its parts first, the prompt's restore among them.
 var rawTerminal struct {
 	sync.Mutex
 	fd  int
@@ -661,8 +664,8 @@ var errPassphraseTooLong = fmt.Errorf("a passphrase of more than %d bytes", MaxP
 // A lock that fails is said, once, and the prompt stays: at boot nothing withholds
 // a prompt, and a command on the installed system has locked its whole memory first.
 var passphraseBuffer = func() []byte {
-	pw := make([]byte, 0, MaxPassphrase)
-	if err := unix.Mlock(pw[:MaxPassphrase]); err != nil && !bufferLockSaid.Swap(true) {
+	pw, err := secret.LockedBuffer(MaxPassphrase)
+	if err != nil && !bufferLockSaid.Swap(true) {
 		journal.NarrateAt(journal.PrioWarning, "tpm2-kira: the passphrase's buffer is not locked in memory: %v", err)
 	}
 	return pw
