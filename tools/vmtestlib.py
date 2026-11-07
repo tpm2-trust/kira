@@ -252,7 +252,10 @@ class Vault:
         for f in ("Dockerfile", "entrypoint.sh"):
             subprocess.run(["cp", "-p", os.path.join(REPO, "tools", "vmtest-vault", f), ctx], check=True)
         env = dict(os.environ, CGO_ENABLED="0")
-        p = subprocess.run(["go", "build", "-o", os.path.join(ctx, "kira-vault"), "."], cwd=self.src, env=env, capture_output=True, text=True)
+        # The test build (vault_test_swtpm): its init takes the container's software
+        # TPM socket, which a release refuses.
+        p = subprocess.run(["go", "build", "-tags", "vault_test_swtpm", "-o", os.path.join(ctx, "kira-vault"), "."], cwd=self.src, env=env,
+                           capture_output=True, text=True)
         if p.returncode != 0:
             raise Fail("building kira-vault: " + p.stderr[-800:])
         # Host networking for the build: name resolution inside a build
@@ -260,7 +263,8 @@ class Vault:
         self._sh(["docker", "build", "--network", "host", "-q", "-t", self.NAME, ctx])
         self._sh(["docker", "rm", "-f", self.NAME], check=False)
         # The operator interface only on this machine's loopback.
-        self._sh(["docker", "run", "-d", "--name", self.NAME, "-p", f"{self.port}:8443", "-p", f"127.0.0.1:{self.op_port}:8444",
+        # The vault locks its memory before it holds a key: no limit on it.
+        self._sh(["docker", "run", "-d", "--name", self.NAME, "--ulimit", "memlock=-1:-1", "-p", f"{self.port}:8443", "-p", f"127.0.0.1:{self.op_port}:8444",
                   "-e", f"VAULT_URL={self.url}", self.NAME])
         deadline = time.time() + 60
         while time.time() < deadline:
