@@ -338,7 +338,7 @@ CA's slots (signed on Arch, 8 and 9 on Debian), and the boot's log has no error.
 a token, enrols with a pepper, rebuilds the image; a boot nobody touches waits for an operator, is
 approved first with a wrong pepper, then with the right one; what the vault shows of Secure Boot, from
 the quote. `revoked`: the screen and the prompt say the vault gave no key and the recovery recipe's
-keyslot is the fallback, typed over SSH; then unrevoked. Under `--all`, `vault-alone`, `typed-vault` and `keyboard-vault`.
+keyslot is the fallback, typed over SSH; the revoke is final. Under `--all`, `vault-alone`, `typed-vault` and `keyboard-vault`.
 
 **Hibernation** (`tools/hibernatetest.py`'s docstring has the steps): one hibernation of the typed boot,
 kept as a snapshot; the resume over SSH; suspend to RAM; the failure path from it.

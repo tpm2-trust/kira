@@ -115,25 +115,38 @@ vault cannot do: open a disk.
 
 ## 3. Setting it up
 
-**On the vault host** (a machine with a TPM 2.0), as root:
+**On the vault host** (a machine with a TPM 2.0, Secure Boot on, its state
+directory on an encrypted volume measured into PCR 15), as root:
 
 ```bash
 make -C kira-vault build && sudo make -C kira-vault install   # /usr/bin and the unit
-kira-vault init --url https://vault.example:8443 --pcrs 7
+sudo kira-vault control                                       # the guided way, or by hand:
+kira-vault init --url https://vault.example:8443              # --pcrs 7,15 by default
 systemctl enable --now kira-vault
 # open TCP 8443 in the firewall for the machines
 ```
 
-`init` checks that the TPM can seal and unseal, and creates
-`/var/lib/kira-vault` (0700): the vault's TLS root (ECDSA P-256,
-valid 20 years) and a leaf it signs for the vault's host or address
-(valid a year, made again from the root with fewer than 30 days left, at
-start and while serving), the configuration. It prints the **pin**
-(`sha256:` over the root's SubjectPublicKeyInfo) and the **vault recovery
-key**, shown once: write it down and keep it offline (§6.5).
-`kira-vault tls root` prints the root, for the machines and the
-operators: each verifies the vault's chain against it. `--pcrs ""` binds the device keys to the TPM only, not to the
-vault's boot state; init warns about that.
+`kira-vault control` is the vault's control panel, like `kira control`: every
+step the command it equals, the vault judged line by line (§6.7). In a container
+instead of the unit: `make container` builds the image (the release binary
+alone), `make install-container` the Quadlet for podman (the host's tss group
+mapped into the container's user namespace); `init` then runs in the same image
+(control shows the line), and `approve` in serve's container.
+
+`init` asks the **approval PIN** twice and checks the vault host's logs (Secure
+Boot from PCR 7's events, the state directory's volume measured into PCR 15:
+§6.2) before anything is made. It draws the **master key**, shows it once as the
+**backup** (11 groups of five; the vault's only recovery secret: write it down and
+keep it offline, §6.5), and makes in the TPM the approval key behind the PIN, the
+counter and the master; it approves the vault's boot state as it is. It creates
+`/var/lib/kira-vault` (0700): the vault's TLS root (ECDSA P-256, valid 20
+years) and a leaf it signs for the vault's host or address (valid a year, made
+again from the root with fewer than 30 days left, at start and while serving),
+the configuration. It prints the **pin** (`sha256:` over the root's
+SubjectPublicKeyInfo). `kira-vault tls root` prints the root, for the machines
+and the operators: each verifies the vault's chain against it. `init` takes the
+TPM at `/dev/tpmrm0` (or `/dev/tpm0`) and an admin socket in `/run/kira-vault/`
+alone: what the unit and the container reach.
 
 **For each machine:**
 
@@ -326,7 +339,7 @@ enrolment).
 | rate | at most 10 challenges per device per minute |
 | generation | the highest verified generation is kept; a lower one is refused |
 | revoked | denied, "the device is revoked" |
-| the vault's own boot state changed | denied, "the vault's own boot state changed: run reseal"; not counted against the device |
+| the vault's own boot state is not approved | denied, "the vault's own boot state is not approved: an operator approves it (kira-vault approve)"; not counted against the device; no enrolment either |
 | audit | every enrolment, challenge, verification, release, denial and admin action, append-only, synced after each line; a request with a verified quote names Secure Boot's state (`secure_boot`, `secure_boot_red`) |
 
 Pending requests live in memory only: after a restart, the machine starts
@@ -334,24 +347,51 @@ with a new challenge. Request bodies are limited to 1 MiB.
 
 ### 6.2 Keys at rest
 
-Each device record's wrapped R is encrypted with AES-256-GCM under a
-per-device key K_dev, with the device ID as AAD. K_dev is a sealed data
-object under the owner hierarchy's storage primary (re-created on each
-use), with PolicyPCR over the vault's selection (SHA-256 bank), created
-and unsealed through salted, encrypted sessions, and unsealed for each
-release only, then wiped. A copy of K_dev is encrypted to the **vault
-recovery key**, an X25519 key pair made at `init`: the vault keeps only
-its public half, so enrolment can encrypt to it while the server never
-holds the private half.
+One **master key** (32 bytes, HMAC-SHA256), drawn at `init` in locked memory,
+shown once as the backup, and imported into the vault's TPM under the storage
+primary - wrapped for the primary's public key (an outer wrapper: not on the bus
+in the clear), not fixed to the TPM (it existed once, at init, and then only in the
+backup). Each machine's **K_dev** is the master's HMAC of its device ID and a
+32-byte **r_dev** of its own, computed in the TPM and returned encrypted (a salted
+session); its record's wrapped R is encrypted with AES-256-GCM under K_dev, the
+device ID as AAD. K_dev lives in locked memory for one enrolment or release, then
+is wiped. A **revoke** deletes r_dev: the device's key cannot be made again by
+anyone, with or without the backup.
+
+The master is used only under an **approval** of the vault's own boot state:
+
+    master's policy = PolicyAuthorize(approval key, ref) ; PolicyCommandCode(TPM2_HMAC)
+    approved        = PolicyPCR(the vault's PCRs, their values) ; PolicyNV(counter == N)
+
+- **The approval key** is an RSA signing key in the vault's TPM (as long as the
+  TPM takes: `TPM2_TestParms`), its authValue the approval PIN,
+  dictionary-attack protected; the PIN goes through salted HMAC sessions.
+- **The counter** is an NV counter at 0x01804000 (outside kira's range and aSSH's),
+  raised only with the approval key (PolicySigned): each approval raises it and
+  names its new value, so every older approval fails in the TPM, whatever the PCRs.
+- **An approval** (`approve`, the first at `init`) is the policy over the live
+  values signed with the approval key: `approvals/<time>.json`. serve takes the one
+  whose values and counter are the live ones.
+- **The approval refuses PCR 7** whose firmware log does not establish Secure Boot
+  on (core's `attest.EstablishSecureBoot`), and **PCR 15** without the state
+  directory on dm-crypt, without systemd's measurement log replaying to it, or -
+  where systemd-cryptsetup measures volumes (`tpm2-measure-pcr=yes` in crypttab) -
+  without the volume's `cryptsetup:` event. Where nothing measures volumes
+  (Debian's initramfs-tools), that is a note, and serve refuses to start off
+  dm-crypt. With kira installed on the vault host, its close extends PCR 15 and
+  logs it there too.
+- **The selection** is 7 and 15 by default: an approval is due on a db/dbx update
+  or another volume, not on a kernel update; 11 and 4 are optional.
 
 ### 6.3 Admin interface and operator interface
 
 **Admin:** HTTP over a root-only Unix socket
 (`/run/kira-vault/admin.sock`, 0600); the CLI is its client: `GET
-/v1/devices[/{id}]`, `POST /v1/devices/{id}/revoke|unrevoke|unlock|mode`,
-`GET /v1/requests`, `POST /v1/requests/{id}/approve|deny`, `POST
-/v1/tokens`, `GET /v1/audit[?follow=1]`, `GET|POST /v1/operators`,
-`DELETE /v1/operators/{name}`. The audit names the actor "admin". A
+/v1/devices[/{id}]`, `POST /v1/devices/{id}/revoke|unlock|mode`,
+`GET /v1/requests`, `POST /v1/requests/{id}/approve|deny`, `GET|POST
+/v1/tokens`, `DELETE /v1/tokens/{id}`, `GET /v1/status`, `GET
+/v1/audit[?follow=1]`, `GET|POST /v1/operators`, `DELETE
+/v1/operators/{name}`. The audit names the actor "admin". A
 device's release mode is a number there (`"mode": 1` at once, `2` after an
 approval: `vaultproto.ReleaseMode`); the CLI takes and shows the words
 auto and approve.
@@ -362,51 +402,59 @@ auto and approve.
 
 ```
 /var/lib/kira-vault/
-  config.json           listen address, URL, the vault's PCRs, TPM path, admin socket, recovery public key
+  config.json           listen address, URL, the vault's PCRs, TPM path, admin socket
+  master.json           the master as the TPM holds it, the approval keys
+  approvals/<time>.json the approvals of the vault's boot state
   tls/ca.pem, ca-key.pem the root (20 years) and its key: the vault's identity, the pin's key
   tls/cert.pem, key.pem the leaf it serves (1 year), made again from the root when due
-  devices/<id>.json     pinned device data, release state, the encrypted wrapped R,
-                        sealed K_dev, K_dev encrypted to the recovery key
+  devices/<id>.json     pinned device data, release state, r_dev, the encrypted wrapped R
   tokens/<sha256>.json  unused tokens, stored only as their hash
   operators/<name>.json operators' bearer tokens, stored only as their hash
   audit.log
 ```
 
 Files are 0600, written atomically (temp file, fsync, rename, fsync of
-the directory). `init` and `reseal` work on the directory directly and
-refuse while `serve` holds its lock.
+the directory). `init` and `config` work on the directory directly and
+refuse while `serve` holds its lock; `approve` writes `approvals/` beside a
+running serve.
 
 ### 6.5 Recovery
 
-- **The vault's boot state changed** (a firmware update, a Secure Boot
-  change): `systemctl stop kira-vault; kira-vault reseal [--pcrs
-  7]` (asks the recovery key; from stdin when not a terminal); `systemctl
-  start kira-vault`. `reseal` opens the K_dev copies and seals each
-  to the current PCR values (and a new selection, given `--pcrs`).
-- **The recovery key is lost and the boot state changed:** the records
-  cannot be opened. Each machine unlocks with its recovery passphrase and
-  is enrolled again with a `--replace` token.
-- **The vault is gone:** machines fall back to cryptsetup's prompt and
-  their recovery passphrase. A backup of the state directory needs the
-  same TPM, or the recovery key and `reseal` on the new one.
-- **A machine was reported stolen:** `kira-vault device revoke
-  DEVICE`.
+- **The vault's boot state changed** (a firmware or Secure Boot update, another
+  volume): nothing is released until `kira-vault approve` - beside the running
+  serve, with the approval PIN - approves the new state; it shows what moved and
+  what the logs say of it first.
+- **The TPM is lost** (a new mainboard, a new host): restore the state directory
+  from its backup, then `kira-vault init --restore` with the master's backup: a
+  new PIN, approval key and counter in the new TPM, and every machine is released
+  to as before. `kira-vault backup check` checks a written-down backup.
+- **The backup is lost and the TPM too:** the records cannot be opened. Each
+  machine unlocks with its recovery passphrase and is enrolled again with a
+  `--replace` token.
+- **A machine was reported stolen:** `kira-vault device revoke DEVICE` - for good;
+  it comes back only by a new enrolment.
 
 ### 6.6 Commands
 
 | Command | |
 |---|---|
-| `init [--dir] [--listen :8443] [--url] [--pcrs 7] [--tpm /dev/tpmrm0] [--admin-socket]` | create the state directory |
-| `serve [--dir]` | run the vault (the unit does this) |
+| `control [--dir] [--socket] [--lines] [--debug]` | the control panel (§6.7) |
+| `init [--dir] [--listen :8443] [--url] [--pcrs 7,15] [--tpm /dev/tpmrm0] [--admin-socket] [--operator-listen]` | create the vault: its keys in this TPM, the backup shown once |
+| `init --restore [--dir]` | the master from its backup into this TPM, in a restored state directory |
+| `approve [--dir]` | approve the vault's boot state as it is (the PIN) |
+| `approvals [--dir]` | the approvals, and which is in use |
+| `backup check [--dir]` | check a written-down backup |
+| `serve [--dir]` | run the vault (the unit, or the container, does this) |
+| `status` | the vault as it runs: the approval, the TPM, the certificates, the counts |
 | `token create --name NAME [--mode auto\|approve] [--ttl 1h] [--replace DEVICE]` | a one-time enrolment token, with the machine's command line |
+| `token list`, `token withdraw ID` | the unused tokens (never their value); withdraw one |
 | `devices` | the enrolled machines: mode, state, generation, last release |
-| `device show\|revoke\|unrevoke\|unlock DEVICE` | one machine |
+| `device show\|revoke\|unlock DEVICE` | one machine; a revoke is final |
 | `device mode DEVICE auto\|approve` | release at once, or after an operator's approval |
 | `requests` | releases waiting for approval |
 | `requests answer` | go through them one by one: approve, deny or skip; the pepper asked where needed |
 | `request approve\|deny ID` | decide one; a pepper device's approval asks the pepper |
 | `audit [--follow]` | the audit log |
-| `reseal [--dir] [--pcrs 7]` | seal every device key to the vault's current PCRs |
 | `config set operator-listen ADDR\|"" [--dir]` | turn the operator interface on (an address, e.g. `:8444`) or off; serve stopped |
 | `operator add NAME` | an operator: prints the bearer token once, the URL and a curl line (`--cacert`) |
 | `tls root [--dir]` | the vault's root certificate (PEM), for machines and operators; also while serve runs |
@@ -418,6 +466,23 @@ DEVICE is a hex device ID or a unique name. The admin commands take
 device, `request approve` and `requests answer` ask the pepper on the
 terminal (without echo; one line from a pipe) and send it with the
 approval; the operator interface carries it as `{"pepper":"…"}`.
+
+### 6.7 The control panel
+
+`kira-vault control`, as root: the sections Overview, Setup (create, restore,
+check the backup, run it under the unit or in the container, the firewall's
+advice), Machines (enrol, the unused tokens, each device), Requests, Operators,
+Approvals, Tools and Reference - a full screen on a terminal (go-tui-slim's
+panel, as `kira control`), line menus with `--lines`, everything printed without a
+terminal. Its overview judges line by line: how serve runs (the unit, a container,
+neither: by the admin socket's peer), the state directory and its volume, the vault
+host's Secure Boot (its EFI variables), the selection, whether an approval is due
+and what moved, the TPM's dictionary-attack state, the certificate's name and
+ends, the URL's host, a TLS handshake to each listen address verified against the
+root, the admin socket, the devices, tokens and requests. It never opens the TPM
+(serve has it) and never writes the state directory: it runs the CLI. The backup,
+tokens and PINs are shown or asked in a step's run below the screen, never in a
+frame.
 
 ## 7. The machine's side
 
@@ -501,7 +566,8 @@ recovery keyslot is mandatory, and the console prompt is always there.
 | `internal/admin/luks.go`, `internal/diskkey/recipe.go`, `internal/diskkey/header.go`, `internal/diskkey/unlock.go` | the recipe, the token, the key provider |
 | `internal/bootrun/run.go` | the attempt started with `run`, ended with the hold; a key made ends it |
 | `../kira-vault/internal/server` | the machine-facing protocol and the rules (§6.1), the admin interface |
-| `../kira-vault/internal/keys` | AES-GCM, the recovery key, the TPM sealer |
+| `../kira-vault/internal/keys` | the master, the approval key, the counter, the backup, AES-GCM |
+| `../kira-vault/internal/approval`, `bootstate`, `control` | the approval of the live state; the logs' evidence; the control panel |
 | `../kira-vault/internal/state` | the state directory, tokens, the lock, the audit log |
 | `../kira-vault/packaging/` | the systemd unit |
 
@@ -538,10 +604,13 @@ recovery keyslot is mandatory, and the console prompt is always there.
   directory, wiped on expiry and revocation); the operator interface
   (401s, the endpoints allowed and refused, the body limit, the failed-
   authentication limit, a removed operator); all on an injected clock.
-- **kira-vault, swtpm**: the sealer under PolicyPCR, unsealing
-  refused after a PCR moved, `reseal` with the recovery key; the vault end
-  to end with a moved PCR and `reseal`, and a pepper device approved over
-  the operator interface with a bearer token.
+- **kira-vault, swtpm**: the master imported, the TPM's HMAC the master's; a wrong
+  PIN, a moved PCR, an older and a forged approval refused; two approval keys under
+  PolicyOR; the vault end to end with a moved PCR, `approve` beside serve, a pepper
+  device approved over the operator interface, and the master restored from its
+  backup into a second TPM; `control`'s printout of it. The policies' digests are
+  pinned by known answers; the firmware's logs of the test VMs give PCR 7's chains
+  kira's parser gives.
 - **On the test VMs** (2026-10-11): the vault on the Arch VM (PCR 7,
   Secure Boot on), the Debian VM as the machine (slot 0 sealed to PCR
   0,2,7,8,9; `luks enrol`, then the recipe tpm+vault, added keyslot 2). Three boots:

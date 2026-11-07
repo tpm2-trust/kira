@@ -1215,6 +1215,13 @@ class Machine:
         out = self.boot_log("boot-vault-kira.log")
         self.check("the vault released the remote part; the key was made", "released; the key is made" in out, out[-600:])
         self.check("the key was answered", "unlock: answered for" in out, out[-600:])
+        # The vault's control panel, without a terminal, in serve's container: the device, the
+        # container, the approval in use.
+        out = vault.admin("control")
+        with open(os.path.join(self.dir, "vault-control.log"), "w") as f:
+            f.write(out)
+        self.check("kira-vault control: the device listed, serve in a container, the approval in use",
+                   self.name in out and "serve runs in a container" in out and re.search(r"approval\s+\S+ in use", out) is not None, out[-1200:])
 
     def revoked(self):
         """The boot after the pepper's, with no image built and nothing approved in between: the
