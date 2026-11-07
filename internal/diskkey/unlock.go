@@ -666,7 +666,7 @@ var errPassphraseTooLong = fmt.Errorf("a passphrase of more than %d bytes", MaxP
 var passphraseBuffer = func() []byte {
 	pw, err := secret.LockedBuffer(MaxPassphrase)
 	if err != nil && !bufferLockSaid.Swap(true) {
-		journal.NarrateAt(journal.PrioWarning, "tpm2-kira: the passphrase's buffer is not locked in memory: %v", err)
+		journal.NarrateAt(journal.PrioWarning, "tpm2-kira: the passphrase's buffer: %v", err)
 	}
 	return pw
 }
