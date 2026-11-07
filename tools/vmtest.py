@@ -1738,7 +1738,7 @@ WantedBy=sysinit.target
         rc, out = self.run("kira slot delete --nvram 2 2>&1", save="slot-delete.log")
         self.check("slot delete --nvram 2", "Successfully deleted" in out, out[-400:])
         rc, out = self.run("kira slot list 2>&1", save="slot-list-after-delete.log")
-        self.check("slot 2 is gone whole (its blob and its generation index)", "0x01803012" not in out and "0x01803812" not in out, out[-500:])
+        self.check("slot 2 is gone whole (its generation index and its record counter)", "0x01803012" not in out and "0x01803022" not in out, out[-500:])
 
     def moved_channel(self, slot):
         """A slot whose phone channel is sealed to another PCR 7 than the next boot's

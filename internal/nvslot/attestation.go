@@ -34,8 +34,8 @@ import (
 
 const (
 	// AttestCounterStart is slot 0's record counter; slot N is at +N
-	// (counter.go).
-	AttestCounterStart = 0x01803820
+	// (counter.go): 0x01803020-2F, beside the slots' generation indices.
+	AttestCounterStart = 0x01803020
 
 	// MaxVerifiers bounds the phones of one slot.
 	MaxVerifiers = 8

@@ -282,7 +282,7 @@ func TestBlobIndexIsASlot(t *testing.T) {
 			t.Errorf("slot 0x%08X's generation index 0x%08X is a record counter", idx, g)
 		}
 	}
-	for _, idx := range []uint32{nvslot.NVRAMSlotStart - 1, nvslot.NVRAMSlotEnd + 1, 0x01803100, nvslot.GenerationIndex(nvslot.NVRAMSlotStart), nvslot.AttestCounterIndex(nvslot.NVRAMSlotStart) - nvslot.GenerationIndexOffset} {
+	for _, idx := range []uint32{nvslot.NVRAMSlotStart - 1, nvslot.NVRAMSlotEnd + 1, 0x01803100, nvslot.AttestCounterIndex(nvslot.NVRAMSlotStart), nvslot.AttestCounterIndex(nvslot.NVRAMSlotEnd)} {
 		if err := nvslot.ValidateBlobIndex(idx); err == nil {
 			t.Errorf("0x%08X accepted as a slot", idx)
 		}

@@ -30,7 +30,7 @@ func TestInfoShowsTheAttestationPart(t *testing.T) {
 		"PCRs quoted: sha256:[0 7]",
 		"Revision: 4",
 		"not when the machine is attested",
-		"Revision counter in the TPM (0x01803820): 4 (matches",
+		"Revision counter in the TPM (0x01803020): 4 (matches",
 		"Methods",
 		"Phones over Bluetooth LE: 1 enrolled",
 		"└── phone 1",

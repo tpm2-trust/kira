@@ -206,8 +206,8 @@ flowchart LR
 | What | Where | Written by |
 |---|---|---|
 | a slot's record (its approval; TOTP key, phones, the vault's part, the TPM salt) | EFI variable `KIRAslot`n (kira's GUID), at most 8 KiB | `slot add`, `slot approve`, `phone enrol`, `vault enrol`, `luks enrol` |
-| a slot's generation (the slot exists while it does) | TPM NV `0x01803810` + n | `slot add`, `slot approve` |
-| the phone record counter | TPM NV `0x01803820` + n | `phone enrol`, `phone unenrol` |
+| a slot's generation (the slot exists while it does) | TPM NV `0x01803010` + n, the slot's handle | `slot add`, `slot approve` |
+| the phone record counter | TPM NV `0x01803020` + n | `phone enrol`, `phone unenrol` |
 | the boot settings ("Debug at boot") | TPM NV `0x01803000` | `control` |
 | the machine-id, sealed under slot 0's policy | EFI variable `KIRAmachineID` (kira's GUID) | `slot add` (slot 0), `slot approve`; removed with slot 0 and by `slot delete` |
 | the SSH CA | EFI variable `KIRAasshCA` (the key itself in the TPM) | `control`; removed by `control` (when SSH is switched off, if you say so) and `slot delete` |

@@ -43,27 +43,15 @@ func TestRemovalTakesOnlyOurs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// A slot is its record and its indices above the slots' numbers: an
-	// index at a slot's number is nobody's of kira's, and stays.
-	removed, err := nvslot.RemoveSlot(tpm, foreign, nil)
-	if len(removed) != 0 || err != nil {
-		t.Fatalf("another's index at slot 3's number: %v %v", removed, err)
-	}
-	if !tpmdev.NVRAMIndexExists(tpm, foreign) {
-		t.Fatal("another's index was removed")
-	}
-	// Another's index at a slot's generation index is named, and stays.
-	other.NVIndex = tpm2.TPMHandle(nvslot.GenerationIndex(foreign))
-	if _, err := (tpm2.NVDefineSpace{AuthHandle: tpm2.TPMRHOwner, PublicInfo: tpm2.New2B(other)}).Execute(tpm); err != nil {
-		t.Fatal(err)
-	}
+	// Another's index at a slot's generation index - the slot's own handle - is
+	// named, and stays.
 	if _, err := nvslot.RemoveSlot(tpm, foreign, nil); !errors.Is(err, persist.ErrNotOurs) || !strings.Contains(err.Error(), fmt.Sprintf("0x%08X", nvslot.GenerationIndex(foreign))) {
 		t.Fatalf("another's index at slot 3's generation index: %v", err)
 	}
 	if !tpmdev.NVRAMIndexExists(tpm, nvslot.GenerationIndex(foreign)) {
 		t.Fatal("another's index at the generation index was removed")
 	}
-	removed, err = nvslot.RemoveSlot(tpm, mine, nil)
+	removed, err := nvslot.RemoveSlot(tpm, mine, nil)
 	if err != nil || len(removed) != 3 {
 		t.Fatalf("slot 2 whole: %+v %v", removed, err)
 	}

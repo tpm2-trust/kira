@@ -25,13 +25,14 @@ import (
 )
 
 // definedAt is the public area kira defines at index, told by its
-// place: the record counters, the generation indices above them, and below
-// those the boot settings. The size of 0 is any, the policy not compared.
+// place: the slots' generation indices (0x01803010-1F), their record counters
+// (0x01803020-2F), and the boot settings below them. The size of 0 is any, the
+// policy not compared.
 func definedAt(index uint32) tpm2.TPMSNVPublic {
 	switch {
 	case index >= AttestCounterStart && index <= AttestCounterIndex(NVRAMSlotEnd):
 		return AttestCounterPublic(index)
-	case index >= AppNVRAMStart+GenerationIndexOffset:
+	case index >= GenerationIndex(NVRAMSlotStart) && index <= GenerationIndex(NVRAMSlotEnd):
 		return generationIndexPublic(index, tpm2.TPM2BDigest{})
 	default:
 		return blobPublic(index, tpm2.TPM2BDigest{}, 0)

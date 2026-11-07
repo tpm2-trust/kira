@@ -90,9 +90,6 @@ func sweepRole(idx uint32) string {
 	if r := kiraIndexRole(idx); r != "" {
 		return r
 	}
-	if idx >= nvslot.NVRAMSlotStart && idx <= nvslot.NVRAMSlotEnd {
-		return fmt.Sprintf("slot #%d's place (an earlier version's blob)", nvslot.SlotNumber(idx))
-	}
 	return "in kira's range: an earlier version's layout, or another program's"
 }
 

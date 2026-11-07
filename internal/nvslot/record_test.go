@@ -29,7 +29,7 @@ func TestRecordVar(t *testing.T) {
 			t.Errorf("slot %d: %q %v", n, got, err)
 		}
 	}
-	for _, idx := range []uint32{NVRAMSlotStart - 1, NVRAMSlotEnd + 1, GenerationIndex(NVRAMSlotStart), 0} {
+	for _, idx := range []uint32{NVRAMSlotStart - 1, NVRAMSlotEnd + 1, AttestCounterIndex(NVRAMSlotStart), 0} {
 		if v, err := RecordVar(idx); err == nil {
 			t.Errorf("0x%08X has a record: %s", idx, v)
 		}
@@ -98,8 +98,8 @@ func TestRecordStorage(t *testing.T) {
 	if _, err := ReadRecord(slot); !errors.Is(err, ErrNoRecord) {
 		t.Fatalf("after remove: %v", err)
 	}
-	if err := WriteRecord(GenerationIndex(slot), newer); err == nil {
-		t.Fatal("a record written for a generation index")
+	if err := WriteRecord(AttestCounterIndex(slot), newer); err == nil {
+		t.Fatal("a record written for a record counter")
 	}
 }
 

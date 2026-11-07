@@ -26,7 +26,7 @@ import (
 )
 
 // AttestCounterIndex is the NV index of the record counter for a slot's
-// blob index: 0x01803820 + slot, next to the generation indices.
+// blob index: 0x01803020 + slot, beside the generation indices (0x01803010 + slot).
 func AttestCounterIndex(slotIndex uint32) uint32 {
 	return AttestCounterStart + AttestSlot(slotIndex)
 }

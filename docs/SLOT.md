@@ -285,9 +285,11 @@ list` shows the slots and their parts, and the machine's boot settings:
 | Where (slot *n*) | What it holds | Written by |
 |---|---|---|
 | EFI variable `KIRAslot`*n* | the slot's record: the boot state, its approval, its methods | `slot add`, `slot approve`, `phone enrol`/`unenrol`, `vault enrol`, `luks enrol` (TPM salt, vault) |
-| NV `0x01803810` + *n* | the generation index of the slot's policy (the slot exists while it does) | `slot add`, `slot approve` |
-| NV `0x01803820` + *n* | the record counter of the attestation part | the enrolments |
+| NV `0x01803010` + *n* | the generation index of the slot's policy, at the slot's own handle (the slot exists while it does) | `slot add`, `slot approve` |
+| NV `0x01803020` + *n* | the record counter of the attestation part | the enrolments |
 | NV `0x01803000` | the boot settings: "Debug at boot" (one per machine, only while it is on) | `control` |
+
+Every NV index of kira's, kira-vault's and aSSH's, with what it is for: NV-INDICES.md.
 
 Because the phones live in the slot's record,
 

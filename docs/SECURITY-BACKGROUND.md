@@ -47,7 +47,7 @@ way of closing (§14).
 flowchart TB
   subgraph TPM["TPM 2.0"]
     PCRS["PCR 0, 2, 4, 7, 8, 9, 11: the boot state<br/>PCR 15: zero until the close"]
-    GEN["NV 0x01803810 + n: generation G (noDA)<br/>NV 0x01803820 + n: record counter<br/>NV 0x01803000: boot settings"]
+    GEN["NV 0x01803010 + n: generation G (noDA)<br/>NV 0x01803020 + n: record counter<br/>NV 0x01803000: boot settings"]
     USE["Keys used while loaded, never read out:<br/>TOTP key, boot key, release key, attestation key,<br/>sealed machine-id, SSH CA, host key"]
   end
   subgraph EFI["EFI variables, kira's GUID"]
@@ -319,8 +319,8 @@ still can: §19.
 
 ### 3.2 The generation index
 
-Each slot has an NV index at its number's index + `0x800`
-(`0x01803810` for slot 0). It holds an 8-byte big-endian generation `G`; a slot exists
+Each slot has an NV index at its own handle, `0x01803010` + *n*
+(`0x01803010` for slot 0). It holds an 8-byte big-endian generation `G`; a slot exists
 while it is defined. Attributes:
 
 - `OwnerRead`, `AuthRead` (empty auth): anyone can read it, as `PolicyNV` must.
@@ -337,7 +337,7 @@ closing the slots for the rest of the boot is PCR 15's (§14).
 
 ### 3.3 The record counter
 
-A slot with an attestation part has a third NV index, at `0x01803820` + *n*: an
+A slot with an attestation part has a second NV index, at `0x01803020` + *n*: an
 8-byte **counter** (`TPM_NT_COUNTER`), with `OwnerWrite`, `OwnerRead`,
 `AuthRead` (empty auth) and `NoDA`.
 
@@ -1434,9 +1434,9 @@ only way back in, because:
    other than PCR 15 is red there until the next boot, and `kira slot info`
    reports a slot as closed until the next boot (PCR 15) in the running system.
 8. **NV index range.** kira uses `0x01803000` (the boot settings),
-   the generation indices `0x01803810–0x0180381F` and the record counters
-   `0x01803820–0x0180382F` (TPM2 owner-defined NV range); the slots' records
-   are EFI variables. Avoid conflicts with other applications using the
+   the generation indices `0x01803010–0x0180301F` and the record counters
+   `0x01803020–0x0180302F` (TPM2 owner-defined NV range); the slots' records
+   are EFI variables. Every index of kira's, kira-vault's and aSSH's: NV-INDICES.md. Avoid conflicts with other applications using the
    same range.
 
 ---

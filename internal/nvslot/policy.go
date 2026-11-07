@@ -51,15 +51,11 @@ import (
 // system, not root - can use a slot object until the next boot. The same
 // extension closes the SSH CA (aSSH's hostkey.Close).
 
-// GenerationIndexOffset separates a slot's generation index from its blob
-// index. Blob indices live below AppNVRAMStart+GenerationIndexOffset, their
-// generation indices at the same offset above it.
-const GenerationIndexOffset = 0x800
-
 // GenerationIndex returns the NV index that holds the generation of the slot
-// whose blob is at blobIndex.
+// at blobIndex: the slot's own handle, 0x01803010 + n. The slot's record is its
+// EFI variable; in the TPM the slot is this index, which also says that it exists.
 func GenerationIndex(blobIndex uint32) uint32 {
-	return blobIndex + GenerationIndexOffset
+	return blobIndex
 }
 
 // ErrClosed marks a slot whose objects cannot be used in this boot any

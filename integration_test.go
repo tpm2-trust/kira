@@ -1533,7 +1533,7 @@ func TestBootCloseExtendsPCR15(t *testing.T) {
 func TestSlotDeleteForeignIndexByHand(t *testing.T) {
 	tpmPath, cleanup := setupSoftwareTPM(t)
 	defer cleanup()
-	const gen = nvslot.NVRAMSlotStart + nvslot.GenerationIndexOffset + 5
+	gen := nvslot.GenerationIndex(nvslot.NVRAMSlotStart + 5)
 	dev, err := tpmdev.Open(tpmPath)
 	if err != nil {
 		t.Fatal(err)

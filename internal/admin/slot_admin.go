@@ -198,7 +198,7 @@ func kiraIndexRole(index uint32) string {
 	case index == nvslot.BootSettingsIndex:
 		return "the boot settings (debug at boot)"
 	case index >= nvslot.GenerationIndex(nvslot.NVRAMSlotStart) && index <= nvslot.GenerationIndex(nvslot.NVRAMSlotEnd):
-		return fmt.Sprintf("generation index of slot #%d", nvslot.SlotNumber(index-nvslot.GenerationIndexOffset))
+		return fmt.Sprintf("generation index of slot #%d", nvslot.SlotNumber(index))
 	case index >= nvslot.AttestCounterIndex(nvslot.NVRAMSlotStart) && index <= nvslot.AttestCounterIndex(nvslot.NVRAMSlotEnd):
 		return fmt.Sprintf("record counter of slot #%d's attestation part", index-nvslot.AttestCounterStart)
 	}

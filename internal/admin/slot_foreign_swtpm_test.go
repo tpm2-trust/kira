@@ -68,7 +68,7 @@ func defineAt(t *testing.T, tpm transport.TPM, index uint32, attrs tpm2.TPMANV) 
 func TestForeignGenerationIndexSlotDelete(t *testing.T) {
 	const slot = uint32(nvslot.NVRAMSlotStart)
 	gen := nvslot.GenerationIndex(slot)
-	shown := []string{"0x01803810", "read_stclear", "no_da", "SHA-256", "8 bytes", "yes, 32 bytes", "generation index of slot #0", "another program"}
+	shown := []string{"0x01803010", "read_stclear", "no_da", "SHA-256", "8 bytes", "yes, 32 bytes", "generation index of slot #0", "another program"}
 	for _, tc := range []struct {
 		name       string
 		yes, force bool
@@ -133,7 +133,7 @@ func TestForeignAtEveryOwnPlace(t *testing.T) {
 		flag  string
 	}{
 		{"a slot's counter", counter, nvslot.NVRAMSlotStart + 2, "--nvram 2 --force"},
-		{"a counter by its handle", counter, counter, "--nvram 0x01803822 --force"},
+		{"a counter by its handle", counter, counter, "--nvram 0x01803022 --force"},
 		{"the boot settings by its handle", nvslot.BootSettingsIndex, nvslot.BootSettingsIndex, "--nvram 0x01803000 --force"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -195,8 +195,8 @@ func TestForeignInSlotDeleteEverything(t *testing.T) {
 func TestForceStopsAtTheOwnPlaces(t *testing.T) {
 	sock, tpm := foreignTPM(t)
 	ordinary := tpm2.TPMANV{OwnerRead: true, OwnerWrite: true, NT: tpm2.TPMNTOrdinary}
-	const reserved, slotNumber, outside = uint32(0x01803500), uint32(nvslot.NVRAMSlotStart + 3), uint32(0x01500010)
-	for _, index := range []uint32{reserved, slotNumber, outside} {
+	const reserved, oldPlace, outside = uint32(0x01803500), uint32(0x01803813), uint32(0x01500010)
+	for _, index := range []uint32{reserved, oldPlace, outside} {
 		defineAt(t, tpm, index, ordinary)
 	}
 	var err error
@@ -208,9 +208,11 @@ func TestForceStopsAtTheOwnPlaces(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "outside the safe application range") {
 		t.Errorf("outside the range: %v", err)
 	}
-	captureStdout(t, func() { err = NVRAMDeleteCommand(sock, slotNumber, false, true, false, false) })
-	if err == nil || !strings.Contains(err.Error(), "nothing to delete") {
-		t.Errorf("a slot's number: %v", err)
+	// An earlier version's place (slot 3's generation index before 2026-11-07): in the
+	// range, no own place any more; the sweep's, not --force's.
+	captureStdout(t, func() { err = NVRAMDeleteCommand(sock, oldPlace, false, true, false, false) })
+	if !errors.Is(err, persist.ErrNotOurs) || !strings.Contains(err.Error(), "not one of kira's own places") {
+		t.Errorf("an earlier version's place: %v", err)
 	}
 	// The primitive itself, whatever a caller says yes to.
 	always := func(nvslot.Foreign) (bool, error) { t.Error("asked about a place not kira's"); return true, nil }
@@ -220,7 +222,7 @@ func TestForceStopsAtTheOwnPlaces(t *testing.T) {
 	if _, err := nvslot.RemoveIndex(tpm, outside, always); err == nil {
 		t.Error("RemoveIndex outside the range took it")
 	}
-	for _, index := range []uint32{reserved, slotNumber, outside} {
+	for _, index := range []uint32{reserved, oldPlace, outside} {
 		if !tpmdev.NVRAMIndexExists(tpm, index) {
 			t.Errorf("0x%08X was removed", index)
 		}
@@ -241,7 +243,7 @@ func TestControlForeignGenerationIndex(t *testing.T) {
 	}
 	d := dirt[0]
 	for what, text := range map[string]string{"cause": d.Cause(), "remedy": d.Remedy(), "remains": d.Remains(), "explain": dirtyLine(d).Explain} {
-		want := map[string]string{"cause": "another shape", "remedy": "slot delete --nvram 0 --force", "remains": "0x01803810, of another shape", "explain": "shows the index"}[what]
+		want := map[string]string{"cause": "another shape", "remedy": "slot delete --nvram 0 --force", "remains": "0x01803010, of another shape", "explain": "shows the index"}[what]
 		if !strings.Contains(text, want) || strings.Contains(text, "fix the cause") {
 			t.Errorf("%s: %q lacks %q", what, text, want)
 		}
@@ -256,7 +258,7 @@ func TestControlForeignGenerationIndex(t *testing.T) {
 	}
 	out, err := run("0\n\n") // the slot's word, then No to the index of another shape
 	t.Logf("control, answered No:\n%s\n%v", out, err)
-	for _, want := range []string{"[y/N]", "read_stclear", "Remove the NV index 0x01803810?"} {
+	for _, want := range []string{"[y/N]", "read_stclear", "Remove the NV index 0x01803010?"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("lacks %q:\n%s", want, out)
 		}

@@ -86,7 +86,7 @@ Everything but the help needs root. `kira help` is one screen, `kira help <comma
 |---|---|
 | **Using it** | [INSTALL](docs/INSTALL.md) · [CONTROL](docs/CONTROL.md) · [SLOT](docs/SLOT.md) · [CODE](docs/CODE.md) · [PHONE](docs/PHONE.md) · [VAULT](docs/VAULT.md) · [SSH](docs/SSH.md) · [DISK-KEY](docs/DISK-KEY.md) |
 | **When something is wrong** | [TROUBLESHOOTING](docs/TROUBLESHOOTING.md) · [DEBUG-BLE](docs/DEBUG-BLE.md) · [PLATFORM-OBSERVATIONS](docs/PLATFORM-OBSERVATIONS.md) |
-| **How it works** | [ARCHITECTURE](docs/ARCHITECTURE.md) · [BOOT-INTEGRATION](docs/BOOT-INTEGRATION.md) · [SEALING](docs/SEALING.md) · [PROTOCOL-BLE](docs/PROTOCOL-BLE.md) · [SECURITY-BACKGROUND](docs/SECURITY-BACKGROUND.md) |
+| **How it works** | [ARCHITECTURE](docs/ARCHITECTURE.md) · [BOOT-INTEGRATION](docs/BOOT-INTEGRATION.md) · [SEALING](docs/SEALING.md) · [PROTOCOL-BLE](docs/PROTOCOL-BLE.md) · [SECURITY-BACKGROUND](docs/SECURITY-BACKGROUND.md) · [NV-INDICES](docs/NV-INDICES.md) |
 | **Working on it** | [PROJECT-STRUCTURE](docs/PROJECT-STRUCTURE.md) · [TESTING](docs/TESTING.md) · [AGENTS](AGENTS.md) |
 | **Plans and records** | [HISTORY](HISTORY.md) · the `docs/PLAN-*.md` files · [pentest 1](docs/pentest1/penetration_test_report.md) · [pentest 2](docs/pentest2/) |
 

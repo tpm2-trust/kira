@@ -33,15 +33,15 @@ func TestSweepTakesWhatIsLeftAtKirasPlaces(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	const oldAttest, middle, window, outside = uint32(0x01803020), uint32(0x01803500), uint32(0x01802915), uint32(0x01500010)
+	const oldGen, middle, window, outside = uint32(0x01803810), uint32(0x01803500), uint32(0x01802915), uint32(0x01500010)
 	attrs := tpm2.TPMANV{OwnerWrite: true, OwnerRead: true, AuthRead: true, NoDA: true}
-	for _, idx := range []uint32{oldAttest, middle, window, outside} {
+	for _, idx := range []uint32{oldGen, middle, window, outside} {
 		defineAt(t, tpm, idx, attrs)
 	}
 
 	var err error
 	out := captureStdout(t, func() { err = NVRAMDeleteCommand(sock, 0, true, false, false, false) })
-	for _, want := range []string{"0x01803020", "0x01803500", "0x01802915", "KIRAattestOld-", "KIRAasshCA-", "left (--sweep takes them)"} {
+	for _, want := range []string{"0x01803810", "0x01803500", "0x01802915", "KIRAattestOld-", "KIRAasshCA-", "left (--sweep takes them)"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("the listing lacks %q:\n%s", want, out)
 		}
@@ -54,7 +54,7 @@ func TestSweepTakesWhatIsLeftAtKirasPlaces(t *testing.T) {
 	if err != nil {
 		t.Fatalf("--sweep: %v\n%s", err, out)
 	}
-	for _, idx := range []uint32{oldAttest, middle, window} {
+	for _, idx := range []uint32{oldGen, middle, window} {
 		if _, _, rerr := persist.ReadNVPublic(tpm, tpm2.TPMHandle(idx)); rerr == nil {
 			t.Errorf("0x%08X is still there:\n%s", idx, out)
 		}
