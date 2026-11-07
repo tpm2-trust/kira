@@ -1261,7 +1261,6 @@ class Machine:
         out = got["log"]
         self.check("revoked: the vault refused, the key was answered from the keyslot after it", "the device is revoked" in out and "unlock: answered for" in out, out[-600:])
         self.check("TPM salt: opened while the code screen held, the key answered", "tpm salt: slot 0: opened" in out and "unlock: answered for" in out, out[-600:])
-        vault.admin("device", "unrevoke", self.vault_device)
         self.tpm_salt_removed()
 
     PEPPER = "vmtest pepper 7f3a"
