@@ -6,13 +6,13 @@ Status: **implemented** (2026-11-01). The workspace's PLAN.md holds the confirme
 
 A failed close needs a person, PCR 15 at zero is checked, every slot is PCR 7 and the image
 with slot 0 adding 0, 2 and 4, PCR 4 predicted for the next boot, and on a UKI PCR 11 is
-signed by tpm2-kira's own PCR key.
+signed by kira's own PCR key.
 
 ## Steps
 
 - [x] E2. The failure ladder's outcomes: `internal/bootclose`, `close --resume|--late`, the EFI
-      count, `tpm2-kira-late-close.service`, status and control red, AGENTS.md's exception,
-      SSH.md "The close: what it can come to", the word `tpm2-kira.noclose`; hibernatetest V4
+      count, `kira-late-close.service`, status and control red, AGENTS.md's exception,
+      SSH.md "The close: what it can come to", the word `kira.noclose`; hibernatetest V4
       (steps 5, 6), V9, V8.
 - [x] E3. `slot add`, `slot approve`, the CA's approvals refuse an event in PCR 15 in the
       firmware's log; status and control red (`closepcr.go`).
@@ -32,7 +32,7 @@ signed by tpm2-kira's own PCR key.
    memory map differs), V3's resume on Arch (the same refusal).
 3. A resumed Arch VM resets itself about 30 s after its first login: QEMU's q35 TCO watchdog
    runs from the firmware on, and a resumed kernel does not stop it (a magic close of
-   /dev/watchdog keeps the guest up). The machine's, not tpm2-kira's; V2's and V4's last check
+   /dev/watchdog keeps the guest up). The machine's, not kira's; V2's and V4's last check
    (`reveal-plain`) passes or fails by whether it comes first.
 
 ---
@@ -46,7 +46,7 @@ PLAN.md holds the confirmed plan (steps B2-B7) and its evaluation.
 ## Goal
 
 One close for everything a boot opens: every slot object's own policy reads PCR 15 after
-PolicyAuthorize, exactly as the SSH CA's, so the close (`tpm2-kira-boot close`, PCR 15
+PolicyAuthorize, exactly as the SSH CA's, so the close (`kira-boot close`, PCR 15
 extended) ends the codes, the machine-id, the phone's boot key and the release key (TPM
 salt, vault) with the CA; `cap` goes. On GRUB, where Secure Boot does not cover the command
 line and the initrd, no slot lacks PCRs 8 and 9. The learnings of the experiments are kept.
@@ -57,10 +57,10 @@ line and the initrd, no slot lacks PCRs 8 and 9. The learnings of the experiment
       (core: `attest.SlotPolicyDigest`, `IsSlotPolicy`; CheckBootKey and ReleaseKeyName accept
       either bank), `nvslot.ApprovedSessionThen` asserts it, `ErrClosed`; generation indices
       noDA without READ_STCLEAR, storage primary and TOTP key noDA; `cap`, `CapCodes`,
-      `tpm2-kira-cap.service` and Debian's cap gone; blob version 17. `run` closes at the end
+      `kira-cap.service` and Debian's cap gone; blob version 17. `run` closes at the end
       of the code screen (after the parts, before READY), not after the certificate. The plan's
       TPM part also with an SSH CA kept while SSH is off; the resume drop-in with the TPM part,
-      after `tpm2-kira.service`; the machine-id unit before the close. swtpm tests: every
+      after `kira.service`; the machine-id unit before the close. swtpm tests: every
       object before/after the close in both banks, the TPM's own refusal, core's digest equals
       a trial session's, a DA lockout stops nothing, run's release order.
 - [x] B3. GRUB: no slot without PCRs 8 and 9 (`slot add` refuses; the fallback slot and the
@@ -70,7 +70,7 @@ line and the initrd, no slot lacks PCRs 8 and 9. The learnings of the experiment
 - [x] B4. HISTORY.md (why PCR 15 instead of `cap`; why no counter window - experiment 1;
       Debian on systemd-boot + UKI - experiment 3); BOOT-INTEGRATION.md ("not yet"); the docs
       describe the close.
-- [x] B5. `Sockets=` in `[Service]` of `tpm2-kira.service`.
+- [x] B5. `Sockets=` in `[Service]` of `kira.service`.
 - [x] B6. vmtest (closed slots, a refusing TOTP key, run's close, no cap, GRUB's one slot and
       the CA's slot 0), hibernatetest V4 (the resume's boot without a TPM: no resume, the boot
       stops; reverted and resumed), serialtest, acceptance.
@@ -100,7 +100,7 @@ coordinator's (recipe in the experiment's report). aSSH's side: its PLAN.md.
 ## Goal
 
 The SSH CA's own policy reads PCR 15 (aSSH: `PolicyAuthorize ; PolicyCommandCode(Sign) ;
-PolicyPCR(15 == 0)`); the close is an extend of PCR 15 (`assh-close`), made by tpm2-kira at
+PolicyPCR(15 == 0)`); the close is an extend of PCR 15 (`assh-close`), made by kira at
 fixed points of every boot, each a failure of the boot when it fails. The window index W and
 its settings go.
 
@@ -108,12 +108,12 @@ its settings go.
 
 - [x] 1. aSSH moved (submodule `assh/` at its `exp/close-pcr15`): `hostkey.Close`, W gone.
 - [x] 2. `sshscreen.PrepareHostKey` closes with `hostkey.Close` on every way out;
-       `sshscreen.Close(tpm)` and `tpm2-kira-boot close` need no assh.conf or CA file.
-- [x] 3. Arch: `tpm2-kira-close.service` (after `tpm2-kira.service`, before
+       `sshscreen.Close(tpm)` and `kira-boot close` need no assh.conf or CA file.
+- [x] 3. Arch: `kira-close.service` (after `kira.service`, before
        `cryptsetup-pre.target`, required by `initrd.target`: a failure is the emergency
        target), added by the hook with the plan's TPM part; Makefile, PKGBUILD.
 - [x] 4. Debian: `init-bottom` closes before the cap, `panic` on a failure (leaving the
-       shell tries again); `local-top/tpm2-kira-close` (before a resume) with the plan's TPM
+       shell tries again); `local-top/kira-close` (before a resume) with the plan's TPM
        part.
 - [x] 5. The resume drop-in (Arch) unchanged: the close before a resume.
 - [x] 6. Tests: the code screen closes on every error path; the close with no CA; PCR 15
@@ -131,7 +131,7 @@ its settings go.
 2. systemd-pcrlock does not know `assh-close` in PCR 15: a `.pcrlock` file for it, and an
    entry in `/run/log/systemd/tpm2-measure.log`, if pcrlock policies are to cover PCR 15.
 
-# PLAN: Secure Boot managed by tpm2-kira; the SSH CA signs only an image Secure Boot checked
+# PLAN: Secure Boot managed by kira; the SSH CA signs only an image Secure Boot checked
 
 Branch `feat/assh-window-hibernate` (on top of the hibernation work below). Status:
 **decisions taken (2026-10-30)**. Step 1 done; the Secure Boot primitives exist in the workspace's
@@ -151,7 +151,7 @@ initrd and the command line:
 | separate initrd (systemd-boot type 1) | no | **slots 0 and 1 sign** |
 | Secure Boot off or in Setup Mode | nothing | **signs for anything** |
 
-1. **tpm2-kira manages Secure Boot itself**, with the workspace's `go-uefi-slim` module (not sbctl's
+1. **kira manages Secure Boot itself**, with the workspace's `go-uefi-slim` module (not sbctl's
    library). The sbctl command is not used: Debian has no package. Covered:
    - keys created and enrolled (with Microsoft's certificates);
    - the boot loader and the UKI signed;
@@ -163,10 +163,10 @@ initrd and the command line:
    - the same YubiKey reference (sbctl's JSON, slot 9c).
 
    A machine sbctl set up is taken as it is.
-3. **Separate keys:** Secure Boot's (sbctl's layout, RSA-4096) and tpm2-kira's approval
+3. **Separate keys:** Secure Boot's (sbctl's layout, RSA-4096) and kira's approval
    key (the TPM's greatest RSA length), each a file or on the YubiKey. Old installations
    are made again.
-4. **EFI variables are tpm2-kira's own**, not aSSH's `persist`: its own variables (the
+4. **EFI variables are kira's own**, not aSSH's `persist`: its own variables (the
    machine-id, the slots' records), Secure Boot's, and the state it reads.
 5. **The SSH CA trusts PCR 7 alone only where Secure Boot covers the image** (a UKI).
    Under GRUB (Debian, the standard install) slot 0 alone, with PCR 8 and 9, and the image
@@ -176,7 +176,7 @@ initrd and the command line:
 ```mermaid
 flowchart LR
   subgraph keys [sbctl's layout: /var/lib/sbctl]
-    PK[PK] --> KEK[KEK] --> DB["db = tpm2-kira's signing key<br/>(file or YubiKey 9c)"]
+    PK[PK] --> KEK[KEK] --> DB["db = kira's signing key<br/>(file or YubiKey 9c)"]
   end
   DB -->|Authenticode| UKI[UKI, systemd-boot: Arch]
   DB -->|PolicyAuthorize in the TPM| AP[slot approvals, SSH CA approvals]
@@ -185,10 +185,10 @@ flowchart LR
 
 ## Steps
 
-- [x] 1. **`internal/efivars`**: tpm2-kira's EFI variables, on `go-uefi-slim/efivar`:
+- [x] 1. **`internal/efivars`**: kira's EFI variables, on `go-uefi-slim/efivar`:
        - `machineid` and `nvslot`'s records moved from aSSH's `persist` to it;
        - `measure`'s Secure Boot reads (`pcrwarn.go`) are `go-uefi-slim/efivar`'s;
-       - the SSH CA's variable stays aSSH's (aSSH writes it; tpm2-kira only names it);
+       - the SSH CA's variable stays aSSH's (aSSH writes it; kira only names it);
        - `efivars.SetDir` points both at a test's directory.
 - [ ] 2. **`internal/secureboot`**:
        - sbctl's configuration and layout, read and written: `/etc/sbctl/sbctl.conf`
@@ -196,7 +196,7 @@ flowchart LR
        - keys:
          - **file:** PKCS#8 "PRIVATE KEY", certificate PEM, as sbctl;
          - **YubiKey:** sbctl's JSON (`algorithm`, `pinPolicy`, `touchPolicy`,
-           `slot`, `publicKey`), signed through tpm2-kira's own `internal/piv` (a
+           `slot`, `publicKey`), signed through kira's own `internal/piv` (a
            `crypto.Signer`);
        - enrol: `WriteSignedUpdate` (db, then KEK, then PK, as sbctl), with Microsoft's
          certificates;
@@ -205,13 +205,13 @@ flowchart LR
          Setup Mode, Secure Boot, MOKs (`MokListRT`).
 - [ ] 3. **Keys, each as strong as its users allow:**
        - Secure Boot: PK, KEK and db in sbctl's layout, RSA-4096;
-       - the approval key: tpm2-kira's own, at the TPM's greatest RSA length (the
+       - the approval key: kira's own, at the TPM's greatest RSA length (the
          tester), a file or the YubiKey's 9a; the slot choice and ECDSA defaults go;
        - `setup` and `control` create both, or take sbctl's Secure Boot keys.
 - [ ] 4. **The PIN:**
-       - the YubiKey's PIN as today (`/etc/tpm2-kira/pin`, root's alone, or asked);
+       - the YubiKey's PIN as today (`/etc/kira/pin`, root's alone, or asked);
        - for sbctl, `SBCTL_YUBIKEY_PIN` is sbctl's own matter;
-       - tpm2-kira never puts the PIN in an environment.
+       - kira never puts the PIN in an environment.
 - [ ] 5. **`control`, step 1 (boot chain), Secure Boot:**
        - no keys: asks, creates them (file, or YubiKey);
        - Setup Mode: asks, enrols;
@@ -220,7 +220,7 @@ flowchart LR
        - on Debian: no own keys needed (shim, Microsoft). Optional enrolment, with
          Microsoft kept.
 - [ ] 6. **Signing at every image build** (Arch: mkinitcpio post hook; kernel
-       install): `tpm2-kira secureboot sign` signs what `files.json` names, then
+       install): `kira secureboot sign` signs what `files.json` names, then
        `slot approve`. A failed signature stops the approval, and `control` says so.
 - [ ] 7. **`control` status, red lines** (the existing "Secure Boot disabled" and "Setup
        Mode" stay):
@@ -237,7 +237,7 @@ flowchart LR
        in Setup Mode. An aSSH commit, `./pin assh`.
 - [ ] 10. **VMs with Secure Boot** (`tools/localvm.py` `secure_boot`: the secboot OVMF
        code, `smm=on`):
-       - Arch: empty variables (Setup Mode), tpm2-kira enrols in the run;
+       - Arch: empty variables (Setup Mode), kira enrols in the run;
        - Debian: Microsoft's certificates in the variables (made once with
          `virt-fw-vars`, `.local/venv`);
        - `fresh` snapshots anew, the old kept as `fresh-nosb`.
@@ -269,12 +269,12 @@ flowchart LR
 
 - Secure Boot is the prerequisite of the SSH CA's PCR-7 slot; `control` shows red where
   it is off, in Setup Mode, or does not cover the image.
-- tpm2-kira manages Secure Boot with the `go-uefi-slim` module, in sbctl's layout, so that sbctl can
+- kira manages Secure Boot with the `go-uefi-slim` module, in sbctl's layout, so that sbctl can
   handle the machine at any time. aSSH only warns.
-- The Secure Boot db key is tpm2-kira's signing key (file or YubiKey).
+- The Secure Boot db key is kira's signing key (file or YubiKey).
 - Key algorithms (workspace AGENTS.md): Ed25519 where possible, else RSA at the greatest
   length every user of the key accepts, ECDSA last.
-- EFI variables: tpm2-kira's own code; a shared package (not aSSH's) if it grows large.
+- EFI variables: kira's own code; a shared package (not aSSH's) if it grows large.
 - Debian keeps GRUB (the standard install); a UKI on Debian is an option for later.
 - The close before a resume stays on both distributions, until Debian has a better
   alternative (Arch's `systemd-pcrosseparator` already covers it there).
@@ -283,7 +283,7 @@ flowchart LR
 
 - **Separate keys:**
   - Secure Boot's PK, KEK and db, in sbctl's layout;
-  - tpm2-kira's approval key, in tpm2-kira's place, with the same kind of storage
+  - kira's approval key, in kira's place, with the same kind of storage
     (a file, or the YubiKey in its own slot, 9a; sbctl's is 9c).
 
   Each as strong as its users allow.
@@ -296,7 +296,7 @@ flowchart LR
     the keys in its setup.
 - **The workspace's own `go-uefi-slim` module, not go-uefi** (2026-10-30): go-uefi's upstream
   did not take the fork's changes, and it cost aSSH 422 KB and three modules. `go-uefi-slim`
-  has the standard library and x/sys alone; aSSH and tpm2-kira pin it as a submodule.
+  has the standard library and x/sys alone; aSSH and kira pin it as a submodule.
 
 # PLAN: aSSH's window W alone, and closed before a resume from hibernation
 
@@ -319,25 +319,25 @@ flowchart LR
   A[initrd starts] --> B[run: host key certified, W closed]
   A --> C[swap unlocked]
   B --> D
-  C --> D["fixed close: tpm2-kira-boot close<br/>(no-op when run closed already)"]
+  C --> D["fixed close: kira-boot close<br/>(no-op when run closed already)"]
   D -->|closed| E[resume, or normal boot]
   D -->|failed| F[no resume]
 ```
 
 ## Steps
 
-- [x] 1. Pin aSSH `0469090` in this branch (tpm2-kira's submodule only, staged by hand;
+- [x] 1. Pin aSSH `0469090` in this branch (kira's submodule only, staged by hand;
        `./pin assh` would also move safearch's).
 - [x] 2. The code screen's close: `CloseWindow` alone; remove `ExtendPCR`,
        `sshCAWindowEvent`, `conf.ClosePCR`.
 - [x] 3. `remote_assh.go`: no `ASSH_CLOSE_PCR`. `remote_hostkey.go`: slot 0 = 0, 2, 7 and
        the image's PCRs, slot 1 = 7; `sshCAValues` without the close PCR.
-- [x] 4. `tpm2-kira-boot close`: reads assh.conf (the CA's window handle) and closes W
+- [x] 4. `kira-boot close`: reads assh.conf (the CA's window handle) and closes W
        with aSSH's `CloseWindow`. It waits for the TPM as `run` does (bounded). No CA or
        no W: exit 0. A TPM that does not come, or an index that is not a window: exit 1.
 - [x] 5. The fixed close, in the image only while the boot plan has the SSH CA:
        - Arch (systemd initrd): a drop-in for `systemd-hibernate-resume.service` with
-         `ExecStartPre=/usr/bin/tpm2-kira-boot close` (no `-`: a failure stops the
+         `ExecStartPre=/usr/bin/kira-boot close` (no `-`: a failure stops the
          resume).
        - Debian (initramfs-tools): a `local-top` script with `PREREQ=cryptroot`. It runs
          after every unlock and before `local-premount/resume`. On failure it writes
@@ -383,7 +383,7 @@ Found and fixed on the way:
 | # | Test | Expected |
 |---|---|---|
 | U1 | the code screen certifies, then a second `PrepareHostKey` in the same boot | the second gets a temporary key ("window is closed"); PCR 15 unchanged |
-| U2 | `tpm2-kira-boot close` with a CA whose W is open | W read-locked; a `PrepareHostKey` afterwards is temporary |
+| U2 | `kira-boot close` with a CA whose W is open | W read-locked; a `PrepareHostKey` afterwards is temporary |
 | U3 | `close` without a CA, without W | exit 0, nothing touched |
 | U4 | `close` with a foreign NV index at W's handle | exit 1, the index left as it is |
 | U5 | `close` without a TPM | waits up to the bound, then exit 1 |
@@ -400,9 +400,9 @@ resumed session is the old one (a marker process still running).
 
 | # | Case | Expected |
 |---|---|---|
-| V1 | normal boot, SSH code screen | certified; W closed after the boot; the fixed close ran and did nothing; no PCR 15 event from tpm2-kira |
-| V2 | hibernate to an encrypted swap file on the LUKS root (tpm2-kira's prompt unlocks), resume | resumed; W closed (by `run`, then the no-op close) |
-| V3 | as V2 with `run` kept from closing: Arch `rd.systemd.mask=tpm2-kira.service`, systemd's own prompt unlocks | resumed; W closed by the fixed close alone. **The case this plan adds** |
+| V1 | normal boot, SSH code screen | certified; W closed after the boot; the fixed close ran and did nothing; no PCR 15 event from kira |
+| V2 | hibernate to an encrypted swap file on the LUKS root (kira's prompt unlocks), resume | resumed; W closed (by `run`, then the no-op close) |
+| V3 | as V2 with `run` kept from closing: Arch `rd.systemd.mask=kira.service`, systemd's own prompt unlocks | resumed; W closed by the fixed close alone. **The case this plan adds** |
 | V4 | as V2 with the close failing (a foreign NV index put at W's handle before hibernating) | no resume; the boot continues fresh, the file systems are clean, and the stale image is not resumed later (checked on the next boot) |
 | V5 | suspend to RAM and back (if the VM supports S3) | W still closed (Startup STATE keeps the lock) |
 | V6 | plain swap partition with hibernation possible | `control` shows the red line; with LUKS swap it does not |
@@ -414,7 +414,7 @@ path.
 
 ## What breaks
 
-- Every tpm2-kira SSH CA is made again (aSSH format 4; slots without PCR 15). The clients
+- Every kira SSH CA is made again (aSSH format 4; slots without PCR 15). The clients
   keep their line only if the CA is unchanged, so they get the new `@cert-authority` line.
 - A resume from hibernation fails when the TPM is missing in the initrd (V4): the
   hibernated session is lost, and the machine boots fresh.
@@ -443,7 +443,7 @@ path.
   goes into `KIRAslotN`.
 
 Done before this plan: the operator's pepper travels wrapped for the
-machine's TPM (tpm2-kira `10b9066`, the vault `00d0482`); vmtest's pepper
+machine's TPM (kira `10b9066`, the vault `00d0482`); vmtest's pepper
 step is written (`671aa51`), not yet run. Part A changes how the pepper
 enters the key, so that step changes with it.
 
@@ -524,7 +524,7 @@ flowchart LR
   Stored in the keyslot's own LUKS2 token - the header is the one place,
   nothing is configured (AGENTS.md). The names `password+salt`,
   `password+phonesalt`, `tpm+vault` and `--mode` go.
-- **The command line:** `tpm2-kira luks enrol /dev/sda2 --password typed
+- **The command line:** `kira luks enrol /dev/sda2 --password typed
   --salt vault --pepper --url … --pin … --token …`; a combination not in
   the table is refused with the ones that are.
 - **Shown** the same way everywhere (control, `luks status`, the code
@@ -545,7 +545,7 @@ flowchart LR
 ### Steps
 
 1. [x] diskkey: `Recipe` (IDs, checks, names for display), the token
-   (`recipe`, type `tpm2-kira-XXXX`); the old modes and `--mode` go
+   (`recipe`, type `kira-XXXX`); the old modes and `--mode` go
    (`--password`/`--salt`/`--pepper`), in the code, `control`, the help,
    acceptance.py and vmtest. This build enrolled 0x1100, 0x1302, 0x2400,
    0x2401 then (renumbered in step 2: 0x1300); 0x2400/1
@@ -572,8 +572,8 @@ flowchart LR
    combinations named (step 1); `control`'s choices named by recipe -
    recovery (0x1100), salt in this TPM (0x1200, new), the phone (0x1300),
    the vault (asks: password held by the TPM or typed, the pepper); the
-   red line when every keyslot of a volume is tpm2-kira's says why (the
-   OS prompt then opens nothing), and `tpm2-kira status` notes it too.
+   red line when every keyslot of a volume is kira's says why (the
+   OS prompt then opens nothing), and `kira status` notes it too.
 5. [x] (with steps 1-3, tested in diskkey and bootrun) boot: the prompts by recipe (console and boot SSH), the fallback
    order (recipe, recovery recipe, the OS prompt), a typed password while
    the vault is asked.
@@ -595,7 +595,7 @@ flowchart LR
    the vault with and without a pepper), the vault's tests (the CLI
    queue), vmtest on every machine, every recipe.
 
-**Breaks:** every tpm2-kira keyslot is enrolled again (the token format,
+**Breaks:** every kira keyslot is enrolled again (the token format,
 and `tpm+vault`'s derivation); the vault's devices enrol again.
 
 ### Decided
@@ -628,13 +628,13 @@ and `tpm+vault`'s derivation); the vault's devices enrol again.
 ### Fallbacks (decided), in this order, always
 
 1. The keyslot's own recipe (the vault, the phone, ...).
-2. The recovery recipe at tpm2-kira's prompt: password and salt typed,
+2. The recovery recipe at kira's prompt: password and salt typed,
    the combiner (hashpwd2) - it opens a keyslot enrolled that way.
 3. The operating system's prompt with a plain passphrase (systemd's
-   agent, Debian's askpass) - the only way in when tpm2-kira itself fails.
+   agent, Debian's askpass) - the only way in when kira itself fails.
 
 A plain passphrase keyslot may be removed; `control` warns (red) when
-every keyslot of a volume is tpm2-kira's.
+every keyslot of a volume is kira's.
 
 ### The TPM and a typed password (decided: C, no check)
 
@@ -653,7 +653,7 @@ not taken (2026-10-29).
 - **The combiner's key ends in a newline** (hashpwd2's format). A
   passphrase prompt - systemd's, Debian's askpass - ends at the newline,
   so a recipe's key cannot be typed at the operating system's prompt:
-  step 2 is tpm2-kira's prompt, step 3 needs a plain passphrase keyslot.
+  step 2 is kira's prompt, step 3 needs a plain passphrase keyslot.
 
 ### Recipes by number (decided)
 
@@ -676,7 +676,7 @@ uint16), the token stores the number, names are for display only.
 | `0x2400` / `0x2401` | unattended: this TPM and the vault / with a pepper |
 
 Refused: P = 2 with S = 1, 2 or 3; the pepper without S = 4. The token:
-`{"type": "tpm2-kira-1401", "recipe": 5121, "slot": 1, ...}` - the type
+`{"type": "kira-1401", "recipe": 5121, "slot": 1, ...}` - the type
 repeats the ID in hexadecimal, so `cryptsetup luksDump` names it too.
 `--password`/`--salt`/`--pepper` on the command line and control's named
 choices map to the ID; the vault's release modes become IDs alike in
@@ -684,7 +684,7 @@ choices map to the ID; the vault's release modes become IDs alike in
 
 ### The vault's queue (decided)
 
-`tpm2-kira-vault requests` is the queue of releases waiting for an
+`kira-vault requests` is the queue of releases waiting for an
 operator; the CLI answers it: `request approve ID` (asks the pepper on the
 terminal, echo off, when the device needs one), `request deny ID`, and
 `requests answer`, which goes through the queue one by one (approve or
@@ -707,14 +707,14 @@ validity dates - and no `InsecureSkipVerify` anywhere.
 
 ```mermaid
 flowchart LR
-  ROOT["/etc/tpm2-kira/vault-ca.pem<br/>root(s), PEM"] -->|"copied into the initrd"| INITRD
+  ROOT["/etc/kira/vault-ca.pem<br/>root(s), PEM"] -->|"copied into the initrd"| INITRD
   SLOT["NV slot (signed)<br/>vault URL + key pin"] --> INITRD
-  INITRD["vault client<br/>core/vaultproto.ClientConfig"] -->|"TLS 1.3: chain to a root,<br/>host name, dates, then the pin"| VAULT["tpm2-kira-vault<br/>leaf + chain"]
+  INITRD["vault client<br/>core/vaultproto.ClientConfig"] -->|"TLS 1.3: chain to a root,<br/>host name, dates, then the pin"| VAULT["kira-vault<br/>leaf + chain"]
 ```
 
 ### Design
 
-- **The location:** `/etc/tpm2-kira/vault-ca.pem`, root-owned, a PEM bundle
+- **The location:** `/etc/kira/vault-ca.pem`, root-owned, a PEM bundle
   (one or more root certificates; every vault of every slot). Both initrd
   integrations (mkinitcpio install hook, initramfs-tools hook) copy it in
   when a slot uses a vault; `control` counts a changed file as "pending
@@ -724,16 +724,16 @@ flowchart LR
   Go's standard verification - then the pin in `VerifyConnection`, kept:
   the root file lies unsigned in the initrd on /boot, the pin is in the
   signed NV slot, so swapping the file alone does not get a foreign vault
-  accepted. tpm2-kira's client and the vault's `PinnedConfig` both use it.
+  accepted. kira's client and the vault's `PinnedConfig` both use it.
 - **Fail closed:** no file, or no root in it that verifies the vault - the
   vault is refused with a message naming the file. `vault enrol` checks
   the same before it enrols; `status`/`control` show a missing root.
-- **The vault's certificate:** `tpm2-kira-vault` makes a root CA (20
-  years) in its state directory, `/var/lib/tpm2-kira-vault/tls/` (`ca.pem`,
+- **The vault's certificate:** `kira-vault` makes a root CA (20
+  years) in its state directory, `/var/lib/kira-vault/tls/` (`ca.pem`,
   `ca-key.pem`, next to the existing `key.pem`/`cert.pem`), and a leaf signed
   by it (1 year, SAN: the host), renewed from the root at start when it has
   less than 30 days left. It serves leaf and root and prints the root for
-  the machines (`tpm2-kira-vault tls root`).
+  the machines (`kira-vault tls root`).
 - **What the pin pins:** a certificate of the verified chain. New
   enrolments pin the root's key, so the leaf can be renewed without
   re-enrolling a machine; a pin of an old leaf still matches.
@@ -750,13 +750,13 @@ flowchart LR
 1. [x] core: `vaultproto.ClientConfig(roots, host, pin)` (TLS 1.3, the
    standard verification, then the pin of any certificate of the verified
    chain) and `ParseRoots(bundle)` (CA certificates only; reading the file
-   is tpm2-kira's, the core stays pure); tested against a real TLS server:
+   is kira's, the core stays pure); tested against a real TLS server:
    the root's and the leaf's pin taken, another root, host or pin, an
    expired leaf and one not valid yet refused; bundles that are empty, not
    PEM, a key, a leaf, or with trailing text refused.
-2. [x] tpm2-kira: `vaultkey.NewClient` reads the roots
-   (`vaultkey.RootsPath`, `/etc/tpm2-kira/vault-ca.pem`) and uses the
-   core's `ClientConfig` - no `InsecureSkipVerify` left in tpm2-kira;
+2. [x] kira: `vaultkey.NewClient` reads the roots
+   (`vaultkey.RootsPath`, `/etc/kira/vault-ca.pem`) and uses the
+   core's `ClientConfig` - no `InsecureSkipVerify` left in kira;
    `vaultkey.AddRoot` takes the pin's root from a file into the bundle;
    `--ca FILE` on `luks enrol` and `vault enrol`, the root's file in
    control's vault step; `vaultkey.Problem` names a refusal (no root of
@@ -772,7 +772,7 @@ flowchart LR
    `tls/` (`ca.pem`, `ca-key.pem`, `cert.pem`, `key.pem`); served leaf and
    root through `GetCertificate`, the leaf made again from the root with
    fewer than 30 days left (at start and while serving); the pin is the
-   root's; `tpm2-kira-vault tls root` prints it; the test clients verify
+   root's; `kira-vault tls root` prints it; the test clients verify
    with the core's `ClientConfig`; operators' curl `--cacert`;
    `CurlPin` gone. No `InsecureSkipVerify` in the vault. Tested: the
    served chain, the renewal (pin kept, client verifies), an old state
@@ -805,9 +805,9 @@ accepts a self-signed certificate that is itself in `RootCAs`.
 
 1. Dates checked against the system clock.
 2. The vault generates its root and keeps it in its state directory.
-3. One bundle, `/etc/tpm2-kira/vault-ca.pem`.
+3. One bundle, `/etc/kira/vault-ca.pem`.
 4. (2026-10-29, at the start of part B) The root reaches the machine by
-   hand - `tpm2-kira-vault tls root` prints it - placed in the bundle, or
+   hand - `kira-vault tls root` prints it - placed in the bundle, or
    with `luks enrol ... --ca FILE`, which adds it only when its key is the
    pin's: the pin, given out of band with the token, authenticates the
    root. The pin `token create` prints is the root's. The boot plan's
@@ -882,7 +882,7 @@ the boot is one the signing key approved - against a phished password.
 ### Design
 
 - **Name:** `efi:KIRAslotN-67f474ef-94a1-4412-88df-d62349d430a9`
-  (N = 0..15), tpm2-kira's GUID as `KIRAmachineID`'s; aSSH's `persist`
+  (N = 0..15), kira's GUID as `KIRAmachineID`'s; aSSH's `persist`
   reads and writes it (`ReadVar`, `WriteVar`, `RemoveVar`) - it stays
   generic, every application names its variables with its own prefix and
   GUID.
@@ -925,7 +925,7 @@ the boot is one the signing key approved - against a phished password.
    `SlotExists`, `SlotStates` (what is left of a slot without the rest).
    A slot is one of the 16 now (`--nvram` 0-15 or 0x01803010-0x0180301F;
    other indices were never used); the NV write keeps its own check for
-   the boot settings. tpm2-kira's GUID is `nvslot.VarGUID`. Branch
+   the boot settings. kira's GUID is `nvslot.VarGUID`. Branch
    `feat/slot-record-efivar` (step 1 is on `feat/vault-root-ca`).
 3. [x] The users of the blob: seal, reseal, approve, the phone and vault
    enrolments, the TPM salt, unenrol, slot delete (record and indices
@@ -941,7 +941,7 @@ the boot is one the signing key approved - against a phished password.
    `WriteToNVRAM` is the boot settings' alone. The tests: each swtpm gets
    its own EFI variables.
 4. [x] TOTP optional: `slot add --totp`, control, the code screen and
-   `tpm2-kira-boot` only for slots with TOTP; the "TOTP or phones" rule
+   `kira-boot` only for slots with TOTP; the "TOTP or phones" rule
    goes; status and slot list name each slot's methods. `slot add`
    seals a TOTP key only with `--totp`, and the fallback slot 1 only then
    (it is a second code); control asks "A TOTP code at boot?". A phone
@@ -951,7 +951,7 @@ the boot is one the signing key approved - against a phished password.
    for those. With nothing to show the hold lasts while the vault opens
    its part (`bootDisplay.Pending`), within the hold time. status: each
    slot's methods, the fallback note only with a code.
-5. [x] The boot: efivarfs mounted before tpm2-kira-boot on Arch and Debian
+5. [x] The boot: efivarfs mounted before kira-boot on Arch and Debian
    (Debian's init-premount does it for the machine-id: checked for the
    order); the image plan needs no new part. Debian mounted it only with
    a network (for the machine-id): now before run whenever the image has
@@ -1010,7 +1010,7 @@ swtpm, OVMF and KVM are.
   per machine), swtpm over a socket, the disk as a qcow2 overlay on the
   export, the serial port on a unix socket, user-mode network with the
   guest's ssh forwarded to a local port (installing the package, `slot
-  add`, `luks enrol`; tpm2-kira's boot SSH server stays off).
+  add`, `luks enrol`; kira's boot SSH server stays off).
 - **The snapshot is the export:** the overlay, the VARS copy and the
   swtpm state live in `.local/vms/<machine>/`; a revert deletes them (the
   export is never written). Taken once after the console is set up
@@ -1022,7 +1022,7 @@ swtpm, OVMF and KVM are.
   (`/etc/kernel/cmdline` and the UKI; `/etc/default/grub`).
 - **The runs**, each from the snapshot, each boot driven at the serial
   console:
-  1. pure TOTP: `slot add --totp`, no keyslot of tpm2-kira's: the code at
+  1. pure TOTP: `slot add --totp`, no keyslot of kira's: the code at
      the console equals the one computed from the secret; Enter; the OS's
      own passphrase prompt opens the disk.
   2. pure hashpwd2: `luks enrol --password typed --salt typed` (0x1100),

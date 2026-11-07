@@ -12,14 +12,14 @@ import (
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpm2/transport"
 
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
-	"github.com/tpm2-trust/tpm2-kira/core/vaultproto"
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/core/attest"
+	"github.com/tpm2-trust/kira/core/vaultproto"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/signing"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 )
 
-// The TOTP key is an HMAC key inside the TPM. tpm2-kira never gets it back:
+// The TOTP key is an HMAC key inside the TPM. kira never gets it back:
 // it sends the TOTP counter and receives the HMAC, which it truncates to the
 // six-digit code. The key leaves the process exactly once, at seal time, for
 // the enrolment QR code.
@@ -46,20 +46,16 @@ import (
 //
 // The PolicyPCR after PolicyAuthorize is the object's own, fixed at its
 // creation, beyond any approval: PCR 15 is zero until the boot image closes
-// the boot (tpm2-kira-boot close, at the end of the code screen and before
+// the boot (kira-boot close, at the end of the code screen and before
 // a resume from hibernation), and from then on nothing - not the running
 // system, not root - can use a slot object until the next boot. The same
 // extension closes the SSH CA (aSSH's hostkey.Close).
 
-// GenerationIndexOffset separates a slot's generation index from its blob
-// index. Blob indices live below AppNVRAMStart+GenerationIndexOffset, their
-// generation indices at the same offset above it.
-const GenerationIndexOffset = 0x800
-
 // GenerationIndex returns the NV index that holds the generation of the slot
-// whose blob is at blobIndex.
+// at blobIndex: the slot's own handle, 0x01803010 + n. The slot's record is its
+// EFI variable; in the TPM the slot is this index, which also says that it exists.
 func GenerationIndex(blobIndex uint32) uint32 {
-	return blobIndex + GenerationIndexOffset
+	return blobIndex
 }
 
 // ErrClosed marks a slot whose objects cannot be used in this boot any

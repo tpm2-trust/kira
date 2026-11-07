@@ -10,10 +10,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/piv"
-	"github.com/tpm2-trust/tpm2-kira/internal/piv/pivtest"
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/piv"
+	"github.com/tpm2-trust/kira/internal/piv/pivtest"
+	"github.com/tpm2-trust/kira/internal/signing"
 )
 
 func testBlob() *nvslot.SealedBlob {
@@ -51,16 +51,16 @@ func TestPrintResealSkipped(t *testing.T) {
 	cause := &signing.TokenUnavailableError{Token: "YubiKey 12345678, slot 9a", Reason: "no YubiKey with serial 12345678 is present"}
 	var buf bytes.Buffer
 	PrintResealSkipped(&buf, []*ResealSkippedError{
-		{NVIndex: 0x01803010, KeyFile: "/etc/tpm2-kira/keys/seal.key", Cause: cause, SealedPCRs: testBlob().GetPCRSpecs()},
-		{NVIndex: 0x01803011, KeyFile: "/etc/tpm2-kira/keys/seal.key", Cause: cause},
+		{NVIndex: 0x01803010, KeyFile: "/etc/kira/keys/seal.key", Cause: cause, SealedPCRs: testBlob().GetPCRSpecs()},
+		{NVIndex: 0x01803011, KeyFile: "/etc/kira/keys/seal.key", Cause: cause},
 	})
 	out := buf.String()
 	t.Logf("block:\n%s", out)
-	if !strings.HasPrefix(out, "tpm2-kira: SKIPPED: ") {
+	if !strings.HasPrefix(out, "kira: SKIPPED: ") {
 		t.Errorf("block does not start with the hook marker:\n%s", out)
 	}
 	for _, want := range []string{"(YubiKey 12345678, slot 9a)", "no YubiKey with serial 12345678 is present",
-		"#0, #1", "nothing was written", "PCR MISMATCH", "sudo tpm2-kira slot approve", "--pin-fd N"} {
+		"#0, #1", "nothing was written", "PCR MISMATCH", "sudo kira slot approve", "--pin-fd N"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("block lacks %q", want)
 		}

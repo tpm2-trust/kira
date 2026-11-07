@@ -22,11 +22,11 @@ import (
 
 	"github.com/google/go-tpm/tpm2/transport"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/efivars"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/efivars"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 )
 
-// VarGUID is the vendor GUID of tpm2-kira's EFI variables.
+// VarGUID is the vendor GUID of kira's EFI variables.
 const VarGUID = efivars.GUIDText
 
 // MaxRecordSize bounds a slot's record: firmware variable stores are small
@@ -34,10 +34,10 @@ const VarGUID = efivars.GUIDText
 const MaxRecordSize = 8 * 1024
 
 // ErrNoRecord: the slot has no record in its EFI variable.
-var ErrNoRecord = errors.New("no record (not set up: 'tpm2-kira slot add'; what is left of a slot: 'tpm2-kira control')")
+var ErrNoRecord = errors.New("no record (not set up: 'kira slot add'; what is left of a slot: 'kira control')")
 
 // RecordVar is the name of the EFI variable of the slot at index:
-// KIRAslotN, under tpm2-kira's GUID.
+// KIRAslotN, under kira's GUID.
 func RecordVar(index uint32) (string, error) {
 	if err := ValidateBlobIndex(index); err != nil {
 		return "", err

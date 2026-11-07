@@ -11,13 +11,13 @@ import (
 
 	"github.com/tpm2-trust/go-tui-slim/prompt"
 	"github.com/tpm2-trust/go-tui-slim/secret"
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
-	"github.com/tpm2-trust/tpm2-kira/internal/vaultkey"
+	"github.com/tpm2-trust/kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/vaultkey"
 )
 
 // control's option for the disk key with the vault's salt (docs/VAULT.md):
 // unattended (0x2400, 0x2401) or with a typed password (0x1400, 0x1401); the vault's address, key pin and one-time token
-// as 'tpm2-kira-vault token create' prints them, asked here; the vault is
+// as 'kira-vault token create' prints them, asked here; the vault is
 // asked before anything is enrolled - does it answer, with the pinned key -
 // and on every look at the machine afterwards, whether it still knows this
 // device. The image needs its own network to reach the vault at boot: the
@@ -29,7 +29,7 @@ var vaultPinRe = regexp.MustCompile(`^sha256:[0-9a-fA-F]{64}$`)
 func (c *controller) vaultStep(gate string, strong *StatusSlot) controlStep {
 	f := &c.facts
 	st := controlStep{Key: "luks-vault", Optional: true, SelfConfirm: true, Title: "Salt from a vault: unattended (0x2400) or with your password (0x1400)",
-		Explain: "A LUKS keyslot whose salt the vault (tpm2-kira-vault) releases to a fresh quote of an approved boot - at once, or once an operator approves the boot, with a pepper if you choose. Its password is held by this TPM (the boot opens unattended) or typed at the machine after the code screen. Without the vault, the recovery recipe and the recovery passphrase stay the way in. The boot image reaches the vault over its own network. Enrolled, picking it checks the vault again or removes the keyslot.",
+		Explain: "A LUKS keyslot whose salt the vault (kira-vault) releases to a fresh quote of an approved boot - at once, or once an operator approves the boot, with a pepper if you choose. Its password is held by this TPM (the boot opens unattended) or typed at the machine after the code screen. Without the vault, the recovery recipe and the recovery passphrase stay the way in. The boot image reaches the vault over its own network. Enrolled, picking it checks the vault again or removes the keyslot.",
 		Run:     (*controller).runVault}
 	if f.Remote.SSH.On {
 		st.Explain += " SSH at boot stays for the recovery passphrase when the vault does not answer."
@@ -121,7 +121,7 @@ func (c *controller) runVault() error {
 	for edit := true; ; {
 		if edit {
 			var err error
-			if url, err = c.ask().Input("The vault's address", "https://host[:port], as 'tpm2-kira-vault token create' prints it.",
+			if url, err = c.ask().Input("The vault's address", "https://host[:port], as 'kira-vault token create' prints it.",
 				url, func(s string) error {
 					_, err := vaultkey.CheckURL(strings.TrimSpace(s))
 					return err
@@ -138,7 +138,7 @@ func (c *controller) runVault() error {
 				return err
 			}
 			if ca, err = c.ask().Input("The vault's root certificate",
-				"A file with it, as 'tpm2-kira-vault tls root' prints it; empty when "+vaultkey.RootsPath+" holds it already. Taken only when its key is the pin.",
+				"A file with it, as 'kira-vault tls root' prints it; empty when "+vaultkey.RootsPath+" holds it already. Taken only when its key is the pin.",
 				ca, func(s string) error {
 					if s = strings.TrimSpace(s); s == "" {
 						return nil
@@ -155,7 +155,7 @@ func (c *controller) runVault() error {
 			}
 			typed, err := c.ask().Password("The one-time token", description, func(b []byte) error {
 				if len(bytes.TrimSpace(b)) == 0 && !held {
-					return errors.New("the token 'tpm2-kira-vault token create' printed")
+					return errors.New("the token 'kira-vault token create' printed")
 				}
 				return nil
 			})

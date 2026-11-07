@@ -24,18 +24,18 @@ import (
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpm2/transport"
 
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
-	"github.com/tpm2-trust/tpm2-kira/core/vaultproto"
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
-	"github.com/tpm2-trust/tpm2-kira/internal/vaultkey"
+	"github.com/tpm2-trust/kira/core/attest"
+	"github.com/tpm2-trust/kira/core/vaultproto"
+	"github.com/tpm2-trust/kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/phonegate"
+	"github.com/tpm2-trust/kira/internal/signing"
+	"github.com/tpm2-trust/kira/internal/vaultkey"
 )
 
 // testVault is the vault's protocol and nothing else: the token, the AK
-// proof, the challenge and vaultproto.VerifyRelease. tpm2-kira-vault is
+// proof, the challenge and vaultproto.VerifyRelease. kira-vault is
 // the real one; this is what the machine's side is tested against.
 type testVault struct {
 	mu      sync.Mutex

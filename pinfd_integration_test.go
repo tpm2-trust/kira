@@ -12,11 +12,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/piv"
-	"github.com/tpm2-trust/tpm2-kira/internal/piv/pivtest"
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/piv"
+	"github.com/tpm2-trust/kira/internal/piv/pivtest"
+	"github.com/tpm2-trust/kira/internal/signing"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 	"golang.org/x/sys/unix"
 )
 
@@ -45,7 +45,7 @@ func TestUnattendedApproveThroughADescriptor(t *testing.T) {
 		return nil, errors.New("no terminal")
 	}
 	dir := t.TempDir()
-	t.Setenv("TPM2_KIRA_CONTROL_CONF", filepath.Join(dir, "control.conf"))
+	t.Setenv("KIRA_CONTROL_CONF", filepath.Join(dir, "control.conf"))
 	tokens, err := signing.ProbeYubiKeys(time.Second)
 	if err != nil {
 		t.Fatal(err)

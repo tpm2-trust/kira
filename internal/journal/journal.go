@@ -18,7 +18,7 @@ import (
 // narrative landing between the code and the prompt is noise there. Under
 // systemd (JOURNAL_STREAM is set) narrate writes straight to journald's
 // socket, with a priority, so nothing of it reaches the console; in an
-// initramfs without a journal (Debian) the scripts set TPM2_KIRA_LOG to a
+// initramfs without a journal (Debian) the scripts set KIRA_LOG to a
 // file that survives into the booted system; run by hand it is plain
 // stdout. Failures and warnings keep going to stderr, which the units
 // send to the console as well. With debug on, the narrative is also
@@ -36,7 +36,7 @@ const (
 var (
 	JournalOnce sync.Once
 	JournalConn *net.UnixConn // nil: not under systemd, or no journald
-	LogFile     *os.File      // TPM2_KIRA_LOG, when set and writable
+	LogFile     *os.File      // KIRA_LOG, when set and writable
 	// NarrateOut is where the narrative goes without a journal (tests
 	// replace it).
 	NarrateOut io.Writer = os.Stdout
@@ -46,7 +46,7 @@ var (
 
 func journal() *net.UnixConn {
 	JournalOnce.Do(func() {
-		if path := os.Getenv("TPM2_KIRA_LOG"); path != "" {
+		if path := os.Getenv("KIRA_LOG"); path != "" {
 			if f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o600); err == nil {
 				LogFile = f
 			}
@@ -95,7 +95,7 @@ func NarrateAt(prio int, format string, args ...any) {
 // a value with a newline, FIELD, a little-endian 64-bit length, the bytes.
 func journalEntry(msg string, prio int) []byte {
 	var b strings.Builder
-	b.WriteString("SYSLOG_IDENTIFIER=tpm2-kira\n")
+	b.WriteString("SYSLOG_IDENTIFIER=kira\n")
 	fmt.Fprintf(&b, "PRIORITY=%d\n", prio)
 	if strings.Contains(msg, "\n") {
 		b.WriteString("MESSAGE\n")

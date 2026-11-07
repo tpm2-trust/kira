@@ -10,9 +10,9 @@ import (
 	"strings"
 
 	"github.com/tpm2-trust/go-tui-slim/prompt"
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
-	"github.com/tpm2-trust/tpm2-kira/internal/sshscreen"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/signing"
+	"github.com/tpm2-trust/kira/internal/sshscreen"
 
 	"github.com/tpm2-trust/assh/config"
 	"github.com/tpm2-trust/assh/hostkey"
@@ -53,7 +53,7 @@ func (c *controller) netStep() controlStep {
 func (c *controller) sshStep() controlStep {
 	f := &c.facts
 	st := controlStep{Key: "ssh", Title: "SSH server at boot", Optional: true, SelfConfirm: true,
-		Explain: "tpm2-kira starts its own, unprivileged SSH server with the code screen: the codes are confirmed and the passwords typed in an SSH session, and the console says where to log in - Enter there continues at the console instead. It needs the image's network, and sets it up first when there is none. Picking it changes the settings.",
+		Explain: "kira starts its own, unprivileged SSH server with the code screen: the codes are confirmed and the passwords typed in an SSH session, and the console says where to log in - Enter there continues at the console instead. It needs the image's network, and sets it up first when there is none. Picking it changes the settings.",
 		Run:     (*controller).runSSH}
 	switch {
 	case f.Initramfs != "mkinitcpio" && f.Initramfs != "initramfs-tools":
@@ -202,7 +202,7 @@ func (c *controller) runSSH() error {
 	r := c.facts.Remote
 	// Off until somebody says yes.
 	on, err := c.ask().Confirm("Start the SSH server with the code screen?",
-		"tpm2-kira's own, unprivileged SSH server at boot: log in as root with a key of "+r.SSH.Assh.AuthorizedKeys+", confirm the code, type the password there. No: the network alone.",
+		"kira's own, unprivileged SSH server at boot: log in as root with a key of "+r.SSH.Assh.AuthorizedKeys+", confirm the code, type the password there. No: the network alone.",
 		r.SSH.On)
 	if err != nil {
 		return err
@@ -415,7 +415,7 @@ func (c *controller) offerRootKeys(path string) error {
 		return nil
 	}
 	ok, err := c.confirmYes(fmt.Sprintf("Copy root's %d SSH key(s) to %s?", len(keys), path),
-		"The keys that may log in at boot are tpm2-kira's own file; root's stays as it is, and what changes in it later does not reach the image. Edit "+path+" for other keys; control sees a change and rebuilds the image when you quit it.")
+		"The keys that may log in at boot are kira's own file; root's stays as it is, and what changes in it later does not reach the image. Edit "+path+" for other keys; control sees a change and rebuilds the image when you quit it.")
 	if err != nil || !ok {
 		return err
 	}

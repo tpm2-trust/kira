@@ -17,8 +17,8 @@ import (
 	"time"
 
 	"github.com/tpm2-trust/go-tui-slim/secret"
-	"github.com/tpm2-trust/tpm2-kira/internal/pcsc"
-	"github.com/tpm2-trust/tpm2-kira/internal/piv"
+	"github.com/tpm2-trust/kira/internal/pcsc"
+	"github.com/tpm2-trust/kira/internal/piv"
 )
 
 // ── Key file stub ────────────────────────────────────────────────────────────
@@ -113,7 +113,7 @@ func MarshalYubiKeyStub(serial uint32, s TokenSlot) ([]byte, error) {
 	return append(out, '\n'), nil
 }
 
-// tokenKeyUnsuitable returns why a token key cannot serve as the tpm2-kira
+// tokenKeyUnsuitable returns why a token key cannot serve as the kira
 // signing key, or "" if it can. The TPM must be able to load the public key
 // for PolicySigned: RSA-2048, P-256 and P-384 are what TPMs support broadly.
 func tokenKeyUnsuitable(pub crypto.PublicKey) string {
@@ -209,7 +209,7 @@ type TokenSlot struct {
 	TouchPolicy   piv.TouchPolicy
 	PoliciesKnown bool // false on firmware before 5.3, which has no metadata
 	PublicKey     crypto.PublicKey
-	Unsuitable    string // "" if the key can be the tpm2-kira signing key
+	Unsuitable    string // "" if the key can be the kira signing key
 	CertOnly      bool   // key found through its certificate, not metadata
 }
 
@@ -358,7 +358,7 @@ func algorithmOf(pub crypto.PublicKey) piv.Algorithm {
 }
 
 // RecommendedSlot picks the slot setup uses without --slot: 9a, the slot the
-// documentation tells people to create for tpm2-kira. Another slot is never
+// documentation tells people to create for kira. Another slot is never
 // picked implicitly, because it is likely shared (9c with sbctl, typically).
 func RecommendedSlot(t TokenInfo) (TokenSlot, bool) {
 	s, ok := t.SlotByID(piv.SlotAuthentication)
@@ -689,7 +689,7 @@ func (sess *tokenSession) ensurePIN(s *YubiKeySigner, force bool) error {
 		return sess.fatal
 	}
 	if remaining == 1 && !sess.unlocked {
-		sess.fatal = unavailable(s, "only one PIN attempt is left, and tpm2-kira will not risk it.\n"+
+		sess.fatal = unavailable(s, "only one PIN attempt is left, and kira will not risk it.\n"+
 			"  Check the PIN, then reset the counter with the PUK:\n"+
 			"      ykman piv access unblock-pin")
 		return sess.fatal
@@ -748,7 +748,7 @@ func VerifyYubiKeyPIN(key crypto.Signer, pin []byte) error {
 
 // CloseTokenSessions resets and releases every token this process opened, and wipes
 // the PIN it held, also one --pin-fd read and nothing asked for. The reset discards
-// the verified PIN, so no other process can sign with the key after tpm2-kira exits.
+// the verified PIN, so no other process can sign with the key after kira exits.
 // Safe to call when nothing was opened.
 func CloseTokenSessions() {
 	for serial, sess := range tokenSessions {

@@ -8,16 +8,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
-	"github.com/tpm2-trust/tpm2-kira/internal/imageplan"
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
-	"github.com/tpm2-trust/tpm2-kira/internal/sbstate"
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
-	"github.com/tpm2-trust/tpm2-kira/internal/vaultkey"
+	"github.com/tpm2-trust/kira/core/attest"
+	"github.com/tpm2-trust/kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/imageplan"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/phonegate"
+	"github.com/tpm2-trust/kira/internal/sbstate"
+	"github.com/tpm2-trust/kira/internal/signing"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/vaultkey"
 )
 
 // machineFacts is what the analysis found.
@@ -89,7 +89,7 @@ type machineFacts struct {
 	UKISigns  bool
 	UKISigErr string
 	// NoRecovery are the LUKS devices without a keyslot that is not
-	// tpm2-kira's: nothing to authorise an enrolment, no way in by hand.
+	// kira's: nothing to authorise an enrolment, no way in by hand.
 	NoRecovery []string
 	// EmptyPass are the keyslots that open with an empty passphrase,
 	// "keyslot N of /dev/x"; EmptyPassErr says why the test did not run.
@@ -294,7 +294,7 @@ func fastFacts(tpmPath string, debug bool) machineFacts {
 	return f
 }
 
-// recoveryFacts judges the keyslots that are not tpm2-kira's: the devices
+// recoveryFacts judges the keyslots that are not kira's: the devices
 // that have none (no recovery passphrase), and those that open with an
 // empty passphrase (an encrypted disk anybody opens).
 // test false leaves out the empty passphrase test, the slow part.
@@ -476,7 +476,7 @@ func (c *controller) factsText() string {
 	case f.HookState != "":
 		fmt.Fprintf(&w, "  Initramfs   %s\n", bad(fmt.Sprintf("%s, but %s (risk: the next boot shows no code screen and serves no key)", f.Initramfs, f.HookState)))
 	case f.Initramfs == "mkinitcpio":
-		fmt.Fprintf(&w, "  Initramfs   %s\n", good("mkinitcpio, sd-tpm2-kira in HOOKS"))
+		fmt.Fprintf(&w, "  Initramfs   %s\n", good("mkinitcpio, sd-kira in HOOKS"))
 	default:
 		fmt.Fprintf(&w, "  Initramfs   %s\n", good(f.Initramfs))
 	}
@@ -500,7 +500,7 @@ func (c *controller) factsText() string {
 	// (usbcore.authorized_default=0, as USBGuard sets it): then the image
 	// carries the rule that lets the adapter in.
 	if phone && f.BTAuthorize != nil {
-		fmt.Fprintf(&w, "  Adapter at boot  let in by tpm2-kira's rule in the image (USB %s, %s:%s); the bus blocks new devices\n", f.BTAuthorize.Port, f.BTAuthorize.Vendor, f.BTAuthorize.Product)
+		fmt.Fprintf(&w, "  Adapter at boot  let in by kira's rule in the image (USB %s, %s:%s); the bus blocks new devices\n", f.BTAuthorize.Port, f.BTAuthorize.Vendor, f.BTAuthorize.Product)
 	}
 	if line := f.imageLine(); line != "" {
 		fmt.Fprintf(&w, "  Boot image  %s\n", line)
@@ -526,9 +526,9 @@ func (c *controller) factsText() string {
 			for _, o := range d.Orphans {
 				parts = append(parts, fmt.Sprintf("token %d (%s) without a keyslot", o.ID, o.Type))
 			}
-			route := "not routed through tpm2-kira"
+			route := "not routed through kira"
 			if f.Routed[d.Device] {
-				route = "key from tpm2-kira"
+				route = "key from kira"
 			}
 			fmt.Fprintf(&w, "  LUKS        %s: keyslots %s; %s\n", d.Device, strings.Join(parts, ", "), route)
 		}

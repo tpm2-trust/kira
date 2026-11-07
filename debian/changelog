@@ -1,4 +1,4 @@
-tpm2-kira (0.2.3) unstable; urgency=medium
+kira (0.2.3) unstable; urgency=medium
 
   * Initial Debian packaging.
   * Show TOTP codes from an initramfs-tools init-premount script, for GRUB

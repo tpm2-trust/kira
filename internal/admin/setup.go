@@ -14,9 +14,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/piv"
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/piv"
+	"github.com/tpm2-trust/kira/internal/signing"
 	"golang.org/x/sys/unix"
 )
 
@@ -44,7 +44,7 @@ var setupTerminal = func() *bufio.Reader {
 	return bufio.NewReader(os.Stdin)
 }
 
-// Setup performs initial tpm2-kira configuration: it creates the signing key
+// Setup performs initial kira configuration: it creates the signing key
 // pair and nothing else. Sealing a TOTP secret is a separate step ('slot add'),
 // which refuses to run until the keys exist.
 //
@@ -64,9 +64,9 @@ func Setup(opts SetupOptions) error {
 
 	// ── Step 1: Check if keys directory already exists ──
 	if info, err := os.Stat(signing.DefaultKeysDir); err == nil && info.IsDir() {
-		fmt.Printf("tpm2-kira has been already configured (directory %s exists).\n", signing.DefaultKeysDir)
+		fmt.Printf("kira has been already configured (directory %s exists).\n", signing.DefaultKeysDir)
 		fmt.Println("  Further configuration must be done manually.")
-		fmt.Println("  Use 'tpm2-kira slot add', 'tpm2-kira slot approve', or edit the keys directly.")
+		fmt.Println("  Use 'kira slot add', 'kira slot approve', or edit the keys directly.")
 		return nil
 	}
 
@@ -150,7 +150,7 @@ func Setup(opts SetupOptions) error {
 	fmt.Printf("  Private key:    %s (%s)\n", privKeyPath, location)
 	fmt.Println()
 	fmt.Println("Next, seal a TOTP secret and scan the QR code it prints:")
-	fmt.Printf("   tpm2-kira slot add --pcrs %s\n", measure.RecommendedPCRs())
+	fmt.Printf("   kira slot add --pcrs %s\n", measure.RecommendedPCRs())
 	fmt.Println("   (docs/SLOT.md, \"Choosing PCRs\", explains the selection and its trade-offs)")
 	if chosen != nil {
 		fmt.Println()
@@ -161,9 +161,9 @@ func Setup(opts SetupOptions) error {
 }
 
 // printPINInstructions explains when the token and its PIN are needed and how
-// to hand the PIN to tpm2-kira, including for the unattended reseal.
+// to hand the PIN to kira, including for the unattended reseal.
 func printPINInstructions(w io.Writer, t signing.TokenInfo, s signing.TokenSlot) {
-	fmt.Fprintf(w, "The YubiKey (serial %d) signs whenever tpm2-kira adds or approves a slot; keep it\n", t.Serial)
+	fmt.Fprintf(w, "The YubiKey (serial %d) signs whenever kira adds or approves a slot; keep it\n", t.Serial)
 	fmt.Fprintln(w, "plugged in for those. Booting and showing codes never need it.")
 	if s.PoliciesKnown && s.EffectivePINPolicy() == piv.PINPolicyNever {
 		fmt.Fprintln(w, "This key needs no PIN, so there is nothing to configure — see the warning above.")
@@ -176,19 +176,19 @@ func printPINInstructions(w io.Writer, t signing.TokenInfo, s signing.TokenSlot)
 		fmt.Fprintf(w, "%s stores the PIN: adding a slot, approving and the automatic approval\n", path)
 		fmt.Fprintln(w, "after kernel and initramfs updates all take it from there.")
 		if loose {
-			fmt.Fprintf(w, "The file can be read by other users, so tpm2-kira refuses to use the PIN until\n"+
+			fmt.Fprintf(w, "The file can be read by other users, so kira refuses to use the PIN until\n"+
 				"it is readable by root only:\n    chown root: %s && chmod 600 %s\n", path, path)
 		}
 		return
 	}
 	fmt.Fprintln(w, "Setup did not use the PIN; sealing does. Stored in one place, every step finds")
 	fmt.Fprintln(w, "it - slot add, slot approve, and the approval the initramfs hooks run after every kernel")
-	fmt.Fprintln(w, "or initramfs update: 'tpm2-kira control' stores it (the signing key step),")
+	fmt.Fprintln(w, "or initramfs update: 'kira control' stores it (the signing key step),")
 	fmt.Fprintf(w, "in %s, the PIN alone, readable by root alone.\n", path)
 	fmt.Fprintln(w, "Without it, slot add and slot approve ask for the PIN on the terminal (a script gives it")
-	fmt.Fprintln(w, "with --pin-fd N: 'tpm2-kira help slot'), and the automatic approval")
+	fmt.Fprintln(w, "with --pin-fd N: 'kira help slot'), and the automatic approval")
 	fmt.Fprintln(w, "reports SKIPPED: the next boot then shows a PCR mismatch until you run")
-	fmt.Fprintln(w, "'tpm2-kira slot approve' with the YubiKey plugged in.")
+	fmt.Fprintln(w, "'kira slot approve' with the YubiKey plugged in.")
 }
 
 // pinPolicyWarning returns a warning when the key can sign without a PIN, or
@@ -196,7 +196,7 @@ func printPINInstructions(w io.Writer, t signing.TokenInfo, s signing.TokenSlot)
 func pinPolicyWarning(s signing.TokenSlot) string {
 	if !s.PoliciesKnown {
 		return fmt.Sprintf("  NOTE: the PIN policy of slot %s cannot be read on firmware before 5.3.\n"+
-			"  Make sure the key requires a PIN; tpm2-kira cannot check it.", s.Slot)
+			"  Make sure the key requires a PIN; kira cannot check it.", s.Slot)
 	}
 	if s.EffectivePINPolicy() == piv.PINPolicyNever {
 		return fmt.Sprintf("  WARNING: the key in slot %s needs no PIN (PIN policy 'never'). Anyone holding\n"+
@@ -255,20 +255,20 @@ func reportTokens(w io.Writer, tokens []signing.TokenInfo, probeErr error, debug
 		fmt.Fprintln(w, "  No YubiKey could be found, so the signing key will be created as local files.")
 		return false
 	case len(suitable) == 0:
-		fmt.Fprintln(w, "found, but none is suitable for tpm2-kira:")
+		fmt.Fprintln(w, "found, but none is suitable for kira:")
 		signing.PrintTokenReport(w, tokens)
 		fmt.Fprintln(w, "  A suitable key is ECC P-256 (the smallest in the TPM), ECC P-384 or RSA-2048 in a PIV slot. To create one in")
 		fmt.Fprintln(w, "  slot 9a (this overwrites whatever is in that slot):")
 		fmt.Fprintln(w, "      ykman piv keys generate --algorithm ECCP256 --pin-policy ONCE --touch-policy NEVER 9a /tmp/seal.pub")
-		fmt.Fprintln(w, "      ykman piv certificates generate --subject \"CN=tpm2-kira\" 9a /tmp/seal.pub")
+		fmt.Fprintln(w, "      ykman piv certificates generate --subject \"CN=kira\" 9a /tmp/seal.pub")
 		fmt.Fprintln(w, "  Continuing with local key files.")
 		return false
 	}
 
 	if len(suitable) == 1 {
-		fmt.Fprintln(w, "found one suitable for tpm2-kira:")
+		fmt.Fprintln(w, "found one suitable for kira:")
 	} else {
-		fmt.Fprintf(w, "found %d suitable for tpm2-kira:\n", len(suitable))
+		fmt.Fprintf(w, "found %d suitable for kira:\n", len(suitable))
 	}
 	signing.PrintTokenReport(w, tokens)
 	return true
@@ -384,8 +384,8 @@ func chooseToken(w io.Writer, tokens []signing.TokenInfo, probeErr error, opts S
 	}
 	if len(suitable) == 0 {
 		signing.PrintTokenReport(w, candidates)
-		return nil, signing.TokenSlot{}, errors.New("no YubiKey found holds a key usable by tpm2-kira (RSA-2048, ECC P-256 or ECC P-384); " +
-			"create one with 'ykman piv keys generate' first — tpm2-kira never writes to the token")
+		return nil, signing.TokenSlot{}, errors.New("no YubiKey found holds a key usable by kira (RSA-2048, ECC P-256 or ECC P-384); " +
+			"create one with 'ykman piv keys generate' first — kira never writes to the token")
 	}
 	if len(suitable) > 1 {
 		signing.PrintTokenReport(w, suitable)
@@ -428,7 +428,7 @@ func foundSerials(tokens []signing.TokenInfo) string {
 	return " (found: " + strings.Join(serials, ", ") + ")"
 }
 
-// YubiKeyList implements 'tpm2-kira yubikey list'.
+// YubiKeyList implements 'kira yubikey list'.
 func YubiKeyList() error {
 	tokens, err := signing.ProbeYubiKeys(signing.TokenProbeTimeout)
 	if err != nil {
@@ -443,7 +443,7 @@ func YubiKeyList() error {
 	for _, t := range tokens {
 		if t.Suitable() {
 			fmt.Println()
-			fmt.Println("Use one for the signing key with: sudo tpm2-kira setup --yubikey=<serial> [--slot <slot>]")
+			fmt.Println("Use one for the signing key with: sudo kira setup --yubikey=<serial> [--slot <slot>]")
 			break
 		}
 	}

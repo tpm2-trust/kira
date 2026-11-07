@@ -13,8 +13,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/totp"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/totp"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 
 	"github.com/google/go-tpm/tpm2"
 )
@@ -173,7 +173,7 @@ func TestTOTPKeySize(t *testing.T) {
 	}
 }
 
-// generateHOTP computes an HOTP code in software. tpm2-kira computes codes in
+// generateHOTP computes an HOTP code in software. kira computes codes in
 // the TPM; this is the reference the tests compare against.
 func generateHOTP(key []byte, counter int64, newHash func() hash.Hash) string {
 	buf := make([]byte, 8)

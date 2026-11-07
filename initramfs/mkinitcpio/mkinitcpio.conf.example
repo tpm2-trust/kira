@@ -1,14 +1,14 @@
-# /etc/mkinitcpio.conf - Example configuration for tpm2-kira integration
+# /etc/mkinitcpio.conf - Example configuration for kira integration
 #
 # This is an example mkinitcpio configuration file showing how to integrate
-# tpm2-kira TPM2-based TOTP authentication into the early boot process.
+# kira TPM2-based TOTP authentication into the early boot process.
 #
 # Copy the relevant HOOKS line to your /etc/mkinitcpio.conf and adjust as needed.
 
-# TPM2-KIRA SIGNING KEY ON A YUBIKEY
-# With 'tpm2-kira setup' on a YubiKey, the approval that runs after every image
-# build signs on the token. The PIN for it is not here: 'tpm2-kira control'
-# stores it in /etc/tpm2-kira/pin, readable by root alone, and nothing puts it
+# KIRA SIGNING KEY ON A YUBIKEY
+# With 'kira setup' on a YubiKey, the approval that runs after every image
+# build signs on the token. The PIN for it is not here: 'kira control'
+# stores it in /etc/kira/pin, readable by root alone, and nothing puts it
 # into the image.
 
 # MODULES
@@ -31,25 +31,25 @@ FILES=()
 # Order is important, and it is recommended that you do not change the order
 # in which HOOKS are added.
 
-# SYSTEMD INITRAMFS WITH TPM2-KIRA AND ENCRYPTION
-# sd-tpm2-kira requires a systemd-based initramfs with sd-encrypt; the order
-# of the two does not matter. The passphrase is asked at tpm2-kira's prompt
-# for every volume whose key file is /run/tpm2-kira/unlock.sock, set on the
-# kernel command line as rd.luks.key=<UUID>=/run/tpm2-kira/unlock.sock (see
+# SYSTEMD INITRAMFS WITH KIRA AND ENCRYPTION
+# sd-kira requires a systemd-based initramfs with sd-encrypt; the order
+# of the two does not matter. The passphrase is asked at kira's prompt
+# for every volume whose key file is /run/kira/unlock.sock, set on the
+# kernel command line as rd.luks.key=<UUID>=/run/kira/unlock.sock (see
 # the README, "Configure the disk unlock").
-HOOKS=(base systemd autodetect modconf block keyboard sd-tpm2-kira sd-encrypt filesystems fsck)
+HOOKS=(base systemd autodetect modconf block keyboard sd-kira sd-encrypt filesystems fsck)
 
 # OTHER COMMON CONFIGURATIONS
-# Here are some other common HOOKS configurations that include tpm2-kira:
+# Here are some other common HOOKS configurations that include kira:
 
 # With LVM and encryption
-#HOOKS=(base systemd autodetect modconf block keyboard sd-tpm2-kira sd-encrypt sd-lvm2 filesystems fsck)
+#HOOKS=(base systemd autodetect modconf block keyboard sd-kira sd-encrypt sd-lvm2 filesystems fsck)
 
 # With LUKS on LVM
-#HOOKS=(base systemd autodetect modconf block sd-lvm2 keyboard sd-tpm2-kira sd-encrypt filesystems fsck)
+#HOOKS=(base systemd autodetect modconf block sd-lvm2 keyboard sd-kira sd-encrypt filesystems fsck)
 
 # Multiple encrypted devices
-#HOOKS=(base systemd autodetect modconf block keyboard sd-tpm2-kira sd-encrypt filesystems fsck)
+#HOOKS=(base systemd autodetect modconf block keyboard sd-kira sd-encrypt filesystems fsck)
 
 # COMPRESSION
 # Use this to compress the initramfs image. By default, gzip compression
@@ -66,33 +66,33 @@ HOOKS=(base systemd autodetect modconf block keyboard sd-tpm2-kira sd-encrypt fi
 # Additional options for the compressor
 #COMPRESSION_OPTIONS=()
 
-# IMPORTANT NOTES FOR TPM2-KIRA INTEGRATION:
+# IMPORTANT NOTES FOR KIRA INTEGRATION:
 #
 # 1. Hook Placement:
-#    - Place sd-tpm2-kira next to sd-encrypt, in either order: the units
+#    - Place sd-kira next to sd-encrypt, in either order: the units
 #      decide that the TOTP code is shown before the disk is unlocked
 #    - Place after 'keyboard' to ensure input is available if needed
 #
 # 2. Use Case:
-#    - tpm2-kira hooks are primarily useful with encrypted filesystems
+#    - kira hooks are primarily useful with encrypted filesystems
 #    - They provide TOTP codes during the boot process for authentication
 #    - Most useful when you need 2FA before unlocking encrypted drives
 #
 # 3. Prerequisites:
-#    - Install tpm2-kira binary: make install
+#    - Install kira binary: make install
 #    - Install hooks: make install-mkinitcpio
-#    - Seal TOTP secret: tpm2-kira slot add
+#    - Seal TOTP secret: kira slot add
 #      (You will be prompted to enter an optional password securely)
 #
 # 4. Hook Behavior:
-#    - The hook installs a systemd unit that runs 'tpm2-kira-boot run' during boot
+#    - The hook installs a systemd unit that runs 'kira-boot run' during boot
 #    - This provides continuous TOTP code display
 #    - No kernel parameters or manual intervention needed
 #
 # 5. Compatibility:
-#    - sd-tpm2-kira requires a systemd-based initramfs ('systemd' in HOOKS)
-#      with sd-encrypt; tpm2-kira provides the key of the volumes whose
-#      key file is /run/tpm2-kira/unlock.sock (rd.luks.key= on the kernel
+#    - sd-kira requires a systemd-based initramfs ('systemd' in HOOKS)
+#      with sd-encrypt; kira provides the key of the volumes whose
+#      key file is /run/kira/unlock.sock (rd.luks.key= on the kernel
 #      command line)
 #
 # 6. After Configuration:

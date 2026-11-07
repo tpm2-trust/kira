@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PCR reconstruction and diagnosis for tpm2-kira.
+"""PCR reconstruction and diagnosis for kira.
 
 Two subcommands over one shared core:
 

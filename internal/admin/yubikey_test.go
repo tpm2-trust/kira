@@ -22,10 +22,10 @@ import (
 	"time"
 
 	"github.com/google/go-tpm/tpm2"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/piv"
-	"github.com/tpm2-trust/tpm2-kira/internal/piv/pivtest"
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/piv"
+	"github.com/tpm2-trust/kira/internal/piv/pivtest"
+	"github.com/tpm2-trust/kira/internal/signing"
 	"golang.org/x/sys/unix"
 )
 
@@ -48,7 +48,7 @@ func (f *fakeTokens) install(t *testing.T) {
 		signing.DialTokens, signing.PromptPIN = oldDial, oldPrompt
 	})
 	// Keep the host's control.conf out of the tests.
-	t.Setenv("TPM2_KIRA_CONTROL_CONF", filepath.Join(t.TempDir(), "absent-control.conf"))
+	t.Setenv("KIRA_CONTROL_CONF", filepath.Join(t.TempDir(), "absent-control.conf"))
 	signing.DialTokens = func(time.Duration) ([]*signing.TokenConn, func(), error) {
 		f.dials++
 		if f.err != nil {
@@ -529,14 +529,14 @@ func TestPINGuidance(t *testing.T) {
 		t.Errorf("unknown policy: %q", w)
 	}
 
-	t.Setenv("TPM2_KIRA_CONTROL_CONF", filepath.Join(t.TempDir(), "control.conf"))
+	t.Setenv("KIRA_CONTROL_CONF", filepath.Join(t.TempDir(), "control.conf"))
 	pinFile := signing.PINPath()
 
 	// No PIN stored: control stores it; the terminal or a descriptor meanwhile.
 	var buf bytes.Buffer
 	printPINInstructions(&buf, tokens[0], s9a)
 	t.Logf("instructions:\n%s", buf.String())
-	for _, want := range []string{"tpm2-kira control", "in " + pinFile + ", the PIN alone", "--pin-fd N", "SKIPPED"} {
+	for _, want := range []string{"kira control", "in " + pinFile + ", the PIN alone", "--pin-fd N", "SKIPPED"} {
 		if !strings.Contains(buf.String(), want) {
 			t.Errorf("instructions lack %q", want)
 		}
@@ -617,7 +617,7 @@ func TestPINFromTheFile(t *testing.T) {
 	fake := &fakeTokens{cards: []*pivtest.Card{card}}
 	fake.install(t)
 	conf := filepath.Join(t.TempDir(), "control.conf")
-	t.Setenv("TPM2_KIRA_CONTROL_CONF", conf)
+	t.Setenv("KIRA_CONTROL_CONF", conf)
 	pinFile := signing.PINPath()
 	signer, _ := loadSigner(writeStub(t, 1, probeSlot(t, 1, piv.SlotAuthentication)))
 	digest := sha256.Sum256(nil)
@@ -671,7 +671,7 @@ func TestPINFromTheFile(t *testing.T) {
 	// A control.conf this version refuses does not take the PIN with it:
 	// it is used, nothing is asked.
 	signing.CloseTokenSessions()
-	os.WriteFile(conf, []byte("TPM2_KIRA_NOSUCH=0\n"), 0600)
+	os.WriteFile(conf, []byte("KIRA_NOSUCH=0\n"), 0600)
 	os.Chmod(pinFile, 0600)
 	prompts = fake.prompts
 	if _, err := signer.Sign(rand.Reader, digest[:], crypto.SHA256); err != nil || fake.prompts != prompts {
@@ -773,7 +773,7 @@ func TestControlStoresThePIN(t *testing.T) {
 	card.AddECKey(piv.SlotAuthentication, piv.PINPolicyAlways, piv.TouchPolicyNever, false)
 	fake := &fakeTokens{cards: []*pivtest.Card{card}}
 	fake.install(t)
-	t.Setenv("TPM2_KIRA_CONTROL_CONF", filepath.Join(t.TempDir(), "control.conf"))
+	t.Setenv("KIRA_CONTROL_CONF", filepath.Join(t.TempDir(), "control.conf"))
 	signer, err := loadSigner(writeStub(t, 1, probeSlot(t, 1, piv.SlotAuthentication)))
 	if err != nil {
 		t.Fatal(err)
@@ -903,7 +903,7 @@ func TestThePINVariableIsIgnored(t *testing.T) {
 	card.AddECKey(piv.SlotAuthentication, piv.PINPolicyOnce, piv.TouchPolicyNever, false)
 	fake := &fakeTokens{cards: []*pivtest.Card{card}}
 	fake.install(t)
-	t.Setenv("TPM2_KIRA_PIN", "000000")
+	t.Setenv("KIRA_PIN", "000000")
 	signer, err := loadSigner(writeStub(t, 1, probeSlot(t, 1, piv.SlotAuthentication)))
 	if err != nil {
 		t.Fatal(err)

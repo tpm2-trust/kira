@@ -14,9 +14,9 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/efivars"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
+	"github.com/tpm2-trust/kira/internal/efivars"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/phonegate"
 	"golang.org/x/sys/unix"
 )
 
@@ -68,7 +68,7 @@ func TestApprovalLeavesAMovedChannel(t *testing.T) {
 			t.Fatalf("the slot itself was not approved: generation %d, was %d", cur.Payload.Generation, generation)
 		}
 		generation = cur.Payload.Generation
-		if !strings.Contains(out, "WARNING: slot 4's phone channel was left") || !strings.Contains(out, "sudo tpm2-kira slot approve --nvram 4") {
+		if !strings.Contains(out, "WARNING: slot 4's phone channel was left") || !strings.Contains(out, "sudo kira slot approve --nvram 4") {
 			t.Fatalf("not said:\n%s", out)
 		}
 	}
@@ -139,7 +139,7 @@ func TestHooksLeaveAMovedChannel(t *testing.T) {
 		t.Fatal(err)
 	}
 	dir := t.TempDir()
-	bin := filepath.Join(dir, "tpm2-kira-real")
+	bin := filepath.Join(dir, "kira-real")
 	build := exec.Command("go", "build", "-o", bin, ".")
 	build.Dir = root
 	if out, err := build.CombinedOutput(); err != nil {
@@ -154,7 +154,7 @@ func TestHooksLeaveAMovedChannel(t *testing.T) {
 	s.extend(t, 7, "a dbx update")
 
 	// The binary sees the test's TPM, key and EFI variables; the hooks find it by
-	// the name a machine has. The test's own variables: the binary's TPM2_KIRA_TEST_DIR
+	// the name a machine has. The test's own variables: the binary's KIRA_TEST_DIR
 	// wants them under efivars/.
 	testDir := filepath.Join(dir, "testdir")
 	if err := os.MkdirAll(testDir, 0o755); err != nil {
@@ -172,32 +172,32 @@ exec %q "$@"
 `, bin, s.sock, privPath, pubPath, bin, s.sock, bin)
 	binDir := filepath.Join(dir, "bin")
 	os.MkdirAll(binDir, 0o755)
-	if err := os.WriteFile(filepath.Join(binDir, "tpm2-kira"), []byte(wrapper), 0o755); err != nil {
+	if err := os.WriteFile(filepath.Join(binDir, "kira"), []byte(wrapper), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	keys := filepath.Join(dir, "keys")
 	os.MkdirAll(keys, 0o755)
 
-	for _, hook := range []string{"initramfs/mkinitcpio/post/sd-tpm2-kira", "initramfs/initramfs-tools/post-update.d/tpm2-kira", "initramfs/initramfs-tools/kernel/zzz-tpm2-kira"} {
+	for _, hook := range []string{"initramfs/mkinitcpio/post/sd-kira", "initramfs/initramfs-tools/post-update.d/kira", "initramfs/initramfs-tools/kernel/zzz-kira"} {
 		t.Run(hook, func(t *testing.T) {
 			src, err := os.ReadFile(filepath.Join(root, hook))
 			if err != nil {
 				t.Fatal(err)
 			}
-			text := strings.ReplaceAll(string(src), "/etc/tpm2-kira/keys", keys)
+			text := strings.ReplaceAll(string(src), "/etc/kira/keys", keys)
 			copyPath := filepath.Join(dir, filepath.Base(hook)+"-copy")
 			if err := os.WriteFile(copyPath, []byte(text), 0o755); err != nil {
 				t.Fatal(err)
 			}
 			generation := phonegate.ReadSealedSlot(s.tpm, idx).Payload.Generation
 			cmd := exec.Command(copyPath, "6.1", "/boot/image")
-			cmd.Env = append(os.Environ(), "PATH="+binDir+":"+os.Getenv("PATH"), "TPM2_KIRA_UNPRIVILEGED=1", "TPM2_KIRA_TEST_DIR="+testDir)
+			cmd.Env = append(os.Environ(), "PATH="+binDir+":"+os.Getenv("PATH"), "KIRA_UNPRIVILEGED=1", "KIRA_TEST_DIR="+testDir)
 			out, err := cmd.CombinedOutput()
 			if err != nil {
 				t.Fatalf("%v:\n%s", err, out)
 			}
 			got := string(out)
-			if !strings.Contains(got, "WARNING: slot 4's phone channel was left") || !strings.Contains(got, "PCR 7 next boot:") || !strings.Contains(got, "sudo tpm2-kira slot approve --nvram 4") {
+			if !strings.Contains(got, "WARNING: slot 4's phone channel was left") || !strings.Contains(got, "PCR 7 next boot:") || !strings.Contains(got, "sudo kira slot approve --nvram 4") {
 				t.Errorf("not passed on:\n%s", got)
 			}
 			if strings.Contains(got, "is sealed again") {
@@ -210,7 +210,7 @@ exec %q "$@"
 				t.Errorf("the slot was not approved: generation %d, was %d\n%s", g, generation, got)
 			}
 			// What the image's hook said in this same build is not said again.
-			if n := strings.Count(got, "WARNING: Secure Boot"); (filepath.Base(hook) == "zzz-tpm2-kira" && n != 1) || (filepath.Base(hook) != "zzz-tpm2-kira" && n != 0) {
+			if n := strings.Count(got, "WARNING: Secure Boot"); (filepath.Base(hook) == "zzz-kira" && n != 1) || (filepath.Base(hook) != "zzz-kira" && n != 0) {
 				t.Errorf("Secure Boot said %d times:\n%s", n, got)
 			}
 			// As a container's root, under a limit on locked memory: the approval stops
@@ -240,7 +240,7 @@ exec %q "$@"
 	// to approve writes nothing. --unattended with --seal-channel is refused.
 	run := func(args ...string) (string, error) {
 		cmd := exec.Command(bin, append([]string{"slot", "approve", "--tpm", s.sock, "--privkey", privPath, "--pubkey", pubPath, "--nvram", "4"}, args...)...)
-		cmd.Env = append(os.Environ(), "TPM2_KIRA_UNPRIVILEGED=1", "TPM2_KIRA_TEST_DIR="+testDir)
+		cmd.Env = append(os.Environ(), "KIRA_UNPRIVILEGED=1", "KIRA_TEST_DIR="+testDir)
 		out, err := cmd.CombinedOutput()
 		return string(out), err
 	}
@@ -259,7 +259,7 @@ exec %q "$@"
 	}
 	// The status of the binary: the warning and the command.
 	cmd := exec.Command(bin, "status", "--tpm", s.sock, "--pubkey", pubPath)
-	cmd.Env = append(os.Environ(), "TPM2_KIRA_UNPRIVILEGED=1", "TPM2_KIRA_TEST_DIR="+testDir)
+	cmd.Env = append(os.Environ(), "KIRA_UNPRIVILEGED=1", "KIRA_TEST_DIR="+testDir)
 	out, _ := cmd.CombinedOutput()
 	if !strings.Contains(string(out), "WARNING: slot 4's phone channel is sealed to another PCR 7") || !strings.Contains(string(out), "WARNING: Secure Boot") {
 		t.Errorf("status:\n%s", out)

@@ -6,7 +6,7 @@ package admin
 import (
 	"testing"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/nvslot"
 )
 
 // TestValidateNVRAMIndex tests NVRAM index validation

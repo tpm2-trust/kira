@@ -7,9 +7,9 @@ import (
 	"strings"
 )
 
-// The boot chain of control: what tpm2-kira needs of the machine
+// The boot chain of control: what kira needs of the machine
 // to be in its boot at all - the prerequisites, each judged on one line -
-// and the two edits that put it there, each asked for: the sd-tpm2-kira
+// and the two edits that put it there, each asked for: the sd-kira
 // hook in the HOOKS of mkinitcpio.conf, and the key's route on the kernel
 // command line (crypttab on Debian). The other sections open when the chain is in
 // place; the image is built once, when control is left.
@@ -25,7 +25,7 @@ const (
 	prereqMet = iota
 	prereqNot
 	prereqInfo
-	prereqRisk // red, and no prerequisite: tpm2-kira has no enforced mode
+	prereqRisk // red, and no prerequisite: kira has no enforced mode
 	prereqWarn // orange, and no prerequisite: the machine has nothing better
 )
 
@@ -55,12 +55,12 @@ func (c *controller) prereqs() []prereq {
 	case !f.HookInstalled:
 		add(prereqNot, "Boot integration: %s", f.HookState)
 	default:
-		add(prereqMet, "Boot integration: tpm2-kira's %s files are installed", map[string]string{"mkinitcpio": "hook", "initramfs-tools": "boot script"}[f.Initramfs])
+		add(prereqMet, "Boot integration: kira's %s files are installed", map[string]string{"mkinitcpio": "hook", "initramfs-tools": "boot script"}[f.Initramfs])
 	}
 	if f.Initramfs == "mkinitcpio" {
 		switch {
 		case !slices.Contains(f.Hooks, "systemd"):
-			add(prereqNot, "systemd in the initrd: HOOKS lack systemd - tpm2-kira runs in a systemd-based initramfs (systemd, sd-encrypt)")
+			add(prereqNot, "systemd in the initrd: HOOKS lack systemd - kira runs in a systemd-based initramfs (systemd, sd-encrypt)")
 		case !slices.Contains(f.Hooks, "sd-encrypt") && len(f.Status.Devices) > 0:
 			add(prereqNot, "systemd in the initrd: HOOKS lack sd-encrypt - nothing opens the LUKS volumes at boot")
 		default:
@@ -79,9 +79,9 @@ func (c *controller) prereqs() []prereq {
 		}
 		add(prereqMet, "LUKS: %s", strings.Join(names, ", "))
 		if len(f.NoRecovery) > 0 {
-			add(prereqNot, "Recovery passphrase: none on %s - every keyslot is tpm2-kira's, so the operating system's own prompt, the last way in when tpm2-kira itself fails, opens nothing (cryptsetup luksAddKey)", strings.Join(f.NoRecovery, ", "))
+			add(prereqNot, "Recovery passphrase: none on %s - every keyslot is kira's, so the operating system's own prompt, the last way in when kira itself fails, opens nothing (cryptsetup luksAddKey)", strings.Join(f.NoRecovery, ", "))
 		} else {
-			add(prereqMet, "Recovery passphrase: a keyslot that is not tpm2-kira's on every device")
+			add(prereqMet, "Recovery passphrase: a keyslot that is not kira's on every device")
 		}
 		switch {
 		case f.Checking:
@@ -178,9 +178,9 @@ func (c *controller) bootStep() controlStep {
 		case !slices.Contains(f.Hooks, "systemd"):
 			boot.Blocked = "the initramfs is not systemd-based (HOOKS lack systemd)"
 		case f.HookState != "":
-			boot.Explain = "The code screen, the gate and the key provider enter the boot image through the sd-tpm2-kira hook: " + mkinitcpioConf + " must carry it in HOOKS, next to sd-encrypt. The step shows the line as it should read and writes it when you say so - editing the file yourself works just as well."
+			boot.Explain = "The code screen, the gate and the key provider enter the boot image through the sd-kira hook: " + mkinitcpioConf + " must carry it in HOOKS, next to sd-encrypt. The step shows the line as it should read and writes it when you say so - editing the file yourself works just as well."
 		default:
-			boot.Done = "sd-tpm2-kira in HOOKS of " + mkinitcpioConf
+			boot.Done = "sd-kira in HOOKS of " + mkinitcpioConf
 		}
 	case "initramfs-tools":
 		boot.Title = "initramfs-tools integration"
@@ -197,17 +197,17 @@ func (c *controller) bootStep() controlStep {
 }
 
 // routeStep is the key's route: systemd-cryptsetup takes a volume's key
-// from tpm2-kira only where rd.luks.key= names the socket (keyscript= in
+// from kira only where rd.luks.key= names the socket (keyscript= in
 // crypttab on Debian). Blocked without a LUKS device: then the chain is
 // the hook alone.
 func (c *controller) routeStep() controlStep {
 	f := &c.facts
 	route := controlStep{Key: "route", Title: "Kernel command line adoption (the key's route)", Check: true,
-		Explain: "systemd-cryptsetup takes a volume's key from tpm2-kira when its rd.luks.key= names the socket. The step shows each line as it should read and writes it when you say so - editing the file yourself works just as well. How the key is made, the boot reads from the volume's own LUKS header.",
+		Explain: "systemd-cryptsetup takes a volume's key from kira when its rd.luks.key= names the socket. The step shows each line as it should read and writes it when you say so - editing the file yourself works just as well. How the key is made, the boot reads from the volume's own LUKS header.",
 		Run:     (*controller).runRoute}
 	if f.Initramfs == "initramfs-tools" {
 		route.Title = "crypttab adoption (the key's route)"
-		route.Explain = "cryptsetup takes a volume's key from tpm2-kira when its crypttab line names tpm2-kira's keyscript. The step shows each line as it should read and writes it when you say so - editing the file yourself works just as well."
+		route.Explain = "cryptsetup takes a volume's key from kira when its crypttab line names kira's keyscript. The step shows each line as it should read and writes it when you say so - editing the file yourself works just as well."
 	}
 	var unrouted []string
 	for _, d := range f.Status.Devices {
@@ -225,7 +225,7 @@ func (c *controller) routeStep() controlStep {
 	case len(f.Status.Devices) == 0 || f.Status.DevicesError != "":
 		route.Blocked = "no LUKS device found: nothing to route"
 	case len(unrouted) > 0:
-		route.Explain += "\nOpen: " + strings.Join(unrouted, ", ") + " not routed through tpm2-kira."
+		route.Explain += "\nOpen: " + strings.Join(unrouted, ", ") + " not routed through kira."
 	case routeResolved(f):
 		var routed []string
 		for _, d := range f.Status.Devices {
@@ -296,7 +296,7 @@ func (c *controller) pcrKeyStep() (controlStep, bool) {
 		return controlStep{}, false
 	}
 	s := controlStep{Key: "pcrkey", Title: "PCR key adoption", Check: true, Run: (*controller).runPCRKey,
-		Explain: "PCR 11 signed by tpm2-kira's PCR key: a kernel update needs no approval of 11, and slot 1 outlasts an image not approved. The step shows what goes into " + ukiConfPath + ", which ukify reads when mkinitcpio builds the image."}
+		Explain: "PCR 11 signed by kira's PCR key: a kernel update needs no approval of 11, and slot 1 outlasts an image not approved. The step shows what goes into " + ukiConfPath + ", which ukify reads when mkinitcpio builds the image."}
 	if f.UKISigns {
 		s.Done = "ukify signs PCR 11 for enter-initrd with " + pcrKeyPath
 	}
@@ -349,17 +349,17 @@ func (c *controller) runInitramfs() error {
 	case f.Initramfs != "mkinitcpio":
 		return errors.New("no initramfs system found")
 	case !mkinitcpioHookInstalled():
-		return errors.New("the sd-tpm2-kira hook files are not installed: sudo make install-mkinitcpio, or the package; then run this step again")
+		return errors.New("the sd-kira hook files are not installed: sudo make install-mkinitcpio, or the package; then run this step again")
 	}
 	file, oldLine, newLine, err := AdoptHookLine(mkinitcpioConf)
 	if err != nil {
 		return err
 	}
 	if oldLine == newLine {
-		fmt.Fprintf(c.out, "sd-tpm2-kira is already in the HOOKS of %s.\n", file)
+		fmt.Fprintf(c.out, "sd-kira is already in the HOOKS of %s.\n", file)
 		return nil
 	}
-	fmt.Fprintf(c.out, "The boot image is built from the HOOKS of %s. The line reads\n\n    %s\n\nand must carry sd-tpm2-kira next to sd-encrypt, so the code screen runs before\nthe passphrase prompt:\n\n    %s\n\nPut that line into the file yourself - or let this step write it, which\nchanges nothing else of the file.\n\n", file, oldLine, newLine)
+	fmt.Fprintf(c.out, "The boot image is built from the HOOKS of %s. The line reads\n\n    %s\n\nand must carry sd-kira next to sd-encrypt, so the code screen runs before\nthe passphrase prompt:\n\n    %s\n\nPut that line into the file yourself - or let this step write it, which\nchanges nothing else of the file.\n\n", file, oldLine, newLine)
 	ok, err := c.confirm("Write the line into "+file+"?", "Only the HOOKS assignment changes; 'No' leaves the editing to you.")
 	if err != nil || !ok {
 		fmt.Fprintf(c.out, "Nothing was written. Put the line above into %s.\n", file)

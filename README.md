@@ -1,25 +1,25 @@
-# tpm2-kira (Known Integrity Recognition Agent)
+# kira (Known Integrity Recognition Agent)
 
 <p align="center">
-  <img src=".github/tpm2-kira_300x300.png" alt="tpm2-kira logo" />
+  <img src=".github/kira_300x300.png" alt="kira logo" />
 </p>
 
 A TPM2 based tool to recognize modifications on your system !before! entering passphrases to unlock your disk.
 Time-Based One-Time-Password Tokens calculated on Secrets, that the TPM2 reveals only when the device is in an unmodified state.
 
 <p align="center">
-  <img src=".github/ssh.gif" alt="tpm2-kira demo" />
+  <img src=".github/ssh.gif" alt="kira demo" />
 </p>
 
 **Successor/Extension to [tpm2-totp](https://github.com/tpm2-software/tpm2-totp).**
 
 > [!CAUTION]
-> tpm2-kira is currently in **alpha**. Expect breaking changes between versions.
+> kira is currently in **alpha**. Expect breaking changes between versions.
 
 ## What it does
 
-Before you type a passphrase, tpm2-kira shows whether this machine still boots what you approved.
-The TPM only opens what tpm2-kira keeps in it while the boot measurements match the values your
+Before you type a passphrase, kira shows whether this machine still boots what you approved.
+The TPM only opens what kira keeps in it while the boot measurements match the values your
 signing key approved; at the end of the code screen the boot closes (PCR 15), so the running
 system cannot use any of it until the next boot.
 
@@ -41,7 +41,7 @@ image carries only those parts, and only those run at boot.
 | **Where the code screen is** | the console, always; SSH in the boot image, its host key certified by a CA in the TPM (experimental) | [SSH](docs/SSH.md) |
 | **The disk's key** | per LUKS keyslot: cryptsetup's own passphrase, or a recipe combining a password and a salt from this TPM, the phone or the vault. The passphrase can always be typed by hand | [DISK-KEY](docs/DISK-KEY.md) |
 
-How the parts fit together, with [aSSH](assh/README.md), tpm2-kira-vault and the Marify app: [ARCHITECTURE](docs/ARCHITECTURE.md).
+How the parts fit together, with [aSSH](assh/README.md), kira-vault and the Marify app: [ARCHITECTURE](docs/ARCHITECTURE.md).
 
 ## Requirements
 
@@ -53,23 +53,23 @@ Details, and what a TPM with only a SHA-1 bank means: [INSTALL](docs/INSTALL.md)
 ## Quick start
 
 ```bash
-git clone --recurse-submodules https://github.com/tpm2-trust/tpm2-kira.git
-cd tpm2-kira
+git clone --recurse-submodules https://github.com/tpm2-trust/kira.git
+cd kira
 make build
 sudo make install
 sudo make install-mkinitcpio        # Arch; on Debian: install-initramfs-tools
 
-sudo tpm2-kira control              # guided: the boot chain, then what this machine combines
+sudo kira control              # guided: the boot chain, then what this machine combines
 ```
 
-Or the code alone, by hand: `sudo tpm2-kira setup`, `sudo tpm2-kira slot add --totp` (scan the QR codes it
+Or the code alone, by hand: `sudo kira setup`, `sudo kira slot add --totp` (scan the QR codes it
 prints), rebuild the boot image, reboot, and compare the code on the code screen with your authenticator.
 
 Packages for Arch and Debian, the disk's route and uninstalling: [INSTALL](docs/INSTALL.md), [BOOT-INTEGRATION](docs/BOOT-INTEGRATION.md).
 
 ## Commands
 
-Everything but the help needs root. `tpm2-kira help` is one screen, `tpm2-kira help <command>` a command's page.
+Everything but the help needs root. `kira help` is one screen, `kira help <command>` a command's page.
 
 | | |
 |---|---|
@@ -77,7 +77,7 @@ Everything but the help needs root. `tpm2-kira help` is one screen, `tpm2-kira h
 | The slot | `setup` · `slot add\|approve\|info\|list\|status\|delete` · `status` |
 | Who checks the boot | the code screen at boot · `phone ...` |
 | The disk's key | `luks ...` · `phone salt ...` · `vault ...` |
-| The boot image | `initramfs plan`; in the image `tpm2-kira-boot`: `run`, `close`, `machine-id`, `unlock-key`, `ssh-child`, `gate-child` |
+| The boot image | `initramfs plan`; in the image `kira-boot`: `run`, `close`, `machine-id`, `unlock-key`, `ssh-child`, `gate-child` |
 | By hand | `yubikey list` · `pcrtips` · `version` |
 
 ## Documentation
@@ -86,7 +86,7 @@ Everything but the help needs root. `tpm2-kira help` is one screen, `tpm2-kira h
 |---|---|
 | **Using it** | [INSTALL](docs/INSTALL.md) · [CONTROL](docs/CONTROL.md) · [SLOT](docs/SLOT.md) · [CODE](docs/CODE.md) · [PHONE](docs/PHONE.md) · [VAULT](docs/VAULT.md) · [SSH](docs/SSH.md) · [DISK-KEY](docs/DISK-KEY.md) |
 | **When something is wrong** | [TROUBLESHOOTING](docs/TROUBLESHOOTING.md) · [DEBUG-BLE](docs/DEBUG-BLE.md) · [PLATFORM-OBSERVATIONS](docs/PLATFORM-OBSERVATIONS.md) |
-| **How it works** | [ARCHITECTURE](docs/ARCHITECTURE.md) · [BOOT-INTEGRATION](docs/BOOT-INTEGRATION.md) · [SEALING](docs/SEALING.md) · [PROTOCOL-BLE](docs/PROTOCOL-BLE.md) · [SECURITY-BACKGROUND](docs/SECURITY-BACKGROUND.md) |
+| **How it works** | [ARCHITECTURE](docs/ARCHITECTURE.md) · [BOOT-INTEGRATION](docs/BOOT-INTEGRATION.md) · [SEALING](docs/SEALING.md) · [PROTOCOL-BLE](docs/PROTOCOL-BLE.md) · [SECURITY-BACKGROUND](docs/SECURITY-BACKGROUND.md) · [NV-INDICES](docs/NV-INDICES.md) |
 | **Working on it** | [PROJECT-STRUCTURE](docs/PROJECT-STRUCTURE.md) · [TESTING](docs/TESTING.md) · [AGENTS](AGENTS.md) |
 | **Plans and records** | [HISTORY](HISTORY.md) · the `docs/PLAN-*.md` files · [pentest 1](docs/pentest1/penetration_test_report.md) · [pentest 2](docs/pentest2/) |
 

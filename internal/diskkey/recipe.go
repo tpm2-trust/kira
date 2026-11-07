@@ -89,7 +89,7 @@ func (r Recipe) FromVault() bool { return r.Salt() == SaltVault }
 // Unattended says nothing is typed: the password is held by this TPM.
 func (r Recipe) Unattended() bool { return r.Password() == PasswordTPM }
 
-// Bound says the keyslot needs what a tpm2-kira slot holds or releases -
+// Bound says the keyslot needs what a kira slot holds or releases -
 // its TPM part, its phone, its vault - so the token names the slot, and
 // deleting the slot deletes the keyslot.
 func (r Recipe) Bound() bool { return r.Unattended() || r.Salt() != SaltTyped }
@@ -166,7 +166,7 @@ func (r Recipe) String() string { return fmt.Sprintf("0x%04x", uint16(r)) }
 // TokenType is the LUKS2 token type of a keyslot of r: the number in it,
 // so a plain 'cryptsetup luksDump' names the recipe too ('+' and other
 // signs are not allowed in a token type).
-func (r Recipe) TokenType() string { return fmt.Sprintf("tpm2-kira-%04x", uint16(r)) }
+func (r Recipe) TokenType() string { return fmt.Sprintf("kira-%04x", uint16(r)) }
 
 // Words are the recipe as the command line names it.
 func (r Recipe) Words() string {

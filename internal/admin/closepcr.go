@@ -3,7 +3,7 @@ package admin
 import (
 	"fmt"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/measure"
 )
 
 // The close (PCR 15 extended) ends what every slot object and the SSH CA
@@ -16,7 +16,7 @@ import (
 var closeEventlogPath = ""
 
 // closePCRWhy is the finding, for status and for the refusal.
-const closePCRWhy = "PCR 15 is measured by the firmware or the boot loader (risk: nothing of tpm2-kira's opens on this machine: every slot and the SSH CA need it at zero at the code screen)"
+const closePCRWhy = "PCR 15 is measured by the firmware or the boot loader (risk: nothing of kira's opens on this machine: every slot and the SSH CA need it at zero at the code screen)"
 
 // firmwareClosePCREvents counts the events in PCR 15 in the event log at
 // path ("" for the default), in the bank that has any events of it.

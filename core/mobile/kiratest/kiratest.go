@@ -1,4 +1,4 @@
-// Package kiratest is a simulated tpm2-kira machine for app development and
+// Package kiratest is a simulated kira machine for app development and
 // instrumented tests, built as a separate gomobile library:
 //
 //	gomobile bind -target=android -androidapi 28 -o kiratest.aar ./mobile/kiratest
@@ -18,9 +18,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
-	"github.com/tpm2-trust/tpm2-kira/core/attest/attesttest"
-	"github.com/tpm2-trust/tpm2-kira/core/transport/frame"
+	"github.com/tpm2-trust/kira/core/attest"
+	"github.com/tpm2-trust/kira/core/attest/attesttest"
+	"github.com/tpm2-trust/kira/core/transport/frame"
 )
 
 // DemoMachine is one simulated machine. It keeps its identity across
@@ -167,7 +167,7 @@ func (d *DemoMachine) start(mtu int, serve func(conn *frame.Conn) string) error 
 	return nil
 }
 
-// StartEnrolment begins serving one enrolment, as `tpm2-kira phone enrol`.
+// StartEnrolment begins serving one enrolment, as `kira phone enrol`.
 // The console side confirms the code automatically; read it with LastSAS.
 func (d *DemoMachine) StartEnrolment(mtu int) error {
 	return d.start(mtu, func(c *frame.Conn) string {
@@ -194,7 +194,7 @@ func (h *sasHook) ConfirmSAS(code string) (bool, error) {
 	return h.SoftEnrol.ConfirmSAS(code)
 }
 
-// StartAttestation begins serving one attestation, as `tpm2-kira phone gate`.
+// StartAttestation begins serving one attestation, as `kira phone gate`.
 func (d *DemoMachine) StartAttestation(mtu int) error {
 	if d.m.Verifier == nil {
 		return errors.New("kiratest: enrol first")

@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/piv"
-	"github.com/tpm2-trust/tpm2-kira/internal/piv/pivtest"
+	"github.com/tpm2-trust/kira/internal/piv"
+	"github.com/tpm2-trust/kira/internal/piv/pivtest"
 	"golang.org/x/sys/unix"
 )
 
@@ -180,7 +180,7 @@ func TestDescriptorPINIsHandedOverOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	// The file and the terminal are not asked, the first time or the second.
-	t.Setenv("TPM2_KIRA_CONTROL_CONF", filepath.Join(t.TempDir(), "control.conf"))
+	t.Setenv("KIRA_CONTROL_CONF", filepath.Join(t.TempDir(), "control.conf"))
 	os.WriteFile(PINPath(), []byte("999999\n"), 0o600)
 	old := PromptPIN
 	PromptPIN = func(*YubiKeySigner) ([]byte, error) { t.Error("asked"); return []byte("888888"), nil }
@@ -195,7 +195,7 @@ func TestDescriptorPINIsHandedOverOnce(t *testing.T) {
 }
 
 func TestPINFileIsWipedAfterTheLook(t *testing.T) {
-	t.Setenv("TPM2_KIRA_CONTROL_CONF", filepath.Join(t.TempDir(), "control.conf"))
+	t.Setenv("KIRA_CONTROL_CONF", filepath.Join(t.TempDir(), "control.conf"))
 	path := PINPath()
 	os.WriteFile(path, []byte("123456\n"), 0o600)
 	bufs := captureBuffers(t)
@@ -532,7 +532,7 @@ func TestSessionWipesThePIN(t *testing.T) {
 		return []*TokenConn{{Reader: "emulated", Transport: card, Close: func(bool) error { return nil }}}, func() {}, nil
 	}
 	t.Cleanup(func() { CloseTokenSessions(); DialTokens = oldDial })
-	t.Setenv("TPM2_KIRA_CONTROL_CONF", filepath.Join(t.TempDir(), "control.conf"))
+	t.Setenv("KIRA_CONTROL_CONF", filepath.Join(t.TempDir(), "control.conf"))
 	slot := TokenSlot{Slot: piv.SlotAuthentication, Algorithm: piv.AlgECCP256, PINPolicy: piv.PINPolicyOnce, TouchPolicy: piv.TouchPolicyNever, PoliciesKnown: true, PublicKey: key.Public()}
 	stub, err := MarshalYubiKeyStub(1, slot)
 	if err != nil {

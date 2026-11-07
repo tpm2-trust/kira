@@ -29,14 +29,14 @@ import (
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpm2/transport"
 	"github.com/tpm2-trust/assh/hostkey"
-	"github.com/tpm2-trust/tpm2-kira/internal/efivars"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/efivars"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 )
 
 const (
 	// Test configuration
-	testTPMPath    = "/tmp/tpm2-kira-test-tpm"
+	testTPMPath    = "/tmp/kira-test-tpm"
 	testNVRAMIndex = "0x0180301F"
 	testPCRs       = "0,2,4,7"
 )
@@ -86,9 +86,9 @@ func TestMain(m *testing.M) {
 	// Built the way it ships: static and cgo-free.
 	// The suite runs the binary as a user against a software TPM; the
 	// binary refuses anything but help as a user unless told so.
-	os.Setenv("TPM2_KIRA_UNPRIVILEGED", "1")
+	os.Setenv("KIRA_UNPRIVILEGED", "1")
 	// The binaries' EFI variables and machine-id: the suite's own.
-	testDir, dirErr := os.MkdirTemp("", "tpm2-kira-integration-")
+	testDir, dirErr := os.MkdirTemp("", "kira-integration-")
 	if dirErr != nil {
 		panic(dirErr)
 	}
@@ -97,11 +97,11 @@ func TestMain(m *testing.M) {
 	// is not mounted.
 	os.WriteFile(testDir+"/efivars/BootOrder-8be4df61-93ca-11d2-aa0d-00e098032b8c", []byte{7, 0, 0, 0, 1, 0}, 0o644)
 	os.WriteFile(testDir+"/machine-id", []byte("0123456789abcdef0123456789abcdef\n"), 0o444)
-	os.Setenv("TPM2_KIRA_TEST_DIR", testDir)
+	os.Setenv("KIRA_TEST_DIR", testDir)
 	// ... and the suite's own reads and writes of the slots' records.
 	efivars.SetDir(testDir + "/efivars")
-	fmt.Println("Building tpm2-kira and tpm2-kira-boot for testing...")
-	for _, b := range [][2]string{{"tpm2-kira", "."}, {"tpm2-kira-boot", "./cmd/tpm2-kira-boot"}} {
+	fmt.Println("Building kira and kira-boot for testing...")
+	for _, b := range [][2]string{{"kira", "."}, {"kira-boot", "./cmd/kira-boot"}} {
 		buildCmd := exec.Command("go", "build", "-o", b[0], b[1])
 		buildCmd.Env = append(os.Environ(), "CGO_ENABLED=0")
 		if output, err := buildCmd.CombinedOutput(); err != nil {
@@ -112,7 +112,7 @@ func TestMain(m *testing.M) {
 
 	// Generate test signing keys
 	var err error
-	testKeyDir, err = os.MkdirTemp("", "tpm2-kira-test-keys-*")
+	testKeyDir, err = os.MkdirTemp("", "kira-test-keys-*")
 	if err != nil {
 		fmt.Printf("Failed to create temp dir for keys: %v\n", err)
 		os.Exit(1)
@@ -184,7 +184,7 @@ func setupSoftwareTPM(t *testing.T) (tpmPath string, cleanup func()) {
 	}
 
 	// Create temporary directory for TPM state
-	tmpDir, err := os.MkdirTemp("", "tpm2-kira-test-*")
+	tmpDir, err := os.MkdirTemp("", "kira-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
@@ -252,7 +252,7 @@ func setupSoftwareTPM(t *testing.T) (tpmPath string, cleanup func()) {
 	return tpmPath, cleanup
 }
 
-// runTPMKira executes the tpm2-kira binary with given arguments
+// runTPMKira executes the kira binary with given arguments
 func runTPMKira(t *testing.T, tpmPath string, args ...string) (stdout, stderr string, err error) {
 	return runTPMKiraWithInput(t, tpmPath, "", args...)
 }
@@ -266,7 +266,7 @@ func runTPMKiraWithInput(t *testing.T, tpmPath string, stdinInput string, args .
 	}
 	allArgs = append(allArgs, args...)
 
-	cmd := exec.Command("./tpm2-kira", allArgs...)
+	cmd := exec.Command("./kira", allArgs...)
 	var outBuf, errBuf bytes.Buffer
 	cmd.Stdout = &outBuf
 	cmd.Stderr = &errBuf
@@ -281,7 +281,7 @@ func runTPMKiraWithInput(t *testing.T, tpmPath string, stdinInput string, args .
 	stderr = errBuf.String()
 
 	if err != nil {
-		t.Logf("Command failed: tpm2-kira %v", allArgs)
+		t.Logf("Command failed: kira %v", allArgs)
 		t.Logf("Stdout: %s", stdout)
 		t.Logf("Stderr: %s", stderr)
 	}
@@ -400,16 +400,16 @@ func TestGlobalOptionsBeforeCommand(t *testing.T) {
 	}
 	kira := func(args ...string) string {
 		var out, errb bytes.Buffer
-		c := exec.Command("./tpm2-kira", args...)
+		c := exec.Command("./kira", args...)
 		c.Stdout, c.Stderr = &out, &errb
 		if err := c.Run(); err != nil {
-			t.Fatalf("tpm2-kira %v: %v\n%s", args, err, errb.String())
+			t.Fatalf("kira %v: %v\n%s", args, err, errb.String())
 		}
 		return strings.TrimSpace(out.String())
 	}
 	// Slot 4, named before the command, is the only one read: it is empty, so the command fails
 	// (exit 1) and says nothing of slot 3.
-	empty := exec.Command("./tpm2-kira", "--tpm="+tpmPath, "--nvram=4", "--debug", "slot", "info", "--json")
+	empty := exec.Command("./kira", "--tpm="+tpmPath, "--nvram=4", "--debug", "slot", "info", "--json")
 	out, err := empty.CombinedOutput()
 	var exit *exec.ExitError
 	if !errors.As(err, &exit) || exit.ExitCode() != 1 || strings.Contains(string(out), `"slot_number": 3`) {
@@ -887,7 +887,7 @@ func testSlotCode(t *testing.T, tpmPath, nvramIndex string) string {
 // testRun executes the run command for a specified duration and then kills it
 func testRun(t *testing.T, tpmPath, nvramIndex string, duration time.Duration) {
 	t.Helper()
-	runCmd := exec.Command("./tpm2-kira-boot", "run", "--tpm", tpmPath, "--nvram", nvramIndex)
+	runCmd := exec.Command("./kira-boot", "run", "--tpm", tpmPath, "--nvram", nvramIndex)
 	var runOut bytes.Buffer
 	runCmd.Stdout = &runOut
 	runCmd.Stderr = &runOut
@@ -1232,7 +1232,7 @@ func TestExitCodes(t *testing.T) {
 		"slot delete of an empty index":              {"slot", "delete", "--nvram", "0x0180301E"},
 		"slot add with a public key that is none":    {"slot", "add", "--totp", "--nvram", "0x0180301C", "--pcrs", "0", "--pubkey", "/nonexistent", "--privkey", testPrivKeyPath},
 	} {
-		cmd := exec.Command("./tpm2-kira", append([]string{"--tpm", tpmPath}, args...)...)
+		cmd := exec.Command("./kira", append([]string{"--tpm", tpmPath}, args...)...)
 		var out bytes.Buffer
 		cmd.Stdout, cmd.Stderr = &out, &out
 		err := cmd.Run()
@@ -1243,7 +1243,7 @@ func TestExitCodes(t *testing.T) {
 		} else if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
-		saysFailed := strings.Contains(out.String(), "tpm2-kira: FAILED:")
+		saysFailed := strings.Contains(out.String(), "kira: FAILED:")
 		if saysFailed {
 			failed++
 		}
@@ -1480,17 +1480,17 @@ func TestResealRevokesOldBlob(t *testing.T) {
 	runTPMKira(t, tpmPath, "slot", "delete", "--nvram", nvramIndex)
 }
 
-// runBoot runs the boot binary, tpm2-kira-boot.
+// runBoot runs the boot binary, kira-boot.
 func runBoot(t *testing.T, args ...string) (stdout, stderr string, err error) {
 	t.Helper()
 	var out, errb bytes.Buffer
-	c := exec.Command("./tpm2-kira-boot", args...)
+	c := exec.Command("./kira-boot", args...)
 	c.Stdout, c.Stderr = &out, &errb
 	err = c.Run()
 	return out.String(), errb.String(), err
 }
 
-// TestBootCloseExtendsPCR15 checks 'tpm2-kira-boot close', what the image
+// TestBootCloseExtendsPCR15 checks 'kira-boot close', what the image
 // runs when the code screen is over and before a resume: it extends PCR 15
 // with aSSH's close event and exits 0; without a TPM it exits non-zero, so
 // that the unit fails (a hard reboot) and the Debian script reboots.
@@ -1533,7 +1533,7 @@ func TestBootCloseExtendsPCR15(t *testing.T) {
 func TestSlotDeleteForeignIndexByHand(t *testing.T) {
 	tpmPath, cleanup := setupSoftwareTPM(t)
 	defer cleanup()
-	const gen = nvslot.NVRAMSlotStart + nvslot.GenerationIndexOffset + 5
+	gen := nvslot.GenerationIndex(nvslot.NVRAMSlotStart + 5)
 	dev, err := tpmdev.Open(tpmPath)
 	if err != nil {
 		t.Fatal(err)
@@ -1558,7 +1558,7 @@ func TestSlotDeleteForeignIndexByHand(t *testing.T) {
 		t.Fatalf("slot add afterwards: %v\n%s\n%s", err, stdout, stderr)
 	}
 	if nvslot.ForeignAt(dev, gen) != nil || !tpmdev.NVRAMIndexExists(dev, gen) {
-		t.Fatalf("slot add afterwards left no generation index of tpm2-kira's:\n%s\n%s", stdout, stderr)
+		t.Fatalf("slot add afterwards left no generation index of kira's:\n%s\n%s", stdout, stderr)
 	}
 	runTPMKira(t, tpmPath, "slot", "delete", "--nvram", "5") // the suite's variables are shared
 }

@@ -96,7 +96,7 @@ func CheckSigningKeyFile(path string) error {
 }
 
 // trustedOwner reports whether uid may own a signing key file or its
-// directory: root, or the user running tpm2-kira.
+// directory: root, or the user running kira.
 func trustedOwner(uid uint32) bool {
 	return uid == 0 || uid == uint32(os.Geteuid())
 }

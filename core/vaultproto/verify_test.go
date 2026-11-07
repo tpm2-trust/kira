@@ -15,12 +15,12 @@ import (
 
 	"github.com/google/go-tpm/tpm2"
 
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
-	"github.com/tpm2-trust/tpm2-kira/core/attest/attesttest"
+	"github.com/tpm2-trust/kira/core/attest"
+	"github.com/tpm2-trust/kira/core/attest/attesttest"
 )
 
 // machine is a TPM double and a signing key that approved its PCRs at a
-// generation: what tpm2-kira has after seal or reseal.
+// generation: what kira has after seal or reseal.
 type machine struct {
 	tpm    *attesttest.SoftTPM
 	signer *ecdsa.PrivateKey

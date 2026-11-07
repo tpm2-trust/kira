@@ -6,9 +6,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
-	"github.com/tpm2-trust/tpm2-kira/internal/imageplan"
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
+	"github.com/tpm2-trust/kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/imageplan"
+	"github.com/tpm2-trust/kira/internal/signing"
 )
 
 // The overview of control: what the machine combines, a line per section. Each
@@ -24,7 +24,7 @@ func (c *controller) hubSteps() []controlStep {
 	done := chainDone(f)
 	steps := c.imageHints()
 	chain := controlStep{Key: "chain", Title: "Boot chain", Menu: "chain",
-		Explain: "The prerequisites, the sd-tpm2-kira hook in the boot image and the key's route on the kernel command line."}
+		Explain: "The prerequisites, the sd-kira hook in the boot image and the key's route on the kernel command line."}
 	if done {
 		chain.Done, chain.Optional = "in place", true
 	}
@@ -153,7 +153,7 @@ func (c *controller) keysSteps() []controlStep {
 	// with a TOTP code when chosen - and then slot 1, the fallback code for
 	// a boot whose firmware or option ROMs changed. The step guides while slot 0
 	// is missing, or its code's fallback; then the slot lines show them and
-	// the step disappears ('tpm2-kira slot add' stays for sealing anew).
+	// the step disappears ('kira slot add' stays for sealing anew).
 	fallbackSel := "PCR 7 and the image (PCR 11) alone"
 	if f.Status.GRUB {
 		fallbackSel = "PCRs 7, 8 and 9 alone (on GRUB every slot includes 8 and 9)"
@@ -197,7 +197,7 @@ func (c *controller) keysSteps() []controlStep {
 		n := s.Slot
 		line := controlStep{Key: fmt.Sprintf("slot:%d", n), Title: fmt.Sprintf("Slot %d", n),
 			Done: desc, Optional: true, SelfConfirm: true,
-			Explain: "Picking a slot deletes it whole: the TOTP key (its codes in the authenticator), the phones, the phone salt, the vault's local part, the LUKS keyslots bound to it, the recovery blobs. Keyslots that are not tpm2-kira's - the recovery passphrase - stay.",
+			Explain: "Picking a slot deletes it whole: the TOTP key (its codes in the authenticator), the phones, the phone salt, the vault's local part, the LUKS keyslots bound to it, the recovery blobs. Keyslots that are not kira's - the recovery passphrase - stay.",
 			Run:     func(c *controller) error { return c.runRemoveSlot(n) }}
 		if !s.Signed && f.Keys != "" {
 			// Sealed with another signing key (one setup made before):
@@ -252,7 +252,7 @@ func (c *controller) phoneSteps() []controlStep {
 		// key's verdict below.
 		attest.Blocked = f.NewImage
 	case !f.Closed:
-		attest.Blocked = "this boot did not pass tpm2-kira's code screen: reboot, then enrol - the phone would otherwise call the boot key refused instead of locked"
+		attest.Blocked = "this boot did not pass kira's code screen: reboot, then enrol - the phone would otherwise call the boot key refused instead of locked"
 	}
 	bt := controlStep{Key: "bt-always", Title: "Bluetooth in every boot image", Optional: true, SelfConfirm: true,
 		Explain: "With the adapter in the image from the start (~1.1 MB), enrolling and removing phones never changes it, and the first enrolment causes no \"changed\" verdict at the next boot. Off, the image stays lean and the hook adds Bluetooth once a phone is enrolled. Picking it switches.",
@@ -292,7 +292,7 @@ func (c *controller) diskGate() string {
 	case devices == 0 || f.Status.DevicesError != "":
 		return "no LUKS device found"
 	case len(f.NoRecovery) >= devices:
-		return "needs a recovery passphrase, a keyslot besides tpm2-kira's, to authorise it (cryptsetup luksAddKey)"
+		return "needs a recovery passphrase, a keyslot besides kira's, to authorise it (cryptsetup luksAddKey)"
 	case c.routeStep().Done == "":
 		return "needs the key's route (Boot chain)"
 	}
@@ -316,7 +316,7 @@ func (c *controller) diskSteps() []controlStep {
 	// it untouched. It coexists with the others: at boot the phone's salt
 	// and the vault are tried first, the typed salt is the fallback.
 	salt := controlStep{Key: "luks-salt", Optional: true, SelfConfirm: true, Title: "Recovery: password and salt typed (0x1100)",
-		Explain: "A LUKS keyslot whose key is derived at boot from a password and a salt you type (Argon2id, 1 GiB): the way in when the other recipes give no salt, at tpm2-kira's prompt. Bound to no slot - deleting a slot leaves it untouched. Enrolled, picking it offers the removal." + typed,
+		Explain: "A LUKS keyslot whose key is derived at boot from a password and a salt you type (Argon2id, 1 GiB): the way in when the other recipes give no salt, at kira's prompt. Bound to no slot - deleting a slot leaves it untouched. Enrolled, picking it offers the removal." + typed,
 		Run:     func(c *controller) error { return c.runLuks(diskkey.RecipeRecovery) }}
 	switch {
 	case gate != "":
@@ -364,7 +364,7 @@ func (c *controller) diskSteps() []controlStep {
 	case f.NewImage != "":
 		remote.Blocked = f.NewImage
 	case !f.Closed:
-		remote.Blocked = "this boot did not pass tpm2-kira's code screen: reboot, then enrol the salt - the phone would otherwise call the boot key refused instead of locked"
+		remote.Blocked = "this boot did not pass kira's code screen: reboot, then enrol the salt - the phone would otherwise call the boot key refused instead of locked"
 	}
 	keyboard := remote
 	keyboard.Key, keyboard.Title = "luks-remote-keyboard", "Password, salt from the phone, pepper typed through its one-time keyboard (0x1302)"
@@ -394,14 +394,14 @@ func (c *controller) debugStep() controlStep {
 	return st
 }
 
-// runBTAlways switches TPM2_KIRA_ATTEST_BLUETOOTH between always and auto,
+// runBTAlways switches KIRA_ATTEST_BLUETOOTH between always and auto,
 // showing first what goes into the image for the adapter.
 func (c *controller) runBTAlways() error {
 	value, title := "always", "Pack Bluetooth into every boot image?"
 	if c.facts.BTAlways {
 		value, title = "auto", "Keep Bluetooth out of the image while no phone is enrolled?"
 	}
-	ok, err := c.confirmYes(title, btImagePlan(c.facts.Adapter)+"\n\nWritten into "+controlConfigPath()+" as TPM2_KIRA_ATTEST_BLUETOOTH="+value+"; the image is rebuilt when you quit control.")
+	ok, err := c.confirmYes(title, btImagePlan(c.facts.Adapter)+"\n\nWritten into "+controlConfigPath()+" as KIRA_ATTEST_BLUETOOTH="+value+"; the image is rebuilt when you quit control.")
 	if err != nil || !ok {
 		return err
 	}
@@ -409,7 +409,7 @@ func (c *controller) runBTAlways() error {
 		return err
 	}
 	c.facts.BTAlways = value == "always"
-	fmt.Fprintf(c.out, "%s: TPM2_KIRA_ATTEST_BLUETOOTH=%s\n", controlConfigPath(), value)
+	fmt.Fprintf(c.out, "%s: KIRA_ATTEST_BLUETOOTH=%s\n", controlConfigPath(), value)
 	return nil
 }
 

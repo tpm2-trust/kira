@@ -21,7 +21,7 @@
 #               shows it to the guests)
 #
 # ssh_port and boot_port: where this side reaches the machine's ssh (22)
-# and tpm2-kira's boot SSH server (2222); the defaults are those.
+# and kira's boot SSH server (2222); the defaults are those.
 [arch]
 host = 172.17.2.198
 user = pix
@@ -36,6 +36,6 @@ user = pix
 # in a container (docker; tools/vmtest-vault), built from src; the VMs
 # reach it at url, served on port of this machine.
 [vault]
-src = ../tpm2-kira-vault
+src = ../kira-vault
 url = https://172.17.2.174
 port = 443

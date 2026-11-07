@@ -13,15 +13,15 @@ import (
 )
 
 func TestParseConfig(t *testing.T) {
-	c, ok := ParseConfig([]byte("# x\nTPM2_KIRA_NET=\"dhcp\"\nTPM2_KIRA_NET_MATCH=\"AA:BB:CC:DD:EE:FF\"\n"))
+	c, ok := ParseConfig([]byte("# x\nKIRA_NET=\"dhcp\"\nKIRA_NET_MATCH=\"AA:BB:CC:DD:EE:FF\"\n"))
 	if !ok || c.Mode != "dhcp" || c.Match != "aa:bb:cc:dd:ee:ff" || !c.Announce {
 		t.Fatalf("%+v %v", c, ok)
 	}
-	c, ok = ParseConfig([]byte("TPM2_KIRA_NET=\"static\"\nTPM2_KIRA_NET_MATCH=\"enp1s0\"\nTPM2_KIRA_NET_ANNOUNCE=\"off\"\n"))
+	c, ok = ParseConfig([]byte("KIRA_NET=\"static\"\nKIRA_NET_MATCH=\"enp1s0\"\nKIRA_NET_ANNOUNCE=\"off\"\n"))
 	if !ok || c.Match != "enp1s0" || c.Announce {
 		t.Fatalf("%+v %v", c, ok)
 	}
-	if _, ok := ParseConfig([]byte("TPM2_KIRA_NET=\"off\"\n")); ok {
+	if _, ok := ParseConfig([]byte("KIRA_NET=\"off\"\n")); ok {
 		t.Fatal("off is no network")
 	}
 }
@@ -103,7 +103,7 @@ func TestReadChoosesTheInterfacesAndTheirState(t *testing.T) {
 	}
 
 	r.Match = "52:54:00:CC:CC:CC"
-	r.Config, _ = ParseConfig([]byte("TPM2_KIRA_NET=dhcp\nTPM2_KIRA_NET_MATCH=52:54:00:CC:CC:CC\n"))
+	r.Config, _ = ParseConfig([]byte("KIRA_NET=dhcp\nKIRA_NET_MATCH=52:54:00:CC:CC:CC\n"))
 	if st := r.Read(0); len(st.Ifaces) != 1 || st.Ifaces[0].Name != "enp2s0" {
 		t.Fatalf("by MAC: %+v", st.Ifaces)
 	}

@@ -7,9 +7,9 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/signing"
 )
 
 func TestWriteSigningKeyFile(t *testing.T) {
@@ -123,8 +123,8 @@ func TestSealRequiresUsableSigningKey(t *testing.T) {
 			t.Fatal(err)
 		}
 		err := Seal("/nonexistent/tpm", "0,7", nvslot.NVRAMSlotStart, pub, filepath.Join(dir, "seal.key"), false, measure.PCRHashAlgoSHA256, false, true)
-		if err == nil || !strings.Contains(err.Error(), "tpm2-kira setup") {
-			t.Errorf("Seal() error = %v, want it to ask for 'tpm2-kira setup'", err)
+		if err == nil || !strings.Contains(err.Error(), "kira setup") {
+			t.Errorf("Seal() error = %v, want it to ask for 'kira setup'", err)
 		}
 	})
 

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/admin"
+	"github.com/tpm2-trust/kira/internal/admin"
 )
 
 // The binary as it is run on a machine: the root gate, 'slot add' without
@@ -24,7 +24,7 @@ import (
 // environment, and returns stdout, stderr and the exit code.
 func kira(t *testing.T, env []string, args ...string) (stdout, stderr string, code int) {
 	t.Helper()
-	c := exec.Command("./tpm2-kira", args...)
+	c := exec.Command("./kira", args...)
 	c.Env = append(os.Environ(), env...)
 	var out, errb bytes.Buffer
 	c.Stdout, c.Stderr = &out, &errb
@@ -32,7 +32,7 @@ func kira(t *testing.T, env []string, args ...string) (stdout, stderr string, co
 	if exit, ok := err.(*exec.ExitError); ok {
 		code = exit.ExitCode()
 	} else if err != nil {
-		t.Fatalf("tpm2-kira %v: %v", args, err)
+		t.Fatalf("kira %v: %v", args, err)
 	}
 	return out.String(), errb.String(), code
 }
@@ -71,29 +71,29 @@ func hasNote(notes []string, substr string) bool {
 }
 
 // Without root the commands refuse with the line to run; help, version and
-// pcrtips answer. TPM2_KIRA_UNPRIVILEGED, which the suite sets for itself,
+// pcrtips answer. KIRA_UNPRIVILEGED, which the suite sets for itself,
 // is taken away for this test.
 func TestRootIsRequired(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("running as root: the gate is open")
 	}
-	unprivileged := "TPM2_KIRA_UNPRIVILEGED="
+	unprivileged := "KIRA_UNPRIVILEGED="
 	for _, args := range [][]string{{"status"}, {"slot", "add", "--pcrs", "0"}, {"slot", "list"}, {"slot", "info"}, {"phone", "status"}, {"luks", "status"}} {
 		stdout, stderr, code := kira(t, []string{unprivileged}, args...)
-		want := "tpm2-kira " + args[0] + ": root is needed - sudo tpm2-kira " + strings.Join(args, " ")
+		want := "kira " + args[0] + ": root is needed - sudo kira " + strings.Join(args, " ")
 		if code != 1 || !strings.Contains(stderr, want) || stdout != "" {
 			t.Errorf("%v as a user: exit %d, stdout %q, stderr %q; want exit 1 and %q", args, code, stdout, stderr, want)
 		}
 	}
 	// control without a terminal says it in one line too.
 	_, stderr, code := kira(t, []string{unprivileged}, "control")
-	if code != 1 || !strings.Contains(stderr, "tpm2-kira control: root is needed - sudo tpm2-kira control") {
+	if code != 1 || !strings.Contains(stderr, "kira control: root is needed - sudo kira control") {
 		t.Errorf("control as a user: exit %d, stderr %q", code, stderr)
 	}
 	for _, c := range []struct {
 		args []string
 		want string
-	}{{[]string{"help"}, ""}, {[]string{"help", "slot"}, "tpm2-kira slot add"}, {[]string{"help", "run"}, "tpm2-kira-boot run"}, {[]string{"version"}, ""}, {[]string{"pcrtips"}, ""}} {
+	}{{[]string{"help"}, ""}, {[]string{"help", "slot"}, "kira slot add"}, {[]string{"help", "run"}, "kira-boot run"}, {[]string{"version"}, ""}, {[]string{"pcrtips"}, ""}} {
 		stdout, stderr, code := kira(t, []string{unprivileged}, c.args...)
 		if code != 0 || stdout == "" || strings.Contains(stderr, "root is needed") || !strings.Contains(stdout, c.want) {
 			t.Errorf("%v as a user: exit %d, stdout %d bytes, stderr %q; want an answer with %q", c.args, code, len(stdout), stderr, c.want)
@@ -125,7 +125,7 @@ func TestSealDefaultsAndStatus(t *testing.T) {
 		}
 	}
 
-	conf := writeConf(t, "TPM2_KIRA_ATTEST_ADAPTER=0\n")
+	conf := writeConf(t, "KIRA_ATTEST_ADAPTER=0\n")
 	r := statusJSON(t, tpmPath, testPubKeyPath, conf)
 	if r.TPMError != "" || len(r.Slots) != 2 {
 		t.Fatalf("status: tpm_error %q, %d slots: %+v", r.TPMError, len(r.Slots), r)
@@ -161,7 +161,7 @@ func TestStatusNotes(t *testing.T) {
 
 	empty := writeConf(t, "")
 	r := statusJSON(t, tpmPath, testPubKeyPath, empty)
-	if len(r.Slots) != 0 || !hasNote(r.Notes, "no slot is sealed: tpm2-kira slot add") {
+	if len(r.Slots) != 0 || !hasNote(r.Notes, "no slot is sealed: kira slot add") {
 		t.Errorf("nothing sealed, an empty file: %d slots, notes %q", len(r.Slots), r.Notes)
 	}
 
@@ -173,7 +173,7 @@ func TestStatusNotes(t *testing.T) {
 	if len(r.Slots) != 1 || !r.Slots[0].Signed || r.Slots[0].Fallback {
 		t.Fatalf("slots: %+v", r.Slots)
 	}
-	if !hasNote(r.Notes, "no fallback slot (PCRs 0,7 alone)") || !hasNote(r.Notes, "tpm2-kira slot add --nvram 1 --pcrs 0,7") {
+	if !hasNote(r.Notes, "no fallback slot (PCRs 0,7 alone)") || !hasNote(r.Notes, "kira slot add --nvram 1 --pcrs 0,7") {
 		t.Errorf("no fallback: notes %q", r.Notes)
 	}
 
@@ -191,7 +191,7 @@ func TestStatusNotes(t *testing.T) {
 	}
 
 	// A line it does not know: the error names it.
-	bad := writeConf(t, "TPM2_KIRA_NOSUCH=password+salt\n")
+	bad := writeConf(t, "KIRA_NOSUCH=password+salt\n")
 	r = statusJSON(t, tpmPath, testPubKeyPath, bad)
 	if !strings.Contains(r.ConfigError, "unknown key") {
 		t.Errorf("bad file: error %q", r.ConfigError)
@@ -213,7 +213,7 @@ func TestStatusNotes(t *testing.T) {
 // file is the defaults, and a line that cannot be used names itself - and
 // never stops the build: the plan is made with the defaults.
 func TestInitramfsPlanReadsTheConfig(t *testing.T) {
-	good := writeConf(t, "# written by control\nTPM2_KIRA_ATTEST_ADAPTER=hci1\n")
+	good := writeConf(t, "# written by control\nKIRA_ATTEST_ADAPTER=hci1\n")
 	stdout, stderr, code := kira(t, nil, "initramfs", "plan", "--conf", good)
 	if code != 0 || strings.Contains(stdout, "warning") || !strings.Contains(stdout, "in  Disk unlock") {
 		t.Errorf("a good file: exit %d, %q %q", code, stdout, stderr)
@@ -223,9 +223,9 @@ func TestInitramfsPlanReadsTheConfig(t *testing.T) {
 		t.Errorf("a missing file is the defaults: exit %d, %q", code, stdout)
 	}
 	for content, reason := range map[string]string{
-		"TPM2_KIRA_NOSUCH=skip\n":           "line 1: unknown key",
-		"\nTPM2_KIRA_ATTEST_ADAPTER=eth0\n": "line 2: invalid adapter",
-		"just words\n":                      "line 1: expected KEY=VALUE",
+		"KIRA_NOSUCH=skip\n":           "line 1: unknown key",
+		"\nKIRA_ATTEST_ADAPTER=eth0\n": "line 2: invalid adapter",
+		"just words\n":                 "line 1: expected KEY=VALUE",
 	} {
 		path := writeConf(t, content)
 		stdout, stderr, code := kira(t, nil, "initramfs", "plan", "--conf", path)

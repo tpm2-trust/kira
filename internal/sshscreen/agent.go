@@ -1,6 +1,6 @@
 package sshscreen
 
-// cryptsetup's own prompt in the SSH session. When tpm2-kira has no key to
+// cryptsetup's own prompt in the SSH session. When kira has no key to
 // give (no token on the volume, Ctrl-C, a wrong answer), cryptsetup asks
 // for itself, and 'run' asks the same question in the session that has the
 // prompt, beside the console. Whichever answers first wins. A session that
@@ -30,7 +30,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/screen"
+	"github.com/tpm2-trust/kira/internal/screen"
 
 	"golang.org/x/sys/unix"
 )

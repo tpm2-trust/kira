@@ -8,21 +8,21 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/imageplan"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
+	"github.com/tpm2-trust/kira/internal/imageplan"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/signing"
 )
 
 // control's facts on a software TPM: what it reads from the TPM and the
 // slots, the EK verdict a phone would reach, the risks, the options of
 // the overview, and control.conf written (here a file of the test's, through
-// TPM2_KIRA_CONTROL_CONF). The host's own files (keys, Secure Boot, the
+// KIRA_CONTROL_CONF). The host's own files (keys, Secure Boot, the
 // initramfs) are facts too, but of the machine the suite runs on, so
 // they are not asserted.
 func TestControlFactsOnSWTPM(t *testing.T) {
 	sock := startSWTPM(t)
 	conf := filepath.Join(t.TempDir(), "control.conf")
-	t.Setenv("TPM2_KIRA_CONTROL_CONF", conf)
+	t.Setenv("KIRA_CONTROL_CONF", conf)
 	sealRealSlot(t, sock, nvslot.ResolveNVRAMIndex(0))
 
 	f := collectFacts(sock, false)
@@ -115,7 +115,7 @@ func TestControlFactsOnSWTPM(t *testing.T) {
 	// A line this version refuses: the settings are invalid (red Config
 	// line), the PIN in its own file is untouched by it.
 	data, _ := os.ReadFile(conf)
-	os.WriteFile(conf, append([]byte("TPM2_KIRA_NOSUCH=0\n"), data...), 0o600)
+	os.WriteFile(conf, append([]byte("KIRA_NOSUCH=0\n"), data...), 0o600)
 	f = collectFacts(sock, false)
 	if !f.PINStored || f.AttestConf == "" {
 		t.Errorf("a refused line next to the PIN: stored %v, config %q", f.PINStored, f.AttestConf)
@@ -132,7 +132,7 @@ func TestControlFactsOnSWTPM(t *testing.T) {
 	}
 
 	// A file that does not load blocks the attestation step and names itself.
-	if err := os.WriteFile(conf, []byte("TPM2_KIRA_NOSUCH=1\n"), 0o600); err != nil {
+	if err := os.WriteFile(conf, []byte("KIRA_NOSUCH=1\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	f = collectFacts(sock, false)

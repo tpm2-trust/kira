@@ -13,17 +13,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
-	"github.com/tpm2-trust/tpm2-kira/internal/totp"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
-	"github.com/tpm2-trust/tpm2-kira/internal/untrusted"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/phonegate"
+	"github.com/tpm2-trust/kira/internal/signing"
+	"github.com/tpm2-trust/kira/internal/totp"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/untrusted"
 
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpm2/transport"
-	"github.com/tpm2-trust/tpm2-kira/internal/machineid"
+	"github.com/tpm2-trust/kira/internal/machineid"
 )
 
 // Seal creates a new TOTP key inside the TPM and approves the current PCR
@@ -47,7 +47,7 @@ func Seal(tpmPath, pcrsStr string, nvramIndex uint32, pubKeyPath, privKeyPath st
 	for _, keyPath := range []string{privKeyPath, pubKeyPath} {
 		if _, err := os.Stat(keyPath); errors.Is(err, fs.ErrNotExist) {
 			return fmt.Errorf("cannot seal: no signing key at %s.\n"+
-				"  Run 'tpm2-kira setup' first to create the signing keys,\n"+
+				"  Run 'kira setup' first to create the signing keys,\n"+
 				"  or pass --privkey and --pubkey to use your own", keyPath)
 		}
 	}
@@ -142,7 +142,7 @@ func Seal(tpmPath, pcrsStr string, nvramIndex uint32, pubKeyPath, privKeyPath st
 			// The boot key and the release key read PCR 15 in the slot's
 			// bank (its policy); in another bank they would never open.
 			fmt.Printf("WARNING: this slot's phone or vault enrolment is for the %s bank, not %s.\n", old.GetHashAlgo().DisplayString(), hashAlgo.DisplayString())
-			fmt.Println("  It is not carried over. Enrol again: tpm2-kira phone enrol, luks enrol")
+			fmt.Println("  It is not carried over. Enrol again: kira phone enrol, luks enrol")
 			fmt.Println()
 		case nvslot.VerifyBlobSignature(oldRaw, old, signer.Public()) == nil:
 			kept, policyRef = old.Payload.Attestation, old.Payload.PolicyRef
@@ -155,7 +155,7 @@ func Seal(tpmPath, pcrsStr string, nvramIndex uint32, pubKeyPath, privKeyPath st
 			fmt.Println()
 		default:
 			fmt.Println("WARNING: this slot carries a phone enrolment that another signing key wrote.")
-			fmt.Println("  It is not carried over. Enrol the phone again: tpm2-kira phone enrol")
+			fmt.Println("  It is not carried over. Enrol the phone again: kira phone enrol")
 			fmt.Println()
 		}
 	}
@@ -394,7 +394,7 @@ func approveAndWrite(tpmDev transport.TPM, nvramIndex uint32, blob *nvslot.Seale
 		fmt.Println("         their register values, which already carry systemd's os-separator. The key's policy")
 		fmt.Println("         then holds only after the separator - and the boot image closes the boot (PCR 15)")
 		fmt.Println("         when the code screen is over, before the separator: this slot shows no code at")
-		fmt.Println("         boot. Only 'tpm2-kira-boot run' by hand in an image without the close shows it. Reason:")
+		fmt.Println("         boot. Only 'kira-boot run' by hand in an image without the close shows it. Reason:")
 		fmt.Printf("         %s\n", readResult.AfterSeparator)
 		fmt.Println()
 	}

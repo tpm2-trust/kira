@@ -8,14 +8,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
+	"github.com/tpm2-trust/kira/internal/signing"
 )
 
 // One file holds the radio and the PIN; setAttestBluetooth leaves the
 // rest of the file as it is, and a missing file is the defaults.
 func TestControlConfigOneFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "control.conf")
-	os.WriteFile(path, []byte("# radio\nTPM2_KIRA_ATTEST_ADAPTER=1\n"), 0o644)
+	os.WriteFile(path, []byte("# radio\nKIRA_ATTEST_ADAPTER=1\n"), 0o644)
 	cfg, err := LoadControlConfig(path)
 	if err != nil || cfg.Attest.Adapter != 1 || cfg.Attest.Bluetooth != "auto" {
 		t.Fatalf("%+v %v", cfg, err)
@@ -24,13 +24,13 @@ func TestControlConfigOneFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	data, _ := os.ReadFile(path)
-	if string(data) != "# radio\nTPM2_KIRA_ATTEST_ADAPTER=1\nTPM2_KIRA_ATTEST_BLUETOOTH=always\n" {
+	if string(data) != "# radio\nKIRA_ATTEST_ADAPTER=1\nKIRA_ATTEST_BLUETOOTH=always\n" {
 		t.Fatalf("after setAttestBluetooth:\n%s", data)
 	}
 	if cfg, err := LoadControlConfig(path); err != nil || cfg.Attest.Bluetooth != "always" {
 		t.Fatalf("always not read back: %+v %v", cfg, err)
 	}
-	if _, err := ParseControlConfig([]byte("TPM2_KIRA_ATTEST_BLUETOOTH=sometimes\n")); err == nil {
+	if _, err := ParseControlConfig([]byte("KIRA_ATTEST_BLUETOOTH=sometimes\n")); err == nil {
 		t.Fatal("an unknown bluetooth policy parsed")
 	}
 	missing, err := LoadControlConfig(filepath.Join(t.TempDir(), "none"))
@@ -44,7 +44,7 @@ func TestControlConfigOneFile(t *testing.T) {
 // error that never quotes it.
 func TestPINFile(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("TPM2_KIRA_CONTROL_CONF", filepath.Join(dir, "control.conf"))
+	t.Setenv("KIRA_CONTROL_CONF", filepath.Join(dir, "control.conf"))
 	path := signing.PINPath()
 	if path != filepath.Join(dir, "pin") {
 		t.Fatalf("the PIN file is %s", path)
@@ -69,7 +69,7 @@ func TestPINFile(t *testing.T) {
 	if stored, loose := signing.PINStored(path); !stored || !loose {
 		t.Fatalf("readable by the group: stored %v loose %v", stored, loose)
 	}
-	_, err := ParseControlConfig([]byte("TPM2_KIRA_PIN='secret-1234'\n"))
+	_, err := ParseControlConfig([]byte("KIRA_PIN='secret-1234'\n"))
 	if err == nil || !strings.Contains(err.Error(), "unknown key") || strings.Contains(err.Error(), "secret-1234") {
 		t.Fatalf("a PIN line: %v", err)
 	}
@@ -79,18 +79,18 @@ func TestPINFile(t *testing.T) {
 // when the image is out of date.
 func TestSetControlValueKeepsAnUnchangedFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "control.conf")
-	if err := setControlValue(path, "TPM2_KIRA_NET", "dhcp"); err != nil {
+	if err := setControlValue(path, "KIRA_NET", "dhcp"); err != nil {
 		t.Fatal(err)
 	}
 	past := time.Now().Add(-time.Hour)
 	os.Chtimes(path, past, past)
-	if err := setControlValue(path, "TPM2_KIRA_NET", "dhcp"); err != nil {
+	if err := setControlValue(path, "KIRA_NET", "dhcp"); err != nil {
 		t.Fatal(err)
 	}
 	if st, _ := os.Stat(path); !st.ModTime().Equal(past) {
 		t.Fatal("the same value written again")
 	}
-	setControlValue(path, "TPM2_KIRA_NET", "off")
+	setControlValue(path, "KIRA_NET", "off")
 	if st, _ := os.Stat(path); st.ModTime().Equal(past) {
 		t.Fatal("a new value not written")
 	}
@@ -101,8 +101,8 @@ func TestSetControlValueKeepsAnUnchangedFile(t *testing.T) {
 // asked, nothing written. The PIN is never quoted.
 func TestControlStopsOnAConfigThatDoesNotLoad(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "control.conf")
-	t.Setenv("TPM2_KIRA_CONTROL_CONF", path)
-	os.WriteFile(path, []byte("TPM2_KIRA_NET=dhcp\nTPM2_KIRA_NOSUCH=0\nTPM2_KIRA_PIN='secret-1234'\nTPM2_KIRA_ALSO_NOT=1\n"), 0o600)
+	t.Setenv("KIRA_CONTROL_CONF", path)
+	os.WriteFile(path, []byte("KIRA_NET=dhcp\nKIRA_NOSUCH=0\nKIRA_PIN='secret-1234'\nKIRA_ALSO_NOT=1\n"), 0o600)
 	before, _ := os.ReadFile(path)
 
 	var out bytes.Buffer
@@ -111,7 +111,7 @@ func TestControlStopsOnAConfigThatDoesNotLoad(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "does not load") {
 		t.Fatalf("control went on: %v\n%s", err, got)
 	}
-	for _, want := range []string{`line 2: unknown key "TPM2_KIRA_NOSUCH"`, `line 3: unknown key "TPM2_KIRA_PIN"`, `line 4: unknown key "TPM2_KIRA_ALSO_NOT"`} {
+	for _, want := range []string{`line 2: unknown key "KIRA_NOSUCH"`, `line 3: unknown key "KIRA_PIN"`, `line 4: unknown key "KIRA_ALSO_NOT"`} {
 		if !strings.Contains(got, want) {
 			t.Errorf("the output lacks %q:\n%s", want, got)
 		}
@@ -124,13 +124,13 @@ func TestControlStopsOnAConfigThatDoesNotLoad(t *testing.T) {
 	}
 
 	// Fixed, control goes on, and the settings in the file are taken.
-	os.WriteFile(path, []byte("TPM2_KIRA_NET=dhcp\n"), 0o600)
+	os.WriteFile(path, []byte("KIRA_NET=dhcp\n"), 0o600)
 	out.Reset()
 	if err := Control(ControlOptions{TPMPath: filepath.Join(t.TempDir(), "no-tpm"), Out: &out}); err != nil || !strings.Contains(out.String(), "Overview: what this machine combines") ||
 		!strings.Contains(out.String(), "Boot network Network at boot: DHCP") {
 		t.Fatalf("a good file: %v\n%s", err, out.String())
 	}
-	if problems := ControlConfigProblems([]byte("TPM2_KIRA_NOSUCH=1\nx\n")); len(problems) != 2 {
+	if problems := ControlConfigProblems([]byte("KIRA_NOSUCH=1\nx\n")); len(problems) != 2 {
 		t.Fatalf("problems %v", problems)
 	}
 }

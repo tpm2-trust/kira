@@ -122,7 +122,7 @@ additional steps:
 
 1. **Create the release key (RK)** — §5.1 — and send its public area and Name.
 2. **Hand over the passphrase, wrapped.** The operator supplies the LUKS
-   passphrase (or tpm2-kira generates one and adds it to a free keyslot with
+   passphrase (or kira generates one and adds it to a free keyslot with
    `cryptsetup luksAddKey`). It is wrapped to the TPM immediately (§5.2) and
    only the wrapped form is sent. **The plaintext never leaves the machine.**
 3. **Register the policy**: PCR selection, the baseline profile, the approval
@@ -280,7 +280,7 @@ value an operator approved in advance while the machine was still reachable.
 
 ```mermaid
 flowchart LR
-    U["kernel / initramfs update"] --> P["tpm2-kira phone predict --upload"]
+    U["kernel / initramfs update"] --> P["kira phone predict --upload"]
     P --> A{"operator approves<br/>the predicted state"}
     A -->|yes| W["server stores profile<br/>uses_left=1, valid 2h"]
     A -->|no| X["reboot will require<br/>live approval"]
@@ -400,15 +400,15 @@ that:
 ## 10. CLI and configuration
 
 ```
-tpm2-kira unlock enrol   --server HOST:PORT [--nvram N] [--passphrase-from-stdin|--generate]
-tpm2-kira unlock status  [--json]
-tpm2-kira unlock try     [--timeout 60s]        # the initrd path, also runnable by hand
-tpm2-kira unlock rotate  [--new-passphrase]     # rewrap, add a keyslot, retire the old one
-tpm2-kira unlock unenrol                        # remove the device; does not touch keyslots
-tpm2-kira phone predict --upload               # pre-register the next boot's PCR values (§6.3)
+kira unlock enrol   --server HOST:PORT [--nvram N] [--passphrase-from-stdin|--generate]
+kira unlock status  [--json]
+kira unlock try     [--timeout 60s]        # the initrd path, also runnable by hand
+kira unlock rotate  [--new-passphrase]     # rewrap, add a keyslot, retire the old one
+kira unlock unenrol                        # remove the device; does not touch keyslots
+kira phone predict --upload               # pre-register the next boot's PCR values (§6.3)
 ```
 
-`/etc/tpm2-kira/control.conf` holds the server address, the timeout and the
+`/etc/kira/control.conf` holds the server address, the timeout and the
 fallback behaviour; like `control.conf` its digest is bound into the sealed
 object ([PLAN-PHONE.md](PLAN-PHONE.md) §10.3), so a
 machine that does not measure its initramfs still detects an edited server

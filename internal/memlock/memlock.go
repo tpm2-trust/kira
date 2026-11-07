@@ -1,4 +1,4 @@
-// Package memlock is tpm2-kira's use of go-tui-slim's secret.LockProcess: a command
+// Package memlock is kira's use of go-tui-slim's secret.LockProcess: a command
 // on the installed system stops without the lock, a boot goes on without it.
 package memlock
 
@@ -15,10 +15,10 @@ import (
 // or read.
 //
 // The test suite runs the binary as a user, with a user's limit on locked memory:
-// TPM2_KIRA_UNPRIVILEGED=1, which is nothing to root, lets such a run go on.
+// KIRA_UNPRIVILEGED=1, which is nothing to root, lets such a run go on.
 func Command() error {
 	err := secret.LockProcess()
-	if err == nil || (os.Geteuid() != 0 && os.Getenv("TPM2_KIRA_UNPRIVILEGED") != "") {
+	if err == nil || (os.Geteuid() != 0 && os.Getenv("KIRA_UNPRIVILEGED") != "") {
 		return nil
 	}
 	return fmt.Errorf("nothing was asked or read, because it could reach swap: %w", err)
@@ -29,7 +29,7 @@ func Command() error {
 // no swap, so what the lock adds there is a guard against one being set up.
 func Boot() string {
 	if err := secret.LockProcess(); err != nil {
-		return fmt.Sprintf("tpm2-kira: the boot goes on: %v", err)
+		return fmt.Sprintf("kira: the boot goes on: %v", err)
 	}
-	return "tpm2-kira: memory locked, not dumpable"
+	return "kira: memory locked, not dumpable"
 }

@@ -21,12 +21,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tpm2-trust/tpm2-kira/core/attest/attesttest"
-	"github.com/tpm2-trust/tpm2-kira/core/vaultproto"
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
-	"github.com/tpm2-trust/tpm2-kira/internal/vaultkey"
+	"github.com/tpm2-trust/kira/core/attest/attesttest"
+	"github.com/tpm2-trust/kira/core/vaultproto"
+	"github.com/tpm2-trust/kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/phonegate"
+	"github.com/tpm2-trust/kira/internal/vaultkey"
 )
 
 // The vault's parts as the combiner's inputs are fixed by the parts, the
@@ -259,7 +259,7 @@ func TestDiskKeyFromTheVault(t *testing.T) {
 }
 
 // A volume with a recovery recipe (0x1100) keyslot beside its unattended vault recipe (0x2400) one: when
-// the vault gives no key, tpm2-kira asks for the password and the salt at
+// the vault gives no key, kira asks for the password and the salt at
 // its own prompt (at the console or over SSH), and says why - not
 // cryptsetup's prompt with the recovery passphrase.
 func TestTheTypedKeyslotIsTheVaultsFallback(t *testing.T) {
@@ -293,7 +293,7 @@ func TestTheTypedKeyslotIsTheVaultsFallback(t *testing.T) {
 // The token of an unattended vault keyslot names its recipe and is bound
 // to a slot.
 func TestVaultToken(t *testing.T) {
-	tok, ok := diskkey.ParseKiraToken(json.RawMessage(`{"type":"tpm2-kira-2400","keyslots":["2"],"recipe":9216,"slot":0,"label":"luks","created":"x"}`))
+	tok, ok := diskkey.ParseKiraToken(json.RawMessage(`{"type":"kira-2400","keyslots":["2"],"recipe":9216,"slot":0,"label":"luks","created":"x"}`))
 	if !ok || tok.Obsolete || tok.Recipe != diskkey.RecipeUnattendedVault || !tok.BoundTo(0) {
 		t.Fatalf("%+v", tok)
 	}

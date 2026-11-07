@@ -12,15 +12,15 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/tpm2-trust/tpm2-kira/core/vaultproto"
-	"github.com/tpm2-trust/tpm2-kira/internal/imageplan"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
-	"github.com/tpm2-trust/tpm2-kira/internal/sbstate"
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
-	"github.com/tpm2-trust/tpm2-kira/internal/sshscreen"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
-	"github.com/tpm2-trust/tpm2-kira/internal/vaultkey"
+	"github.com/tpm2-trust/kira/core/vaultproto"
+	"github.com/tpm2-trust/kira/internal/imageplan"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/phonegate"
+	"github.com/tpm2-trust/kira/internal/sbstate"
+	"github.com/tpm2-trust/kira/internal/signing"
+	"github.com/tpm2-trust/kira/internal/sshscreen"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/vaultkey"
 
 	"github.com/tpm2-trust/assh/config"
 	"github.com/tpm2-trust/assh/hostkey"
@@ -36,7 +36,7 @@ import (
 // TPM, then no codes, no phone and no SSH server; no phone, then
 // no Bluetooth.
 //
-// The hooks ask 'tpm2-kira initramfs plan', which writes the image's files
+// The hooks ask 'kira initramfs plan', which writes the image's files
 // for the parts that are in and says what the hook adds (WriteImage). The
 // image names its parts in ImagePlanDir, one directory per part with an
 // empty file named by the digest of the settings the part was built with:
@@ -80,7 +80,7 @@ type BootPlan struct {
 // needsTPM: a part uses the TPM at boot, a slot is sealed, or an SSH CA
 // exists (kept while SSH is off) - whose objects PCR 15 must close when
 // the code screen is over, whatever the slot's methods: the hooks add the
-// close (tpm2-kira-close.service, Debian's local-top and init-bottom) with
+// close (kira-close.service, Debian's local-top and init-bottom) with
 // the TPM part.
 func (p *BootPlan) needsTPM() bool {
 	return p.Has(imageplan.PartCodes) || p.Has(imageplan.PartPhone) || p.Has(imageplan.PartVault) || p.Has(imageplan.PartTPMSalt) ||
@@ -167,7 +167,7 @@ func readPlanInputs(o PlanOptions) planInputs {
 	in.Config = cfg
 	in.DHCP = cfg.Remote.Net.DHCPIdentity()
 	if b, err := os.ReadFile(vaultkey.RootsPath); err != nil {
-		in.VaultRootsErr = "no root of a vault in " + vaultkey.RootsPath + " ('tpm2-kira-vault tls root' prints it; luks enrol --ca FILE puts it there)"
+		in.VaultRootsErr = "no root of a vault in " + vaultkey.RootsPath + " ('kira-vault tls root' prints it; luks enrol --ca FILE puts it there)"
 	} else if _, _, err := vaultproto.ParseRoots(b); err != nil {
 		in.VaultRootsErr = vaultkey.RootsPath + ": " + err.Error()
 	} else {
@@ -208,12 +208,12 @@ func readPlanInputs(o PlanOptions) planInputs {
 			var why bytes.Buffer
 			pem, code := phonegate.SignerForImage(tpmDev, "", &why, o.Debug)
 			if code != 0 {
-				in.SignerErr = strings.Join(strings.Fields(strings.ReplaceAll(why.String(), "tpm2-kira: ", "")), " ")
+				in.SignerErr = strings.Join(strings.Fields(strings.ReplaceAll(why.String(), "kira: ", "")), " ")
 			}
 			in.Signer = pem
 		case cfg.Attest.Bluetooth == "always":
 			if pub, path, err := phonegate.AttestPublicKey(""); err != nil {
-				in.SignerErr = fmt.Sprintf("no signing public key at %s (tpm2-kira setup)", path)
+				in.SignerErr = fmt.Sprintf("no signing public key at %s (kira setup)", path)
 			} else if in.Signer, err = signing.PublicKeyToPEM(pub); err != nil {
 				in.SignerErr = err.Error()
 			}
@@ -279,13 +279,13 @@ func decidePlan(in planInputs) *BootPlan {
 		p.Parts = append(p.Parts, pt)
 	}
 
-	add(imageplan.PartUnlock, true, "the key of every volume routed through tpm2-kira, made as its LUKS2 header says")
+	add(imageplan.PartUnlock, true, "the key of every volume routed through kira, made as its LUKS2 header says")
 
 	switch {
 	case in.TPMErr != "":
 		add(imageplan.PartCodes, false, noTPM)
 	case in.Slots == 0:
-		add(imageplan.PartCodes, false, "nothing is sealed (tpm2-kira slot add)")
+		add(imageplan.PartCodes, false, "nothing is sealed (kira slot add)")
 	case in.Shown == 0:
 		add(imageplan.PartCodes, false, "no slot has a TOTP code or a phone: nothing to confirm at boot (slot add --totp)")
 	default:
@@ -305,7 +305,7 @@ func decidePlan(in planInputs) *BootPlan {
 	default:
 		why := plural(in.Phones, "phone") + " enrolled, via " + in.BT.Adapter
 		if in.Phones == 0 {
-			why = "packed into every image (TPM2_KIRA_ATTEST_BLUETOOTH=always), via " + in.BT.Adapter
+			why = "packed into every image (KIRA_ATTEST_BLUETOOTH=always), via " + in.BT.Adapter
 		}
 		rule := ""
 		if in.BT.Authorize != nil {
@@ -333,7 +333,7 @@ func decidePlan(in planInputs) *BootPlan {
 				why += " (" + colonHex(in.DHCP.ID) + ")"
 			}
 			if in.DHCP.ID == nil && strings.HasPrefix(in.DHCP.From, "unknown") {
-				p.Warnings = append(p.Warnings, "the running system's DHCP identity is "+in.DHCP.From+": the image asks with its MAC and may get another address than the running system (TPM2_KIRA_NET_DHCP_ID sets it)")
+				p.Warnings = append(p.Warnings, "the running system's DHCP identity is "+in.DHCP.From+": the image asks with its MAC and may get another address than the running system (KIRA_NET_DHCP_ID sets it)")
 			}
 		}
 		add(imageplan.PartNet, true, why, net.Mode, net.Match, strings.Join(net.Addresses, " "), strings.Join(net.Gateways, " "), strings.Join(net.DNS, " "), hex.EncodeToString(in.DHCP.ID), fmt.Sprint(net.Announce))

@@ -21,14 +21,14 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 )
 
 // SinceFile holds when the first wait began, in nanoseconds of CLOCK_BOOTTIME.
 const SinceFile = "tpm-wait-since"
 
 // Dir survives from one step of the boot to the next; a var for the tests.
-var Dir = "/run/tpm2-kira"
+var Dir = "/run/kira"
 
 // Await reports whether the device is there, waiting at most until wait after the
 // first wait of this boot began. A device that is there writes nothing.

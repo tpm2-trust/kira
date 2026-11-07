@@ -1,37 +1,37 @@
 # Architecture
 
-How tpm2-kira is built: the projects it works with, the three ways a boot
+How kira is built: the projects it works with, the three ways a boot
 is checked, the two binaries and their packages, the processes at boot,
 and what is kept where. How to use each part is on the pages this one
 links to.
 
 ## What it does, and when
 
-On the installed system `tpm2-kira` sets it up (`control` guides through
-all of it); the boot image carries `tpm2-kira-boot` and only the parts
+On the installed system `kira` sets it up (`control` guides through
+all of it); the boot image carries `kira-boot` and only the parts
 something uses (`initramfs plan`); in the initrd they run, and the close
 (PCR 15) ends them. The architecture behind it: [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ```mermaid
 flowchart TB
-  subgraph SETUP["On the installed system: tpm2-kira (root)"]
+  subgraph SETUP["On the installed system: kira (root)"]
     CTRL["control<br/>guided: 1 boot chain, 2 what the machine combines<br/>writes control.conf + assh.conf, builds the image on leaving"]
     KEY["setup<br/>signing key: a file or a YubiKey"]
     SEAL["slot add / slot approve<br/>a boot state approved for PCR values<br/>slot 0 the evaluated selection; --totp: a code, slot 1 the fallback"]
     PCR["PCR prediction<br/>event log (e), UKI PCR 11 (u), GRUB 8/9, register (r)"]
     PHONE["phone enrol, phone salt enrol<br/>Marify at the machine, Bluetooth LE"]
     LUKS["luks enrol<br/>a keyslot and its token: how its key is made"]
-    VAULT["luks enrol --salt vault<br/>this TPM + tpm2-kira-vault, over TLS"]
+    VAULT["luks enrol --salt vault<br/>this TPM + kira-vault, over TLS"]
     INSPECT["status, slot info, slot list, pcrtips"]
   end
 
   subgraph BUILD["Image build (hooks)"]
     PLAN["initramfs plan<br/>parts: unlock, codes, phone, vault, net, ssh"]
-    HOOKS["mkinitcpio (systemd) / initramfs-tools (Debian)<br/>copy tpm2-kira-boot alone"]
+    HOOKS["mkinitcpio (systemd) / initramfs-tools (Debian)<br/>copy kira-boot alone"]
     POST["post-update hooks: slot approve for the new image"]
   end
 
-  subgraph BOOT["In the initrd: tpm2-kira-boot"]
+  subgraph BOOT["In the initrd: kira-boot"]
     RUN["run<br/>starts the planned parts; the code screen"]
     ATT["gate<br/>the phone checks a TPM quote"]
     SSH["SSH server (aSSH, ssh-child)<br/>the code screen over SSH"]
@@ -58,13 +58,13 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-  subgraph KIRA["tpm2-kira (this repository)"]
-    ADMIN["tpm2-kira<br/>the installed system"]
-    BOOT["tpm2-kira-boot<br/>the boot image"]
+  subgraph KIRA["kira (this repository)"]
+    ADMIN["kira<br/>the installed system"]
+    BOOT["kira-boot<br/>the boot image"]
     CORE["core/: attest, transport, vaultproto, mobile<br/>a module of its own, shared with the phone and the vault"]
   end
   ASSH["aSSH (submodule assh/)<br/>SSH server, SSH CA in the TPM,<br/>per-boot host keys"]
-  VAULT["tpm2-kira-vault<br/>the vault: remote attestation over TLS"]
+  VAULT["kira-vault<br/>the vault: remote attestation over TLS"]
   MARIFY["Marify (Android, iOS)<br/>the phone: attestation at the machine"]
   SAFEARCH["safearch<br/>a read-only Arch image"]
   GOTPM["go-tpm<br/>pinned to c395998 (google/go-tpm#446, #452)"]
@@ -78,9 +78,9 @@ flowchart LR
 
 | Project | What it is | How to use it |
 |---|---|---|
-| tpm2-kira | `tpm2-kira` on the installed system, `tpm2-kira-boot` in the boot image | [README.md](../README.md), `tpm2-kira help` |
-| aSSH | the SSH server tpm2-kira's code screen runs on, the SSH CA held in the TPM, the per-boot host keys it certifies; a project of its own | [assh/README.md](../assh/README.md), [SSH.md](SSH.md) |
-| tpm2-kira-vault | keeps the salt of a vault recipe's keyslot and releases it to a fresh TPM quote of an approved boot | [VAULT.md](VAULT.md), `../tpm2-kira-vault/README.md` |
+| kira | `kira` on the installed system, `kira-boot` in the boot image | [README.md](../README.md), `kira help` |
+| aSSH | the SSH server kira's code screen runs on, the SSH CA held in the TPM, the per-boot host keys it certifies; a project of its own | [assh/README.md](../assh/README.md), [SSH.md](SSH.md) |
+| kira-vault | keeps the salt of a vault recipe's keyslot and releases it to a fresh TPM quote of an approved boot | [VAULT.md](VAULT.md), `../kira-vault/README.md` |
 | Marify | the phone app that verifies a boot over Bluetooth LE and can keep the phone salt | [PHONE.md](PHONE.md), [PROTOCOL-BLE.md](PROTOCOL-BLE.md), `../marify` |
 | safearch | a read-only Arch image that uses aSSH for its host keys | `../safearch/README.md` |
 
@@ -98,7 +98,7 @@ flowchart TB
     C2["over SSH (aSSH)"]
   end
   PHONE["the phone at the machine<br/>Bluetooth LE, a TPM quote<br/>(Marify)"]
-  VAULTC["the vault, remote attestation over TLS<br/>a TPM quote before it releases its part<br/>(tpm2-kira-vault)"]
+  VAULTC["the vault, remote attestation over TLS<br/>a TPM quote before it releases its part<br/>(kira-vault)"]
   SLOT --> CODE & PHONE & VAULTC
   PERSON(("a person compares<br/>with the authenticator")) --- CODE
   PHONE -->|verdict, and the phone salt| KEY["the disk's key"]
@@ -113,13 +113,13 @@ flowchart TB
 | the vault | over the network, TLS verified against the vault's root, then its pinned key | the salt of the vault recipes (`0x1400`, `0x2400`: unattended) | [VAULT.md](VAULT.md) |
 
 How a volume's key is made is named by its LUKS2 token; with several of
-tpm2-kira's keyslots they are tried in order - the vault, the phone's
+kira's keyslots they are tried in order - the vault, the phone's
 salt, the typed salt - and cryptsetup's prompt with the recovery
 passphrase is always the last way in ([DISK-KEY.md](DISK-KEY.md)).
 
 ## The two binaries
 
-`tpm2-kira` is everything on the installed system; `tpm2-kira-boot` is
+`kira` is everything on the installed system; `kira-boot` is
 what the boot image carries and nothing more. The code is in `internal/`,
 one package per layer; a package knows only those below it, and nothing
 the boot runs imports the administration (`boot_binary_test.go`).
@@ -127,8 +127,8 @@ the boot runs imports the administration (`boot_binary_test.go`).
 ```mermaid
 flowchart BT
   subgraph BIN["binaries"]
-    KIRA["tpm2-kira (main.go)"]
-    KBOOT["tpm2-kira-boot (cmd/tpm2-kira-boot)"]
+    KIRA["kira (main.go)"]
+    KBOOT["kira-boot (cmd/kira-boot)"]
   end
   ADMIN2["admin<br/>control, setup, slot, status, enrolment,<br/>luks, the boot plan, the image build"]
   BOOTRUN["bootrun<br/>run: the code screen and the parts"]
@@ -156,13 +156,13 @@ flowchart BT
 
 | Binary | Commands | Pages |
 |---|---|---|
-| `tpm2-kira` | `control`, `setup`, `slot …`, `status`, `phone …`, `luks …`, `vault …`, `initramfs plan`, `yubikey`, `pcrtips` | [README.md](../README.md) "Commands", `tpm2-kira help <command>` |
-| `tpm2-kira-boot` | `run`, `close`, `machine-id`, `unlock-key`, `ssh-child`, `gate-child` | `tpm2-kira-boot help`; the pages: `tpm2-kira help run`, `close`, `unlock-key`, `ssh-child`, `gate-child`; [BOOT-INTEGRATION.md](BOOT-INTEGRATION.md) |
+| `kira` | `control`, `setup`, `slot …`, `status`, `phone …`, `luks …`, `vault …`, `initramfs plan`, `yubikey`, `pcrtips` | [README.md](../README.md) "Commands", `kira help <command>` |
+| `kira-boot` | `run`, `close`, `machine-id`, `unlock-key`, `ssh-child`, `gate-child` | `kira-boot help`; the pages: `kira help run`, `close`, `unlock-key`, `ssh-child`, `gate-child`; [BOOT-INTEGRATION.md](BOOT-INTEGRATION.md) |
 
 ## At boot
 
 `run` is a supervisor: it starts the parts the image's plan names
-(`/etc/tpm2-kira/plan/<part>`, decided when the image is built) and
+(`/etc/kira/plan/<part>`, decided when the image is built) and
 nothing else. The parts give each other what they need through a board,
 not by calling each other ([PROJECT-STRUCTURE.md](PROJECT-STRUCTURE.md),
 `internal/bootrun/parts.go`). The two parts that parse input from outside
@@ -175,22 +175,22 @@ up the network and keeps the log differs
 ```mermaid
 flowchart LR
   subgraph INITRD["the boot image (Arch: systemd units; Debian: initramfs-tools scripts)"]
-    RUN["tpm2-kira-boot run (root)<br/>tpm2-kira.service / init-premount<br/>code screen, hold, board;<br/>the gate's coordinator: the phone's TPM side"]
-    CHILD["tpm2-kira-boot ssh-child<br/>nobody; net, IPC, PID, mount, UTS ns;<br/>sandbox: no file, seccomp"]
-    GATE["tpm2-kira-boot gate-child<br/>the radio worker: nobody + NET_ADMIN, NET_RAW;<br/>IPC, PID, mount, UTS ns;<br/>sandbox: reads /sys, seccomp; no TPM"]
+    RUN["kira-boot run (root)<br/>kira.service / init-premount<br/>code screen, hold, board;<br/>the gate's coordinator: the phone's TPM side"]
+    CHILD["kira-boot ssh-child<br/>nobody; net, IPC, PID, mount, UTS ns;<br/>sandbox: no file, seccomp"]
+    GATE["kira-boot gate-child<br/>the radio worker: nobody + NET_ADMIN, NET_RAW;<br/>IPC, PID, mount, UTS ns;<br/>sandbox: reads /sys, seccomp; no TPM"]
     CRYPT["systemd-cryptsetup<br/>(Debian: the keyscript, unlock-key)"]
-    CLOSE["tpm2-kira-boot close (PCR 15)<br/>run at the code screen's end; again:<br/>tpm2-kira-close.service / local-top before cryptroot;<br/>before a resume from hibernation"]
+    CLOSE["kira-boot close (PCR 15)<br/>run at the code screen's end; again:<br/>kira-close.service / local-top before cryptroot;<br/>before a resume from hibernation"]
   end
   TPM[("TPM")]
   RUN <-->|socket pair: signatures, sessions| CHILD
   RUN -->|starts| CHILD & GATE
   GATE <-->|socket pairs: quotes, boot key, receipt, phone salt| RUN
-  CRYPT <-->|/run/tpm2-kira/unlock.sock| RUN
+  CRYPT <-->|/run/kira/unlock.sock| RUN
   RUN --- TPM
   CLOSE --- TPM
   SSHC["SSH client"] <-->|SSH, host cert by the CA| CHILD
   PHONEB["phone"] <-->|Bluetooth LE| GATE
-  VAULTS["tpm2-kira-vault"] <-->|HTTPS, its root, pinned key| RUN
+  VAULTS["kira-vault"] <-->|HTTPS, its root, pinned key| RUN
 ```
 
 | Part (plan) | In the image when | Process |
@@ -205,18 +205,18 @@ flowchart LR
 
 | What | Where | Written by |
 |---|---|---|
-| a slot's record (its approval; TOTP key, phones, the vault's part, the TPM salt) | EFI variable `KIRAslot`n (tpm2-kira's GUID), at most 8 KiB | `slot add`, `slot approve`, `phone enrol`, `vault enrol`, `luks enrol` |
-| a slot's generation (the slot exists while it does) | TPM NV `0x01803810` + n | `slot add`, `slot approve` |
-| the phone record counter | TPM NV `0x01803820` + n | `phone enrol`, `phone unenrol` |
+| a slot's record (its approval; TOTP key, phones, the vault's part, the TPM salt) | EFI variable `KIRAslot`n (kira's GUID), at most 8 KiB | `slot add`, `slot approve`, `phone enrol`, `vault enrol`, `luks enrol` |
+| a slot's generation (the slot exists while it does) | TPM NV `0x01803010` + n, the slot's handle | `slot add`, `slot approve` |
+| the phone record counter | TPM NV `0x01803020` + n | `phone enrol`, `phone unenrol` |
 | the boot settings ("Debug at boot") | TPM NV `0x01803000` | `control` |
-| the machine-id, sealed under slot 0's policy | EFI variable `KIRAmachineID` (tpm2-kira's GUID) | `slot add` (slot 0), `slot approve`; removed with slot 0 and by `slot delete` |
+| the machine-id, sealed under slot 0's policy | EFI variable `KIRAmachineID` (kira's GUID) | `slot add` (slot 0), `slot approve`; removed with slot 0 and by `slot delete` |
 | the SSH CA | EFI variable `KIRAasshCA` (the key itself in the TPM) | `control`; removed by `control` (when SSH is switched off, if you say so) and `slot delete` |
-| the signing key | `/etc/tpm2-kira/keys/` (or a YubiKey) | `setup` |
-| tpm2-kira's settings | `/etc/tpm2-kira/control.conf` | `control` |
-| aSSH's settings | `/etc/tpm2-kira/assh.conf` | `control` |
-| the keys that may log in at boot | `/etc/tpm2-kira/authorized_keys` | the person (`control` says so) |
-| a keyslot's recipe | its LUKS2 token (`tpm2-kira-salt`, `-phonesalt`, `-vault`) | `luks enrol`, `luks mark` |
-| what the image carries | `/etc/tpm2-kira/plan/` in the image | `tpm2-kira initramfs plan` (the hooks) |
+| the signing key | `/etc/kira/keys/` (or a YubiKey) | `setup` |
+| kira's settings | `/etc/kira/control.conf` | `control` |
+| aSSH's settings | `/etc/kira/assh.conf` | `control` |
+| the keys that may log in at boot | `/etc/kira/authorized_keys` | the person (`control` says so) |
+| a keyslot's recipe | its LUKS2 token (`kira-salt`, `-phonesalt`, `-vault`) | `luks enrol`, `luks mark` |
+| what the image carries | `/etc/kira/plan/` in the image | `kira initramfs plan` (the hooks) |
 
 ## Testing
 

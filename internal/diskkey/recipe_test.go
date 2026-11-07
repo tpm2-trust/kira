@@ -71,7 +71,7 @@ func TestRecipeOfWords(t *testing.T) {
 
 func TestRecipeNumbers(t *testing.T) {
 	r := RecipeVaultSaltPepper
-	if r.String() != "0x1401" || r.TokenType() != "tpm2-kira-1401" {
+	if r.String() != "0x1401" || r.TokenType() != "kira-1401" {
 		t.Fatalf("%s %s", r, r.TokenType())
 	}
 	if r.Password() != PasswordTyped || r.Salt() != SaltVault || !r.Pepper() || r.Unattended() || !r.Bound() {
@@ -97,7 +97,7 @@ func TestRecipeNumbers(t *testing.T) {
 func TestParseKiraToken(t *testing.T) {
 	tok := NewLuksToken(RecipeVaultSalt, "2", 1, "root", "2026-10-29T18:00:00Z")
 	raw, _ := json.Marshal(tok)
-	if !strings.Contains(string(raw), `"type":"tpm2-kira-1400"`) || !strings.Contains(string(raw), `"recipe":5120`) || !strings.Contains(string(raw), `"slot":1`) {
+	if !strings.Contains(string(raw), `"type":"kira-1400"`) || !strings.Contains(string(raw), `"recipe":5120`) || !strings.Contains(string(raw), `"slot":1`) {
 		t.Fatalf("token JSON %s", raw)
 	}
 	got, ours := ParseKiraToken(raw)
@@ -108,11 +108,11 @@ func TestParseKiraToken(t *testing.T) {
 		t.Fatalf("the recovery recipe is bound: %s", rec)
 	}
 	for what, js := range map[string]string{
-		"another version's":      `{"type": "tpm2-kira-vault", "keyslots": ["2"], "slot": 1}`,
-		"the one-type form":      `{"type": "tpm2-kira", "keyslots": ["2"], "mode": "tpm+vault", "slot": 1}`,
-		"type and recipe differ": `{"type": "tpm2-kira-1400", "keyslots": ["2"], "recipe": 5121, "slot": 1}`,
-		"no recipe":              `{"type": "tpm2-kira-1404", "keyslots": ["2"], "recipe": 5124, "slot": 1}`,
-		"bound without its slot": `{"type": "tpm2-kira-1400", "keyslots": ["2"], "recipe": 5120}`,
+		"another version's":      `{"type": "kira-vault", "keyslots": ["2"], "slot": 1}`,
+		"the one-type form":      `{"type": "kira", "keyslots": ["2"], "mode": "tpm+vault", "slot": 1}`,
+		"type and recipe differ": `{"type": "kira-1400", "keyslots": ["2"], "recipe": 5121, "slot": 1}`,
+		"no recipe":              `{"type": "kira-1404", "keyslots": ["2"], "recipe": 5124, "slot": 1}`,
+		"bound without its slot": `{"type": "kira-1400", "keyslots": ["2"], "recipe": 5120}`,
 	} {
 		got, ours := ParseKiraToken(json.RawMessage(js))
 		if !ours || !got.Obsolete || got.BoundTo(1) {

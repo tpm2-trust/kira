@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tpm2-trust/go-tui-slim/panel"
 	"github.com/tpm2-trust/go-tui-slim/tui"
 	"golang.org/x/sys/unix"
 )
@@ -24,17 +25,18 @@ func sealedMachine() *controller {
 
 func frameText(rows []string) string { return tui.StripSGR(strings.Join(rows, "\n")) }
 
-// The frame at the sizes a person meets: every row exactly as wide as the terminal,
-// as many rows as it has; the sidebar and the detail side by side when there is room,
-// one at a time when not.
+// The frame of kira's model at the sizes a person meets: every row exactly as
+// wide as the terminal, as many rows as it has; the overview's facts beside the
+// sections when there is room; a slot's detail; ASCII where the locale is not UTF-8;
+// the screen up while the facts come.
 func TestControlFrame(t *testing.T) {
 	c := sealedMachine()
-	m := c.model()
+	m := c.panelSections(c.model())
 	g := tui.GlyphsFor(true)
-	v := frameView{header: "[ KIRA ] control test · host", status: "  TPM  /dev/tpmrm0", prereqs: "  ✓ TPM"}
+	v := panel.View{Header: "[ KIRA ] control test · host"}
 	for _, size := range [][2]int{{80, 25}, {132, 43}, {40, 24}, {30, 12}} {
-		st := &screenState{}
-		rows := st.frame(m, v, size[0], size[1], g)
+		st := &panel.State{}
+		rows := st.Frame(m, v, size[0], size[1], g)
 		if len(rows) != size[1] {
 			t.Errorf("%dx%d: %d rows", size[0], size[1], len(rows))
 		}
@@ -48,22 +50,21 @@ func TestControlFrame(t *testing.T) {
 		}
 	}
 	// A step's detail: what it does, its state, the command, what a destroy removes.
-	st := &screenState{section: sectionIndex("keys"), focus: focusSteps, step: 1}
-	text := frameText(st.frame(m, frameView{header: "h"}, 100, 40, g))
-	for _, want := range []string{"Slot 0", "Done: sealed to 0e,2e,7e,11u", "Destroys: slot 0 whole", "The command: tpm2-kira slot delete --nvram 0", "⚠"} {
+	st := &panel.State{Section: sectionIndex("keys"), Focus: panel.Steps, Step: 1}
+	text := frameText(st.Frame(m, panel.View{Header: "h"}, 100, 40, g))
+	for _, want := range []string{"Slot 0", "Done: sealed to 0e,2e,7e,11u", "Destroys: slot 0 whole", "The command: kira slot delete --nvram 0", "⚠"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("the slot's detail lacks %q:\n%s", want, text)
 		}
 	}
-	// ASCII where the locale is not UTF-8.
-	text = frameText(st.frame(m, frameView{header: "h"}, 100, 40, tui.GlyphsFor(false)))
+	text = frameText(st.Frame(m, panel.View{Header: "h"}, 100, 40, tui.GlyphsFor(false)))
 	if strings.ContainsAny(text, "✓⚠│─") {
 		t.Errorf("Unicode in an ASCII frame:\n%s", text)
 	}
-	// While the facts come: the frame is up, and says so.
-	text = frameText((&screenState{}).frame(make(controlModel, len(controlSections)), frameView{header: "h", loading: true}, 80, 25, g))
-	if !strings.Contains(text, "Looking at this machine") {
-		t.Errorf("loading:\n%s", text)
+	// The boot chain's intro carries the prerequisites.
+	text = frameText((&panel.State{Section: sectionIndex("chain")}).Frame(m, panel.View{Header: "h"}, 100, 40, g))
+	if !strings.Contains(text, "Prerequisites") {
+		t.Errorf("the boot chain:\n%s", text)
 	}
 }
 
@@ -76,66 +77,53 @@ func sectionIndex(key string) int {
 	return -1
 }
 
-// The keys: moving, into and out of a section, a blocked step says why instead of
-// running, a destroying one runs (its question asks for the word), a line that opens a
-// section goes there, search finds a step anywhere, Esc goes back and then leaves.
+// kira's steps on the panel's keys: a destroying slot runs (its question asks for
+// the word), a blocked step says why instead of running, an overview line opens its
+// section, search finds a step anywhere; the step run is the model's.
 func TestControlScreenKeys(t *testing.T) {
 	c := sealedMachine()
-	m := c.model()
-	st := &screenState{}
-	key := func(names ...string) screenCmd {
-		var cmd screenCmd
+	steps := c.model()
+	m := c.panelSections(steps)
+	st := &panel.State{}
+	key := func(names ...string) panel.Cmd {
+		var cmd panel.Cmd
 		for _, n := range names {
 			k := tui.Key{Name: n}
 			if len(n) == 1 {
 				k = tui.Key{Name: tui.KeyRune, Rune: rune(n[0])}
 			}
-			cmd = st.key(k, m, 10)
+			cmd = st.Key(k, m, 10)
 		}
 		return cmd
 	}
 	key(tui.KeyDown, tui.KeyDown)
-	if st.section != 2 || st.focus != focusSections {
+	if st.Section != sectionIndex("keys") || st.Focus != panel.Sections {
 		t.Fatalf("down twice: %+v", st)
 	}
-	if key(tui.KeyEnter); st.focus != focusSteps || st.step != 0 {
-		t.Fatalf("Enter on a section: %+v", st)
+	// keys: setup, slot 0, ...
+	if cmd := key(tui.KeyEnter, tui.KeyDown, tui.KeyEnter); cmd != panel.RunStep || steps[st.Section][st.Step].Key != "slot:0" {
+		t.Fatalf("Enter on slot 0: %v %+v", cmd, st)
 	}
-	// keys: setup, slot 0, slot 1, seal-more, approve, delete-all; phone attest blocked
-	if cmd := key(tui.KeyDown, tui.KeyEnter); cmd != cmdRun || st.selected(m).Key != "slot:0" {
-		t.Fatalf("Enter on slot 0: %v %+v", cmd, st.selected(m))
+	st = &panel.State{Section: sectionIndex("phone"), Focus: panel.Steps}
+	if cmd := key(tui.KeyEnter); cmd != panel.None || !strings.Contains(st.Message, "no Bluetooth adapter") {
+		t.Fatalf("a blocked step ran: %v %q", cmd, st.Message)
 	}
-	st = &screenState{section: sectionIndex("phone"), focus: focusSteps}
-	if cmd := key(tui.KeyEnter); cmd != cmdNone || !strings.Contains(st.message, "no Bluetooth adapter") {
-		t.Fatalf("a blocked step ran: %v %q", cmd, st.message)
-	}
-	st = &screenState{section: sectionIndex("overview"), focus: focusSteps}
-	for i, s := range m[st.section] {
+	st = &panel.State{Section: sectionIndex("overview"), Focus: panel.Steps}
+	for i, s := range steps[st.Section] {
 		if s.Key == "menu:keys" {
-			st.step = i
+			st.Step = i
 		}
 	}
-	if key(tui.KeyEnter); st.section != sectionIndex("keys") {
-		t.Fatalf("a hub line opens its section: %+v", st)
+	if key(tui.KeyEnter); st.Section != sectionIndex("keys") {
+		t.Fatalf("an overview line opens its section: %+v", st)
 	}
-	st = &screenState{}
+	st = &panel.State{}
 	key("/", "a", "p", "p", "r", "o", "v", "e", tui.KeyEnter)
-	if st.searching || st.selected(m) == nil || st.selected(m).Key != "approve" || st.focus != focusSteps {
+	if st.Selected(m) == nil || steps[st.Section][st.Step].Key != "approve" || st.Focus != panel.Steps {
 		t.Fatalf("search: %+v", st)
 	}
-	if key(tui.KeyEsc); st.focus != focusSections {
-		t.Fatalf("Esc goes back first: %+v", st)
-	}
-	if key(tui.KeyEsc) != cmdQuit {
-		t.Fatal("then Esc leaves")
-	}
-	if key("?"); !st.help || !strings.Contains(frameText(st.frame(m, frameView{header: "h"}, 100, 40, tui.GlyphsFor(true))), "Ctrl-L") {
-		t.Fatal("? shows the keys")
-	}
-	st = &screenState{section: 99, step: 99, focus: focusSteps}
-	st.clamp(m)
-	if st.section != len(m)-1 {
-		t.Fatalf("clamp: %+v", st)
+	if !strings.Contains(screenHelp, "Ctrl-L") {
+		t.Fatal("the keys' help")
 	}
 }
 

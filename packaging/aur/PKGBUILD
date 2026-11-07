@@ -1,5 +1,5 @@
 # Maintainer: Matthias R. Wiora <matthias@wiora.io>
-pkgname=tpm2-kira
+pkgname=kira
 # The release tag, and its pacman form: pkgver may not contain '-', so a
 # prerelease tag's "-rc1" becomes "rc1" (pacman sorts 0.5.0rc1 before
 # 0.5.0, as a prerelease must). Set both for a release.
@@ -8,7 +8,7 @@ pkgver=0.5.0rc1
 pkgrel=1
 pkgdesc="TPM2-based TOTP authenticator with PCR policies"
 arch=('x86_64')
-url="https://github.com/tpm2-trust/tpm2-kira"
+url="https://github.com/tpm2-trust/kira"
 license=('BSD-3-Clause')
 # Statically linked, no cgo: the same binary runs in the initramfs.
 depends=()
@@ -19,7 +19,7 @@ optdepends=('mkinitcpio: for early boot integration'
             'cryptsetup: for disk encryption integration'
             'tpm2-tools: for debugging and integration testing'
             'pcsclite: keeping the signing key on a YubiKey (setup --yubikey)')
-conflicts=('tpm2-kira-git')
+conflicts=('kira-git')
 # The commit of the assh submodule at the tag (git rev-parse "$_tag:assh"):
 # GitHub's tag tarball leaves submodules out. Set with _tag.
 _assh=0ce851719c1aa432e84c125e2389438d55140243
@@ -31,7 +31,7 @@ _verifier=804ab7ed7616c8984061febe01db999fdcb10d33
 _uefislim=4e8c951178a9db47cf6f81dc3508f9a2d0513d45
 # The commit of the go-tui-slim submodule (the terminal's screen, questions and
 # secrets), the same way (git rev-parse "$_tag:go-tui-slim").
-_tuislim=9dcc3a29f8760fde2c8cc1a1d6c5c3e8541a2b8e
+_tuislim=64e015d9f351cde5b871c225766b6cd05fe26332
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/$_tag.tar.gz")
 source+=("assh-$_assh.tar.gz::https://github.com/tpm2-trust/assh/archive/$_assh.tar.gz")
 source+=("tpm2-verifier-$_verifier.tar.gz::https://github.com/tpm2-trust/tpm2-verifier/archive/$_verifier.tar.gz")
@@ -87,10 +87,10 @@ build() {
     # either: the package builds the archive's sources, aSSH as pinned.
     export GOWORK=off
 
-    # tpm2-kira on the installed system; tpm2-kira-boot, what the boot image
+    # kira on the installed system; kira-boot, what the boot image
     # carries, put in by the hook.
     go build -ldflags "-s -w -X main.Version=${pkgver}" -o "$pkgname" .
-    go build -ldflags "-s -w -X main.Version=${pkgver}" -o "$pkgname-boot" ./cmd/tpm2-kira-boot
+    go build -ldflags "-s -w -X main.Version=${pkgver}" -o "$pkgname-boot" ./cmd/kira-boot
     for b in "$pkgname" "$pkgname-boot"; do
         go version -m "$b" | grep -q 'CGO_ENABLED=0' || { echo "$b was built with cgo" >&2; return 1; }
     done
@@ -104,7 +104,7 @@ check() {
     (cd core && go test ./...)
 }
 
-backup=(etc/tpm2-kira/control.conf)
+backup=(etc/kira/control.conf)
 
 package() {
     cd "$_srcdir"
@@ -116,32 +116,32 @@ package() {
 
     # Not enabled on the host: the mkinitcpio install hook enables it inside the
     # image, which is the only place it is meant to run.
-    install -Dm644 initramfs/systemd/tpm2-kira.service \
-        "$pkgdir/usr/lib/systemd/system/tpm2-kira.service"
-    install -Dm644 initramfs/systemd/tpm2-kira-close.service \
-        "$pkgdir/usr/lib/systemd/system/tpm2-kira-close.service"
-    install -Dm644 initramfs/systemd/tpm2-kira-machine-id.service \
-        "$pkgdir/usr/lib/systemd/system/tpm2-kira-machine-id.service"
+    install -Dm644 initramfs/systemd/kira.service \
+        "$pkgdir/usr/lib/systemd/system/kira.service"
+    install -Dm644 initramfs/systemd/kira-close.service \
+        "$pkgdir/usr/lib/systemd/system/kira-close.service"
+    install -Dm644 initramfs/systemd/kira-machine-id.service \
+        "$pkgdir/usr/lib/systemd/system/kira-machine-id.service"
     # The one unit that runs on the host too; it starts only after a close that
     # went on without an answer from the TPM.
-    install -Dm644 initramfs/systemd/tpm2-kira-late-close.service \
-        "$pkgdir/usr/lib/systemd/system/tpm2-kira-late-close.service"
+    install -Dm644 initramfs/systemd/kira-late-close.service \
+        "$pkgdir/usr/lib/systemd/system/kira-late-close.service"
     install -d "$pkgdir/usr/lib/systemd/system/sysinit.target.wants"
-    ln -s ../tpm2-kira-late-close.service "$pkgdir/usr/lib/systemd/system/sysinit.target.wants/tpm2-kira-late-close.service"
-    install -Dm644 initramfs/systemd/tpm2-kira-unlock.socket \
-        "$pkgdir/usr/lib/systemd/system/tpm2-kira-unlock.socket"
-    install -Dm644 initramfs/systemd/systemd-boot-update-tpm2-kira.conf \
-        "$pkgdir/usr/lib/systemd/system/systemd-boot-update.service.d/tpm2-kira.conf"
+    ln -s ../kira-late-close.service "$pkgdir/usr/lib/systemd/system/sysinit.target.wants/kira-late-close.service"
+    install -Dm644 initramfs/systemd/kira-unlock.socket \
+        "$pkgdir/usr/lib/systemd/system/kira-unlock.socket"
+    install -Dm644 initramfs/systemd/systemd-boot-update-kira.conf \
+        "$pkgdir/usr/lib/systemd/system/systemd-boot-update.service.d/kira.conf"
 
-    # tpm2-kira's configuration file: the radio, the image's network and
+    # kira's configuration file: the radio, the image's network and
     # SSH server (control writes it, and assh.conf beside it).
     install -Dm644 initramfs/common/control.conf \
-        "$pkgdir/etc/tpm2-kira/control.conf"
+        "$pkgdir/etc/kira/control.conf"
 
-    install -Dm644 initramfs/mkinitcpio/install/sd-tpm2-kira \
-        "$pkgdir/usr/lib/initcpio/install/sd-tpm2-kira"
-    install -Dm755 initramfs/mkinitcpio/post/sd-tpm2-kira \
-        "$pkgdir/usr/lib/initcpio/post/sd-tpm2-kira"
+    install -Dm644 initramfs/mkinitcpio/install/sd-kira \
+        "$pkgdir/usr/lib/initcpio/install/sd-kira"
+    install -Dm755 initramfs/mkinitcpio/post/sd-kira \
+        "$pkgdir/usr/lib/initcpio/post/sd-kira"
 
     install -Dm644 initramfs/mkinitcpio/mkinitcpio.conf.example \
         "$pkgdir/usr/share/doc/$pkgname/mkinitcpio.conf.example"

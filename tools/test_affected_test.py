@@ -47,30 +47,30 @@ class Paths(unittest.TestCase):
         return [r.changed for r in affected.rows_of(project, path)]
 
     def test_paths(self):
-        boot, installed, core = "tpm2-kira's boot, close or unlock", "Installed-system code of tpm2-kira (`control`, `status`, the admin commands)", "`tpm2-kira/core/`"
+        boot, installed, core = "kira's boot, close or unlock", "Installed-system code of kira (`control`, `status`, the admin commands)", "`kira/core/`"
         argon = "Argon2id, or what memory the boot takes"
         for project, path, want in (
-            ("tpm2-kira", "docs/TESTING.md", ["Docs only"]),
+            ("kira", "docs/TESTING.md", ["Docs only"]),
             ("assh", "README.md", ["Docs only"]),
-            ("tpm2-kira", "core/README.md", ["Docs only"]),
-            ("tpm2-kira", "tools/vmtest.py", ["Test tools"]),
-            ("tpm2-kira", "internal/admin/control.go", [installed]),
-            ("tpm2-kira", "main.go", [installed]),
-            ("tpm2-kira", "initramfs/systemd/tpm2-kira.service", [boot]),
-            ("tpm2-kira", "internal/bootclose/close.go", [boot]),
-            ("tpm2-kira", "internal/diskkey/combine.go", [boot, argon]),
-            ("tpm2-kira", "core/attest/quote.go", [core]),
+            ("kira", "core/README.md", ["Docs only"]),
+            ("kira", "tools/vmtest.py", ["Test tools"]),
+            ("kira", "internal/admin/control.go", [installed]),
+            ("kira", "main.go", [installed]),
+            ("kira", "initramfs/systemd/kira.service", [boot]),
+            ("kira", "internal/bootclose/close.go", [boot]),
+            ("kira", "internal/diskkey/combine.go", [boot, argon]),
+            ("kira", "core/attest/quote.go", [core]),
             ("assh", "server/server.go", ["`assh/`"]),
-            ("tpm2-kira", "assh", ["`assh/`"]),
+            ("kira", "assh", ["`assh/`"]),
             ("safearch", "assh", ["`assh/`"]),
-            ("tpm2-kira", "go-uefi-slim", ["`go-uefi-slim/`"]),
-            ("tpm2-kira", "tpm2-verifier", ["`tpm2-verifier/`"]),
-            ("tpm2-kira-vault", "tpm2-kira", [core]),
-            ("tpm2-kira-vault", "main.go", ["`tpm2-kira-vault/`"]),
+            ("kira", "go-uefi-slim", ["`go-uefi-slim/`"]),
+            ("kira", "tpm2-verifier", ["`tpm2-verifier/`"]),
+            ("kira-vault", "kira", [core]),
+            ("kira-vault", "main.go", ["`kira-vault/`"]),
             ("safearch", "build.sh", ["`safearch/`"]),
             ("go-uefi-slim", "uki/uki.go", ["`go-uefi-slim/`"]),
             ("go-tui-slim", "tui/frame.go", ["`go-tui-slim/`"]),
-            ("tpm2-kira", "go-tui-slim", ["`go-tui-slim/`"]),
+            ("kira", "go-tui-slim", ["`go-tui-slim/`"]),
             ("assh", "go-tui-slim", ["`go-tui-slim/`"]),
             ("tpm2-verifier", "ekroots/roots.go", ["`tpm2-verifier/`"]),
             ("marify", "android/app/x.kt", []),
@@ -79,7 +79,7 @@ class Paths(unittest.TestCase):
             self.assertEqual(self.rows(project, path), want, f"{project}/{path}")
 
     def test_parts_each_once_in_the_tables_order(self):
-        rows = [r for r in affected.ROWS if r.changed in ("`tpm2-kira/core/`", "`assh/`")]
+        rows = [r for r in affected.ROWS if r.changed in ("`kira/core/`", "`assh/`")]
         self.assertEqual(affected.parts_of(rows), ["test-all", "machines", "vault", "marify", "assh", "safearch-run"])
 
 

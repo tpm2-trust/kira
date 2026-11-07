@@ -1,7 +1,7 @@
 package phonegate
 
-// The radio worker at boot: 'tpm2-kira-boot gate-child', started by the
-// coordinator (tpm2-kira-boot run) as the SSH server starts ssh-child - the
+// The radio worker at boot: 'kira-boot gate-child', started by the
+// coordinator (kira-boot run) as the SSH server starts ssh-child - the
 // same on every distribution, with nothing of it in a unit or a script.
 //
 // It is the process that parses what anyone in range sends, before the
@@ -32,9 +32,9 @@ import (
 
 	"github.com/tpm2-trust/assh/sandbox"
 
-	"github.com/tpm2-trust/tpm2-kira/core/transport/ble"
-	"github.com/tpm2-trust/tpm2-kira/internal/journal"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/core/transport/ble"
+	"github.com/tpm2-trust/kira/internal/journal"
+	"github.com/tpm2-trust/kira/internal/nvslot"
 )
 
 // The worker's files, as the coordinator hands them over (ExtraFiles).
@@ -51,7 +51,7 @@ const workerNamespaces = syscall.CLONE_NEWIPC | syscall.CLONE_NEWPID | syscall.C
 var workerCommand = func(debug bool) *exec.Cmd {
 	self, err := os.Executable()
 	if err != nil {
-		self = "/usr/bin/tpm2-kira-boot"
+		self = "/usr/bin/kira-boot"
 	}
 	args := []string{"gate-child"}
 	if debug {
@@ -103,7 +103,7 @@ func StartRadioWorker(host GateHost, debug bool) (stop func(), err error) {
 	if err := cmd.Start(); err != nil && os.Geteuid() == 0 {
 		// A kernel without one of the namespaces: the other user and the
 		// sandbox still hold.
-		fmt.Fprintf(os.Stderr, "tpm2-kira: the phone's radio worker runs without namespaces of its own: %v\n", err)
+		fmt.Fprintf(os.Stderr, "kira: the phone's radio worker runs without namespaces of its own: %v\n", err)
 		cmd = build(false)
 		err = cmd.Start()
 		if err != nil {
@@ -118,7 +118,7 @@ func StartRadioWorker(host GateHost, debug bool) (stop func(), err error) {
 	go func() {
 		err := cmd.Wait()
 		if code := cmd.ProcessState.ExitCode(); err != nil && code != ExitUnavailable {
-			journal.Narrate("tpm2-kira: the phone's radio worker ended: %v", err)
+			journal.Narrate("kira: the phone's radio worker ended: %v", err)
 		}
 		close(exited)
 	}()
@@ -142,12 +142,12 @@ func RadioWorkerMain(debug bool) int {
 	journal.NarrateDebug = debug
 	step := GateSteps(debug)
 	if os.Geteuid() == 0 {
-		GateFail("the phone's radio worker refuses to run as root: it is started by 'tpm2-kira-boot run'")
+		GateFail("the phone's radio worker refuses to run as root: it is started by 'kira-boot run'")
 		return ExitUsage
 	}
 	client, err := GateClientFromFiles(os.NewFile(workerConnFD, "gate"), os.NewFile(workerWatchFD, "gate-watch"))
 	if err != nil {
-		GateFail("no coordinator (the radio worker is started by 'tpm2-kira-boot run'): %v", err)
+		GateFail("no coordinator (the radio worker is started by 'kira-boot run'): %v", err)
 		return ExitUsage
 	}
 	defer client.Close()

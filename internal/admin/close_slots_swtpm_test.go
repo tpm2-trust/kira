@@ -15,14 +15,14 @@ import (
 	"github.com/google/go-tpm/tpm2/transport"
 	"github.com/tpm2-trust/assh/hostkey"
 
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
-	"github.com/tpm2-trust/tpm2-kira/core/vaultproto"
-	"github.com/tpm2-trust/tpm2-kira/internal/machineid"
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
-	"github.com/tpm2-trust/tpm2-kira/internal/totp"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/core/attest"
+	"github.com/tpm2-trust/kira/core/vaultproto"
+	"github.com/tpm2-trust/kira/internal/machineid"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/phonegate"
+	"github.com/tpm2-trust/kira/internal/totp"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 )
 
 // slotObjects is one slot with every object the slot's policy guards: the
@@ -121,7 +121,7 @@ func (o *slotObjects) allClosed(when string) {
 
 // Every slot object works while PCR 15 is zero - in the slot's bank,
 // SHA-256 or SHA-1 - and none after the close (aSSH's hostkey.Close, what
-// 'tpm2-kira-boot close' runs), until the next boot. That the TOTP key,
+// 'kira-boot close' runs), until the next boot. That the TOTP key,
 // the machine-id, the boot key and the release key open at all proves
 // that the policy computed in core (attest.SlotPolicyDigest, their
 // authPolicy) is the digest of the real session nvslot runs.
@@ -136,7 +136,7 @@ func TestTheCloseEndsEverySlotObject(t *testing.T) {
 			o.tpm = b.dev
 			o.allWork("before the close")
 			if err := hmacWithCloseAsIs(b.dev, o); err != nil {
-				t.Fatalf("the session without tpm2-kira's check, before the close: %v", err)
+				t.Fatalf("the session without kira's check, before the close: %v", err)
 			}
 			if nvslot.Closed(b.dev) {
 				t.Fatal("closed before the close")
@@ -153,7 +153,7 @@ func TestTheCloseEndsEverySlotObject(t *testing.T) {
 				t.Fatalf("the screen's line: %q", line)
 			}
 
-			// The TPM refuses, not only tpm2-kira's check: a session that
+			// The TPM refuses, not only kira's check: a session that
 			// asserts PCR 15 as it is now (closed) fits no slot object's
 			// policy.
 			if err := hmacWithCloseAsIs(b.dev, o); !errors.Is(err, tpm2.TPMRCPolicyFail) {
@@ -256,7 +256,7 @@ func TestSlotsWorkInLockout(t *testing.T) {
 
 // hmacWithCloseAsIs asks for o's TOTP code through the slot's approved
 // policy with PCR 15 asserted as it is now, not at zero: what a caller
-// that skipped tpm2-kira's check could at most do after the close.
+// that skipped kira's check could at most do after the close.
 func hmacWithCloseAsIs(tpm transport.TPM, o *slotObjects) error {
 	sb := o.sb
 	p := &sb.Payload

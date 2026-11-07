@@ -4,7 +4,7 @@ from hibernation, on the machines of tools/localvm.py. vmtest.py --only NAME run
 
 A resume from hibernation starts the TPM afresh, which sets PCR 15 back to zero and so opens the
 SSH CA and every slot (their policies read PCR 15), and the resumed system runs no code screen. The
-boot image closes it right before the resume (tpm2-kira-boot close: Arch's drop-in on
+boot image closes it right before the resume (kira-boot close: Arch's drop-in on
 systemd-hibernate-resume.service, Debian's local-top script). This checks that on both
 distributions:
 
@@ -29,7 +29,7 @@ distributions:
              what is hibernated
   V6         --all: control: no hibernation risk with encrypted swap; red with a swap file on an
              unencrypted file system (Debian's /boot)
-  V3         --all, Arch: the resume with tpm2-kira's unit masked (rd.systemd.mask, the passphrase
+  V3         --all, Arch: the resume with kira's unit masked (rd.systemd.mask, the passphrase
              at systemd's own prompt): the close alone closes the CA
   no-tpm     --all: V4 step 5, a boot without a TPM from the hibernated state (localvm's tpm=False:
              no device, no TPM2 table, nothing measured): no reboot, the passphrase's recipe, the
@@ -38,7 +38,7 @@ distributions:
   V9-long    --all, Debian: after silent-tpm, a close that holds clears the count
   V8         --all: the way out of a close that keeps rebooting (step 7, which no VM can make: a
              TPM that answers and refuses): its mechanics, without a TPM: Arch, the word
-             tpm2-kira.noclose with Secure Boot off, from the setup; Debian, GRUB's break=premount
+             kira.noclose with Secure Boot off, from the setup; Debian, GRUB's break=premount
              and the plan's TPM part removed
 
 Each step that wants a running system gets one when the step before it left none.
@@ -79,7 +79,7 @@ vmtest = load("vmtest")
 localvm = load("localvm")
 HIBERNATED = vmtest.HIBERNATED
 Fail = (vmtest.Fail, localvm.Fail)
-CONF = "/etc/tpm2-kira/assh.conf"
+CONF = "/etc/kira/assh.conf"
 PROBE = "/root/assh"
 
 
@@ -173,23 +173,23 @@ class Hib:
         m.head("V1: the close before the resume, in the image")
         if self.distro == "debian":
             listing = "unmkinitramfs /boot/initrd.img-$(uname -r) x >/dev/null && cd x && { [ -d main ] && cd main; true; }"
-            show = ("cat scripts/local-top/tpm2-kira-close; echo ORDER:; cat scripts/local-top/ORDER; "
+            show = ("cat scripts/local-top/kira-close; echo ORDER:; cat scripts/local-top/ORDER; "
                     "ls scripts/local-premount/")
         else:
             listing = ("uki=$(sed -n 's/^default_uki=\"\\(.*\\)\"/\\1/p' /etc/mkinitcpio.d/*.preset | head -1); "
                        "objcopy -O binary --only-section=.initrd \"$uki\" initrd && lsinitcpio -x initrd >/dev/null")
-            show = ("cat etc/systemd/system/systemd-hibernate-resume.service.d/tpm2-kira-close.conf; "
+            show = ("cat etc/systemd/system/systemd-hibernate-resume.service.d/kira-close.conf; "
                     "ls usr/lib/systemd/system/systemd-hibernate-resume.service usr/lib/systemd/system-generators/ | grep -i hibernate")
         rc, out = self.run(f"set -e; d=$(mktemp -d); cd $d; {listing}; {show}; cd /; rm -rf $d", save="image-close.log")
         if self.distro == "debian":
             order = out.split("ORDER:", 1)[-1]
-            crypt, close = order.find("cryptroot"), order.find("tpm2-kira-close")
+            crypt, close = order.find("cryptroot"), order.find("kira-close")
             self.check("V1: the image's local-top script closes before any volume and before the resume (before cryptroot)",
-                       "tpm2-kira-boot close --ready-file" in out and "tpm2-kira-boot close --resume" in out and 0 <= close < crypt, out[-600:])
+                       "kira-boot close --ready-file" in out and "kira-boot close --resume" in out and 0 <= close < crypt, out[-600:])
             self.check("V1: the image resumes in local-premount", "resume" in out.split("ORDER:", 1)[-1], out[-300:])
         else:
             self.check("V1: the image's drop-in closes before the resume (ExecStartPre), after the code screen",
-                       "ExecStartPre=/usr/bin/tpm2-kira-boot close" in out and "After=tpm2-kira.service" in out, out[-600:])
+                       "ExecStartPre=/usr/bin/kira-boot close" in out and "After=kira.service" in out, out[-600:])
             self.check("V1: the image resumes with systemd-hibernate-resume", "systemd-hibernate-resume" in out, out[-300:])
         st = self.state("v1")
         self.check("V1: after a normal boot the CA is closed (PCR 15 extended)", st["locked"] and not st["signs"], st["out"][-600:])
@@ -204,7 +204,7 @@ class Hib:
         self.m.typed_boot_unchecked()
 
     def control_status(self, tag):
-        s = self.m.session("sudo tpm2-kira control", f"control-{tag}")
+        s = self.m.session("sudo kira control", f"control-{tag}")
         try:
             text, _ = s.expect(r"Enter a number between 1 and \d+: ?$", 300)
             return text
@@ -309,7 +309,7 @@ class Hib:
         out = self.agent_probe(tag)
         self.check(f"{tag}: a certificate asked of the CA after the resume is refused (closed)",
                    "TEMPORARY" in out and "the CA is closed" in out and "through slot" not in out, out[-600:])
-        rc, out = self.run("tpm2-kira slot info --nvram 0 2>&1", save=f"{tag}-slot-info.log")
+        rc, out = self.run("kira slot info --nvram 0 2>&1", save=f"{tag}-slot-info.log")
         self.check(f"{tag}: slot 0 is closed after the resume (PCR 15)", "closed until the next boot" in out, out.strip()[-400:])
         self.m.rep.issues.append(f"{tag}: the TPM's restartCount {before['restart']} -> {st['restart']}, "
                                  f"resetCount {before['reset']} -> {st['reset']} (a resume from hibernation is a TPM "
@@ -317,7 +317,7 @@ class Hib:
         return st
 
     def resume_masked(self, tag):
-        """Arch: the resume's boot with tpm2-kira's unit masked, edited at
+        """Arch: the resume's boot with kira's unit masked, edited at
         systemd-boot's menu; the passphrase at systemd's own prompt."""
         lv = self.lv
         lv.start(unlock=False)
@@ -329,7 +329,7 @@ class Hib:
         if "Reboot Into Firmware" not in lv.serial_text(since):
             raise vmtest.Fail(f"{tag}: systemd-boot's menu did not show")
         self.editor_open()
-        lv.send("rd.systemd.mask=tpm2-kira.service rd.systemd.mask=tpm2-kira-unlock.socket ")
+        lv.send("rd.systemd.mask=kira.service rd.systemd.mask=kira-unlock.socket ")
         lv.send("\r")
         lv.unlock(600)
         lv.wait_ssh(600)
@@ -338,7 +338,7 @@ class Hib:
 
     def console_unlock(self, tag, since):
         """The code screen at the console (the SSH server did not start),
-        then tpm2-kira's password and salt prompts there."""
+        then kira's password and salt prompts there."""
         lv = self.lv
         lv.expect(re.compile(r"Does the code match your authenticator\?"), 600, since)
         lv.send("\r")
@@ -418,7 +418,7 @@ class Hib:
         raise vmtest.Fail(f"waited {timeout} s for /{rx.pattern}/ at the console:\n" + lv.serial_text(since)[-800:])
 
     def console_prompts(self, since):
-        """tpm2-kira's prompts at the console: the recovery recipe needs no TPM."""
+        """kira's prompts at the console: the recovery recipe needs no TPM."""
         lv = self.lv
         self.console_expect(re.compile(r"Password for disk \S+: ?$", re.M), 180, since)
         lv.send(vmtest.TEST_PASSWORD + "\r")
@@ -477,9 +477,9 @@ class Hib:
 
     def after_silent(self, tag, before_boot):
         """The running system of a boot that went on without the TPM's answer."""
-        rc, out = self.run("cat /proc/sys/kernel/random/boot_id; ls /dev/tpm* 2>&1; cat /run/tpm2-kira/close-state; ls /run/tpm2-kira/close-pending; "
-                           "systemctl is-active tpm2-kira-late-close.service; ls /sys/firmware/efi/efivars | grep KIRAcloseReboot; "
-                           "tpm2-kira status 2>&1 | grep -i 'did not answer'", save=f"{tag.replace(' ', '-')}-state.log")
+        rc, out = self.run("cat /proc/sys/kernel/random/boot_id; ls /dev/tpm* 2>&1; cat /run/kira/close-state; ls /run/kira/close-pending; "
+                           "systemctl is-active kira-late-close.service; ls /sys/firmware/efi/efivars | grep KIRAcloseReboot; "
+                           "kira status 2>&1 | grep -i 'did not answer'", save=f"{tag.replace(' ', '-')}-state.log")
         self.check(f"{tag}: a fresh boot, no resume", before_boot not in out, out[:200])
         self.check(f"{tag}: no device for the TPM", "/dev/tpm0" not in out, out)
         self.check(f"{tag}: the close left its state: pending", "pending" in out and "close-pending" in out, out)
@@ -556,12 +556,12 @@ class Hib:
         m.head("V9: a close that holds clears the count")
         self.run("mv /boot/grub/grub.cfg.kira /boot/grub/grub.cfg")
         m.cycle(9)
-        rc, out = self.run("ls /sys/firmware/efi/efivars | grep -c KIRAcloseReboot; cat /run/tpm2-kira/close-state; ls /run/tpm2-kira/close-pending 2>&1", save="V9-after.log")
+        rc, out = self.run("ls /sys/firmware/efi/efivars | grep -c KIRAcloseReboot; cat /run/kira/close-state; ls /run/kira/close-pending 2>&1", save="V9-after.log")
         self.check("V9: a close that holds clears the count and the state", re.search(r"^0$", out, re.M) is not None and "closed" in out and "No such file" in out, out)
 
     def way_out(self):
         """A TPM that answers and refuses everything: docs/SSH.md's way out, taken
-        as it says, here without a TPM. Arch: the word tpm2-kira.noclose, which the
+        as it says, here without a TPM. Arch: the word kira.noclose, which the
         stub takes with Secure Boot off; Debian: GRUB's break=premount - written into
         grub.cfg, as the menu's editor is on the graphical console here - and the
         plan's TPM part removed in the shell it gives, before run and the close."""
@@ -578,7 +578,7 @@ class Hib:
             since = lv.mark
             self.console_expect(re.compile(r"\(initramfs\) ?$", re.M), 120, since, ruled_out=None)
             mark = self.console_mark()
-            lv.send("rm -r /etc/tpm2-kira/plan/tpm\r")
+            lv.send("rm -r /etc/kira/plan/tpm\r")
             self.console_expect(re.compile(r"\(initramfs\) ?$", re.M), 30, mark, ruled_out=None)
             mark = self.console_mark()
             lv.send("exit\r")
@@ -587,7 +587,7 @@ class Hib:
             # From the setup: no image in the swap, nothing of the steps before.
             lv.kill()
             m.setup_snapshot.restore()
-            since = self.menu_edit("tpm2-kira.noclose", tpm=False)
+            since = self.menu_edit("kira.noclose", tpm=False)
             self.console_prompts(since)
         lv.wait_ssh(240)
         self.wait_login("V8")
@@ -595,7 +595,7 @@ class Hib:
         m.log.save("V8-console.log", text)
         self.check("V8: the machine is up with its passphrase's recipe, without the TPM", not RESTART.search(text, text.find("Password for disk")), text[-800:])
         if self.distro == "arch":
-            rc, out = self.run("journalctl -b --no-pager -o cat | grep 'tpm2-kira.noclose'", save="wayout-skipped.log")
+            rc, out = self.run("journalctl -b --no-pager -o cat | grep 'kira.noclose'", save="wayout-skipped.log")
             self.check("V8: Arch - the close's unit was left out by the word", "ConditionKernelCommandLine" in out or "unmet condition" in out, out[-400:])
         rc, out = self.run("ls /dev/tpm* 2>&1; true", save="wayout-tpm.log")
         self.check("V8: no TPM in this boot", "/dev/tpm0" not in out, out)
@@ -657,6 +657,6 @@ class Hib:
 
     def step_v3(self):
         before = self.hibernated()
-        self.m.head("V3: resume with tpm2-kira masked: the close alone")
+        self.m.head("V3: resume with kira masked: the close alone")
         self.resume_masked("V3")
         self.after_resume("V3", before)

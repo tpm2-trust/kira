@@ -12,10 +12,10 @@ import (
 )
 
 // The combiner: the LUKS key derived from a password and a salt, inside
-// tpm2-kira; nothing crosses a process boundary. The derivation is fixed (a
+// kira; nothing crosses a process boundary. The derivation is fixed (a
 // known answer in combine_test.go): keyslots enrolled with the earlier
 // separate combiner, hashpwd2, keep opening. The salt is the factor the phone
-// released (internal/phonegate/factor.go); the password is typed at tpm2-kira's prompt; the
+// released (internal/phonegate/factor.go); the password is typed at kira's prompt; the
 // result is the key file systemd-cryptsetup reads from the unlock socket.
 
 // Argon2id's production cost: 1 GiB, 16 passes, 4 lanes. Constants, and nothing

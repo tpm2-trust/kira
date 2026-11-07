@@ -10,12 +10,12 @@ import (
 
 	"github.com/tpm2-trust/go-tui-slim/prompt"
 	"github.com/tpm2-trust/go-tui-slim/secret"
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/phonegate"
+	"github.com/tpm2-trust/kira/internal/signing"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 )
 
 func (c *controller) runSetup() error {
@@ -152,7 +152,7 @@ func (c *controller) confirmPCRs() (string, error) {
 		return choice, nil
 	}
 	return c.ask().Input("PCRs for slot 0",
-		"Indices with a source each: none or r the register, e the event log, u the unified kernel image - such as 0e,2e,4u,7e,11u (tpm2-kira help slot).",
+		"Indices with a source each: none or r the register, e the event log, u the unified kernel image - such as 0e,2e,4u,7e,11u (kira help slot).",
 		f.PCRs, func(s string) error {
 			_, err := measure.ParsePCRSpecs(s)
 			return err
@@ -287,7 +287,7 @@ func (c *controller) runRemoveSlot(slot int) error {
 			label = "dirty: " + d.Remains() + " left"
 		}
 	}
-	fmt.Fprintln(c.out, "The authenticator's code for it stops matching. Removing a LUKS keyslot asks for a remaining passphrase (the recovery one); keyslots that are not tpm2-kira's stay.")
+	fmt.Fprintln(c.out, "The authenticator's code for it stops matching. Removing a LUKS keyslot asks for a remaining passphrase (the recovery one); keyslots that are not kira's stay.")
 	fmt.Fprintln(c.out)
 	ok, err := c.confirmDestroy(fmt.Sprintf("Delete slot %d whole?", slot), "slot "+fmt.Sprint(slot)+", "+label, fmt.Sprint(slot))
 	if err != nil {
@@ -407,6 +407,6 @@ func controlConfigProblemsText(path string) string {
 		fmt.Fprintf(&b, "  - %s\n", strings.TrimPrefix(p.Error(), "control.conf "))
 	}
 	fmt.Fprintf(&b, "\nEdit the file: remove or correct the lines above; every other line stays as\n"+
-		"it is. Then start 'tpm2-kira control' again.\n\n")
+		"it is. Then start 'kira control' again.\n\n")
 	return b.String()
 }

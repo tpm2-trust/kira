@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/totp"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/totp"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 )
 
 // slotCode asks the TPM for a slot's code now (totp.SlotCode, what the boot's code screen asks):

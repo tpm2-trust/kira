@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/nvslot"
 )
 
 func TestKiraIndexRole(t *testing.T) {
@@ -17,9 +17,9 @@ func TestKiraIndexRole(t *testing.T) {
 			t.Errorf("0x%08X: %q, want %q", idx, got, want)
 		}
 	}
-	for _, idx := range []uint32{0x01C00002, nvslot.NVRAMSlotStart, nvslot.NVRAMSlotEnd, nvslot.AppNVRAMStart + 1, nvslot.NVRAMSlotStart - 1, 0x01803020, 0x0180302F, 0x01803830} {
+	for _, idx := range []uint32{0x01C00002, nvslot.AppNVRAMStart + 1, nvslot.NVRAMSlotStart - 1, 0x01803030, 0x01803810, 0x0180381F, 0x01803820, 0x0180382F} {
 		if got := kiraIndexRole(idx); got != "" {
-			t.Errorf("0x%08X is not tpm2-kira's, but: %q", idx, got)
+			t.Errorf("0x%08X is not kira's, but: %q", idx, got)
 		}
 	}
 }

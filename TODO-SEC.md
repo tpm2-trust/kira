@@ -18,7 +18,7 @@ finish it, tick it off here.
   solution; record it in `HISTORY.md`. Do not overload existing fields to
   avoid a bump.
 - **Exit status stays 0 on failure** (README "Exit status"). Report failures
-  with the `tpm2-kira: FAILED:` marker; hooks grep the output.
+  with the `kira: FAILED:` marker; hooks grep the output.
 - **Docs move with the code.** Any behaviour change updates `README.md` and
   `docs/SECURITY-BACKGROUND.md` in the same change (threat model §8, NVRAM §9,
   blob format §10 are the usual places).
@@ -26,8 +26,8 @@ finish it, tick it off here.
   `go vet ./...`, `go vet -tags=unit ./...` and `go vet -tags=integration ./...`
   — `internal/admin/cmd_test.go` is `//go:build unit || !integration`, so helpers defined
   there do not exist under the integration tag. Integration tests need `swtpm`
-  (`make test-integration`); the harness only rebuilds `./tpm2-kira` when it is
-  missing, so `rm -f tpm2-kira` first.
+  (`make test-integration`); the harness only rebuilds `./kira` when it is
+  missing, so `rm -f kira` first.
 - Items marked **OWNER DECISION** contain a design choice the maintainer has
   not made yet. Implement the recommended option only if told to; otherwise
   ask.
@@ -77,13 +77,13 @@ How the three High items fit together — none is sufficient alone:
   and PCR 7 without Secure Boot)
 - `README.md` — Quick Start uses `--pcrs 0,7`; the Debian section calls
   `0e,2e,4e,7e` "a good default"
-- `internal/admin/setup.go` — prints `tpm2-kira slot add --pcrs 0,7` as the next step
+- `internal/admin/setup.go` — prints `kira slot add --pcrs 0,7` as the next step
 
 **Problem.** PCRs 0, 2, 4 and 7 measure firmware, the bootloader binary and
 the Secure Boot policy. Outside a unified kernel image the initrd is never
 signature-checked, not even with Secure Boot on. An attacker with disk access
 replaces the initrd with one that logs the LUKS passphrase and still runs the
-genuine `tpm2-kira-boot run`; every sealed PCR is unchanged, so a valid code is
+genuine `kira-boot run`; every sealed PCR is unchanged, so a valid code is
 shown. The tool's central promise fails in its recommended configuration.
 
 The same gap lets an attacker take the secret itself, without the passphrase
@@ -139,19 +139,19 @@ saying what it leaves out.
 
 ## 2. The secret stays unsealable after boot (no PCR cap)
 
-- [x] done — owner first chose PCR 23, which turned out to be resettable from locality 0 (verified on swtpm), so the cap is an NV read-lock instead: `tpm2-kira-boot cap` read-locks the item-14 generation indices (`READ_STCLEAR`). Wired into `tpm2-kira-cap.service` (stop action at `initrd-switch-root.target`, like systemd-pcrphase's leave-initrd) and the initramfs-tools init-bottom script. Integration test `TestCapLocksCodesUntilReboot`. Not yet verified in a real initrd boot.
+- [x] done — owner first chose PCR 23, which turned out to be resettable from locality 0 (verified on swtpm), so the cap is an NV read-lock instead: `kira-boot cap` read-locks the item-14 generation indices (`READ_STCLEAR`). Wired into `kira-cap.service` (stop action at `initrd-switch-root.target`, like systemd-pcrphase's leave-initrd) and the initramfs-tools init-bottom script. Integration test `TestCapLocksCodesUntilReboot`. Not yet verified in a real initrd boot.
 
 **Where**
 - `cmd/policy_or.go:580` — `UnsealWithPCRBranch`: policy is PolicyPCR only
-- `initramfs/systemd/tpm2-kira.service`,
-  `initramfs/initramfs-tools/scripts/init-bottom/tpm2-kira` — nothing is
+- `initramfs/systemd/kira.service`,
+  `initramfs/initramfs-tools/scripts/init-bottom/kira` — nothing is
   extended when the display stops
 - `docs/SECURITY-BACKGROUND.md` §8 lists "root on a running, measured system
   can unseal" as accepted
 
 **Problem.** With a policy of firmware PCRs only, the registers still match
 after boot. Any process with TPM access (root, members of `tss`) can run
-`tpm2-kira reveal` or unseal the secret itself and copy it out. A stolen TOTP
+`kira reveal` or unseal the secret itself and copy it out. A stolen TOTP
 secret lets a tampered boot chain show correct codes forever; the user cannot
 detect it and the only fix is a fresh `slot add`. This is the "misuse in the
 started OS" case.
@@ -163,8 +163,8 @@ steers users there. This item is for everything else (Debian/initramfs-tools,
 non-UKI Arch).
 
 **Resolution (recommended design).**
-1. New command `tpm2-kira-boot cap`: extends a fixed digest
-   `H("tpm2-kira:leave-initrd")` into the cap PCR, in every active bank. No
+1. New command `kira-boot cap`: extends a fixed digest
+   `H("kira:leave-initrd")` into the cap PCR, in every active bank. No
    flags needed beyond `--tpm`.
 2. The cap PCR must be part of the sealed policy. **OWNER DECISION** between
    two options:
@@ -182,7 +182,7 @@ non-UKI Arch).
    - `--measure-point=auto` (`internal/measure/measurepoint.go`) probes stable PCRs with
      "register == replay" / "register == replay + words". Add the capped
      candidates (`… + capDigest`) or the probe will refuse with "ambiguous".
-   - Side effects outside tpm2-kira, to document: anything that reads the
+   - Side effects outside kira, to document: anything that reads the
      live PCR 0 in the running OS sees the capped value — e.g.
      `systemd-cryptenroll --tpm2-pcrs=0` would enrol a value the next boot
      does not produce in the initrd, and firmware checks that compare PCR 0
@@ -206,13 +206,13 @@ non-UKI Arch).
    who boots another OS or gets a shell in the initrd does not run it; that
    is item 1.
 4. Run the cap:
-   - systemd initrd: a separate oneshot unit `tpm2-kira-cap.service`,
+   - systemd initrd: a separate oneshot unit `kira-cap.service`,
      `DefaultDependencies=no`, `Before=initrd-switch-root.target`,
-     `After=tpm2-kira.service`, `Conflicts=tpm2-kira.service` so the display
-     stops first; wire it in `initramfs/mkinitcpio/install/sd-tpm2-kira` the
-     same way `tpm2-kira.service` is enabled. A separate unit is more reliable
+     `After=kira.service`, `Conflicts=kira.service` so the display
+     stops first; wire it in `initramfs/mkinitcpio/install/sd-kira` the
+     same way `kira.service` is enabled. A separate unit is more reliable
      than `ExecStopPost=` if the display process is killed.
-   - initramfs-tools: call `tpm2-kira-boot cap` in `scripts/init-bottom/tpm2-kira`
+   - initramfs-tools: call `kira-boot cap` in `scripts/init-bottom/kira`
      after the `kill`.
    - The cap must fail closed in the sense that a failed extend is printed
      loudly on the console; it must not block boot.
@@ -270,10 +270,10 @@ attacker-chosen files (key file, then the UKI path from `spec.Command`).
 4. Same rule for the public key used for the *new* blob: `--pubkey`, else
    derived from the verified private key. Do not load
    `sealedBlob.Payload.PublicKeyPath` unless it was verified.
-5. The mkinitcpio post hook (`initramfs/mkinitcpio/post/sd-tpm2-kira`) calls
-   plain `tpm2-kira slot approve`; users with a non-default key need a place to
-   configure the path. **OWNER DECISION:** a `TPM2_KIRA_PRIVKEY=` line read
-   the same way as the PIN (see item 6), or a small `/etc/tpm2-kira/` config.
+5. The mkinitcpio post hook (`initramfs/mkinitcpio/post/sd-kira`) calls
+   plain `kira slot approve`; users with a non-default key need a place to
+   configure the path. **OWNER DECISION:** a `KIRA_PRIVKEY=` line read
+   the same way as the PIN (see item 6), or a small `/etc/kira/` config.
 
 **Done when** a unit test plants a blob signed by key B with paths pointing
 at key B while the default key is A, and `Reseal` fails with the integrity
@@ -347,7 +347,7 @@ asserts the QR output for a fixed URI is non-empty.
 
 ## 6. YubiKey PIN in a world-readable file
 
-- [x] done — the PIN lives in `/etc/tpm2-kira/pin`, the PIN alone,
+- [x] done — the PIN lives in `/etc/kira/pin`, the PIN alone,
   written by `control` only: the Signing key step checks the PIN on the
   token and writes the file 0600.
   `readPIN` (`internal/signing/pin.go`) takes `--pin-fd`, then the file, then
@@ -355,7 +355,7 @@ asserts the QR output for a fixed URI is non-empty.
   refused on the opened descriptor, not warned about (`StoredPIN`), and so is such a file
   on `--pin-fd` (`readPINDescriptor`). Nothing puts the file into the image. The
   earlier places - a line in `/etc/mkinitcpio.conf`, then a
-  `TPM2_KIRA_PIN` line in control.conf - are gone (HISTORY.md).
+  `KIRA_PIN` line in control.conf - are gone (HISTORY.md).
 
 **Trade-off** (`docs/PLAN-YUBIKEY.md` §4.4 and §6): an unattended PIN
 makes the token a presence check only; the touch policy decides whether a
@@ -422,8 +422,8 @@ command log for the encrypt attribute).
 - `internal/tpmdev/tpmdev.go:14` `CleanupTPM`, called from `internal/nvslot/scan.go` (`RevealCommand`,
   `RunCommand`, `ScanNVRAMSlotsRange` before every slot), `internal/admin/seal.go`,
   `internal/admin/reseal.go`
-- `initramfs/systemd/tpm2-kira.service` — `Requires=/After=dev-tpm0.device`
-- `initramfs/initramfs-tools/scripts/init-premount/tpm2-kira` — waits for
+- `initramfs/systemd/kira.service` — `Requires=/After=dev-tpm0.device`
+- `initramfs/initramfs-tools/scripts/init-premount/kira` — waits for
   `/dev/tpmrm0`, then runs a binary that opens `/dev/tpm0`
 
 **Problem.** The raw device bypasses the kernel resource manager, and
@@ -436,7 +436,7 @@ device.
 **Resolution.**
 1. Default `--tpm` to `/dev/tpmrm0`; fall back to `/dev/tpm0` only when
    `tpmrm0` does not exist, and say so in `--debug`.
-2. Stop flushing handles tpm2-kira did not create. Every object and session
+2. Stop flushing handles kira did not create. Every object and session
    the code creates already has a matching `FlushHandle`/session cleanup;
    audit for leaks (`grep -n "CreatePrimaryKey\|PolicySession\|LoadExternal"`)
    and then delete `CleanupTPM`, `flushAllTransientHandles` and
@@ -462,7 +462,7 @@ did not obtain itself.
   all straight from the blob with `%s`
 - `:260` `printSigningKeyInfo`, `:288` `printSigningKeyLocation` open and
   parse whatever files the blob's paths name
-- `initramfs/initramfs-tools/post-update.d/tpm2-kira` runs `slot info --json` as
+- `initramfs/initramfs-tools/post-update.d/kira` runs `slot info --json` as
   root after every initramfs rebuild
 
 **Problem.** The blob is attacker-writable (SECURITY-BACKGROUND §9.4) and
@@ -541,7 +541,7 @@ passes locally and in CI.
 
 **Where** `internal/nvslot/nvram.go:540` `NVRAMDeleteCommand`; `main.go` `runNVRAM`.
 
-**Problem.** `tpm2-kira slot delete` with no `--nvram` deletes all populated
+**Problem.** `kira slot delete` with no `--nvram` deletes all populated
 slots immediately. Deletion is irreversible and forces re-enrolment. (That
 anyone with TPM access can undefine the index through the owner hierarchy is
 a TPM property and already documented in SECURITY-BACKGROUND §9.3; it cannot
@@ -553,7 +553,7 @@ Single-slot delete with an explicit `--nvram` stays as it is. Update README
 "Deleting Sealed Data" and "Uninstall".
 
 **Optional follow-up, OWNER DECISION:** support an owner-hierarchy password
-(`TPM2_KIRA_OWNER_AUTH` or a prompt) for `CreatePrimary`, `NV_DefineSpace`
+(`KIRA_OWNER_AUTH` or a prompt) for `CreatePrimary`, `NV_DefineSpace`
 and `NV_UndefineSpace`, so users who set one can keep using the tool and
 close the delete/plant path.
 
@@ -588,7 +588,7 @@ that is behind it — that catches a rollback after a harvest, not the harvest.
 
 - [ ] done — not started: needs verifying in a real systemd initrd, which the review machine (TPM 1.2) cannot do
 
-**Where** `initramfs/systemd/tpm2-kira.service`.
+**Where** `initramfs/systemd/kira.service`.
 
 **Problem.** The service runs as full root before unlock and parses
 untrusted NV data. The parser is memory-safe Go and held up under fuzzing, so
@@ -599,7 +599,7 @@ this is defence in depth only.
 startup rather than shipping a unit that fails):
 
 ```ini
-ExecStart=/usr/bin/tpm2-kira-boot run
+ExecStart=/usr/bin/kira-boot run
 NoNewPrivileges=yes
 CapabilityBoundingSet=
 PrivateNetwork=yes
@@ -634,7 +634,7 @@ there is no equivalent; leave it.
   bytes, not the raw key
 
 **Problem.** A TOTP code is `Truncate(HMAC-SHA1(key, time/30))`. Because
-tpm2-kira does the HMAC itself, the TPM must release the whole key on every
+kira does the HMAC itself, the TPM must release the whole key on every
 use, and it releases it to anyone who presents matching PCRs. Whoever gets it
 once has it forever (see items 1, 2, 7 for the ways). The TPM can do the HMAC
 instead, so the key never leaves the chip.
@@ -651,7 +651,7 @@ to stop the oracle itself. Put exactly this in SECURITY-BACKGROUND §8.
 *A. HMAC key object*
 1. Create the object as an HMAC key: `Type: TPMAlgKeyedHash`, attributes
    `FixedTPM`, `FixedParent`, `SignEncrypt` set; `UserWithAuth` and
-   `SensitiveDataOrigin` clear (tpm2-kira supplies the key so it can show the
+   `SensitiveDataOrigin` clear (kira supplies the key so it can show the
    QR code once); scheme `TPMAlgHMAC` with `TPMAlgSHA1`. Put the **raw** key
    bytes in `InSensitive.Data`. Use 20 random bytes (the RFC 4226 size; a
    keyedHash key may not exceed the hash block size). The QR code carries the
@@ -752,7 +752,7 @@ key to approve PCR states:
   `AuthWrite` are clear. `WriteToNVRAM` exercises the signer before the
   undefine and stashes the blob on failure.
 - **No command execution from blob data**: the `p:COMMAND` source is gone
-  (HISTORY.md), and since item 5 tpm2-kira runs no external program at all.
+  (HISTORY.md), and since item 5 kira runs no external program at all.
 - **PIN retry handling** (`internal/signing/yubikey.go` `ensurePIN`): one VERIFY per need,
   never retries a rejected PIN, refuses to spend the last attempt, resets the
   card on exit.

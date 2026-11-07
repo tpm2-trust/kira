@@ -16,10 +16,10 @@ import (
 
 	"github.com/google/go-tpm/tpm2/transport"
 
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
+	"github.com/tpm2-trust/kira/core/attest"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/phonegate"
 )
 
 // sealTestChannel makes the slot's channel and writes the record. It returns the
@@ -85,7 +85,7 @@ func TestChannelFollowsPCR7(t *testing.T) {
 
 	// Status and control read the same note.
 	notes := statusNotes(StatusReport{Slots: []StatusSlot{{Slot: 4, Signed: true, ChannelMoved: moved()}}})
-	if !strings.Contains(strings.Join(notes, "\n"), "tpm2-kira slot approve --nvram 4") {
+	if !strings.Contains(strings.Join(notes, "\n"), "kira slot approve --nvram 4") {
 		t.Fatalf("no advice in %v", notes)
 	}
 

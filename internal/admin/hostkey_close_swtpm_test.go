@@ -14,8 +14,8 @@ import (
 	"github.com/tpm2-trust/assh/config"
 	"github.com/tpm2-trust/assh/hostkey"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/bootclose"
-	"github.com/tpm2-trust/tpm2-kira/internal/sshscreen"
+	"github.com/tpm2-trust/kira/internal/bootclose"
+	"github.com/tpm2-trust/kira/internal/sshscreen"
 )
 
 // swtpmBoots is a software TPM that can be rebooted (TPM2_Startup(CLEAR)
@@ -151,7 +151,7 @@ func TestHostKeyLeavesTheBootOpen(t *testing.T) {
 	}
 }
 
-// tpm2-kira-boot close (the end of the code screen, the resume from
+// kira-boot close (the end of the code screen, the resume from
 // hibernation): it closes the CA with PCR 15 - with no CA file and no
 // assh.conf - after which the code screen gets no certificate; a code
 // screen that closed it already leaves it closed; the next boot opens it.

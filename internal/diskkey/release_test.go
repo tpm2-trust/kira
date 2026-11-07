@@ -89,13 +89,13 @@ func TestBuildPackagesTagOnlyByItsFlag(t *testing.T) {
 // and the check refuses it.
 func TestReleaseCheckTellsTheBuilds(t *testing.T) {
 	if testing.Short() {
-		t.Skip("builds tpm2-kira-boot twice")
+		t.Skip("builds kira-boot twice")
 	}
 	dir := t.TempDir()
 	check := filepath.Join(repoRoot, "packaging", "release-binary-check.sh")
 	build := func(out string, args ...string) string {
 		bin := filepath.Join(dir, out)
-		cmd := exec.Command("go", append(append([]string{"build"}, args...), "-trimpath", "-ldflags", "-s -w", "-o", bin, "./cmd/tpm2-kira-boot")...)
+		cmd := exec.Command("go", append(append([]string{"build"}, args...), "-trimpath", "-ldflags", "-s -w", "-o", bin, "./cmd/kira-boot")...)
 		cmd.Dir = repoRoot
 		cmd.Env = append(os.Environ(), "CGO_ENABLED=0", "GOFLAGS=")
 		if b, err := cmd.CombinedOutput(); err != nil {

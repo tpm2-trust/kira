@@ -12,8 +12,8 @@ import (
 
 	"github.com/google/go-tpm/tpm2/transport"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/nvslot"
 )
 
 // ChannelApproval says what an approval does with a phone channel sealed to another
@@ -65,7 +65,7 @@ var channelEventsShown bool
 
 // channelLeftWarning is the marker's line of the block a hook passes on.
 func channelLeftWarning(slot int) string {
-	return fmt.Sprintf("WARNING: slot %d's phone channel was left sealed to the old PCR %s: the phones find no machine at the next boot. A hook never follows a moved PCR %s; at a terminal, after looking at what moved it: sudo tpm2-kira slot approve --nvram %d",
+	return fmt.Sprintf("WARNING: slot %d's phone channel was left sealed to the old PCR %s: the phones find no machine at the next boot. A hook never follows a moved PCR %s; at a terminal, after looking at what moved it: sudo kira slot approve --nvram %d",
 		slot, nvslot.ChannelPCRList(), nvslot.ChannelPCRList(), slot)
 }
 

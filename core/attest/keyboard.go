@@ -93,7 +93,7 @@ type keyboardStream struct {
 func (k *keyboardStream) Read(p []byte) (int, error) {
 	for len(k.buf) == 0 {
 		m := hmac.New(sha256.New, k.seed)
-		m.Write([]byte("tpm2-kira/keyboard-layout/v1"))
+		m.Write([]byte("kira/keyboard-layout/v1"))
 		m.Write(binary.BigEndian.AppendUint32(nil, k.ctr))
 		k.ctr++
 		k.buf = m.Sum(nil)

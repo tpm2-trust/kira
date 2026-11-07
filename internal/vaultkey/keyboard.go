@@ -8,10 +8,10 @@ import (
 	"github.com/google/go-tpm/tpm2/transport"
 
 	"github.com/tpm2-trust/go-tui-slim/secret"
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
+	"github.com/tpm2-trust/kira/core/attest"
+	"github.com/tpm2-trust/kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/phonegate"
 )
 
 // KeyboardSession is the vault's one-time keyboard in this boot: the layout of the seed the vault

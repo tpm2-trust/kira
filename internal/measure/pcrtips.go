@@ -3,7 +3,7 @@ package measure
 import (
 	"fmt"
 
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
+	"github.com/tpm2-trust/kira/core/attest"
 )
 
 // PCRTips displays information about what each PCR measures
@@ -43,7 +43,7 @@ func PCRTips() error {
 		{"PCR12¹", "Overridden kernel command line, Credentials", "systemd-stub"},
 		{"PCR13¹", "System Extensions", "systemd-stub"},
 		{"PCR14¹", "shim's MokList, MokListX, and MokSBState", "shim"},
-		{"PCR15¹", "tpm2-kira's close: never in a slot, every slot object requires it at", "tpm2-kira, systemd-cryptsetup"},
+		{"PCR15¹", "kira's close: never in a slot, every slot object requires it at", "kira, systemd-cryptsetup"},
 		{"", "zero; extended when the code screen is over. Also the LUKS volume key.", ""},
 		{"PCR16¹", "Debug. May be used and reset at any time. May be absent from", ""},
 		{"", "an official firmware release.", ""},
@@ -64,7 +64,7 @@ func PCRTips() error {
 	fmt.Println("  'u[:PATH]'    - Predict for the next boot, built in; no external tools (PCRs 4 and 11)")
 	fmt.Println("                  11: systemd-stub's section measurements of the unified kernel image")
 	fmt.Println("                  4:  this boot's log, its images hashed as they are on the ESP")
-	fmt.Println("  's[:PATH]'    - Signed by tpm2-kira's PCR key for enter-initrd (PCR 11 only): no")
+	fmt.Println("  's[:PATH]'    - Signed by kira's PCR key for enter-initrd (PCR 11 only): no")
 	fmt.Println("                  approval at a kernel update; 'control' writes uki.conf")
 	fmt.Println()
 	fmt.Println("One rule: every slot reads PCR 7 and the image; slot 0 adds the platform:")
@@ -90,7 +90,7 @@ func PCRTips() error {
 	fmt.Println("  Secure Boot     off it records \"disabled\", and nothing verifies which")
 	fmt.Println("                  bootloader or kernel ran.")
 	fmt.Println()
-	fmt.Println("PCRs 9, 11 and 15 keep being extended after tpm2-kira reads them, so a")
+	fmt.Println("PCRs 9, 11 and 15 keep being extended after kira reads them, so a")
 	fmt.Println("value read from the running system is NOT what the next boot will show.")
 	fmt.Println()
 	fmt.Println("Adapted from https://wiki.archlinux.org/title/Trusted_Platform_Module")

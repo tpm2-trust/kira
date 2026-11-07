@@ -1,4 +1,4 @@
-// Package kiracore is the phone's binding to the tpm2-kira verifier core,
+// Package kiracore is the phone's binding to the kira verifier core,
 // built with gomobile:
 //
 //	gomobile bind -target=android -androidapi 28 -o kiracore.aar ./mobile/kiracore
@@ -21,8 +21,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
-	"github.com/tpm2-trust/tpm2-kira/core/transport/frame"
+	"github.com/tpm2-trust/kira/core/attest"
+	"github.com/tpm2-trust/kira/core/transport/frame"
 )
 
 // ProtocolVersion is the INFO characteristic's protocol byte this core speaks.
@@ -31,7 +31,7 @@ func ProtocolVersion() int { return 1 }
 // SchemaVersion is the message schema this core speaks.
 func SchemaVersion() int { return attest.SchemaVersion }
 
-// UUIDs of the tpm2-kira GATT service (docs/PROTOCOL-BLE.md §3).
+// UUIDs of the kira GATT service (docs/PROTOCOL-BLE.md §3).
 const (
 	ServiceUUID = "883f0100-9727-459b-a589-a62200c064c0"
 	RXCharUUID  = "883f0101-9727-459b-a589-a62200c064c0"
@@ -55,7 +55,7 @@ const (
 	AdvFlagAttest = int(attest.AdvFlagAttest)
 )
 
-// AdvertisementFlags returns the flags byte of a tpm2-kira scan response's
+// AdvertisementFlags returns the flags byte of a kira scan response's
 // service data, or -1 if the data is not 13 bytes.
 func AdvertisementFlags(serviceData []byte) int {
 	if len(serviceData) != attest.AdvServiceDataSize {

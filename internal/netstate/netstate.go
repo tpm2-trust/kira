@@ -24,13 +24,13 @@ import (
 
 // ImageConf is the image's network settings, written by the boot plan
 // from control.conf; the image's scripts (initramfs-tools) read it too.
-const ImageConf = "/etc/tpm2-kira/remote.conf"
+const ImageConf = "/etc/kira/remote.conf"
 
 // Config is what run needs of the image's network settings.
 type Config struct {
 	Mode     string // "dhcp" or "static"
 	Match    string // a MAC address, an interface name, or "" for every wired interface
-	Announce bool   // tell the neighbours a new address (TPM2_KIRA_NET_ANNOUNCE)
+	Announce bool   // tell the neighbours a new address (KIRA_NET_ANNOUNCE)
 }
 
 // ReadConfig reads the image's settings at path; ok is false without a
@@ -54,14 +54,14 @@ func ParseConfig(data []byte) (Config, bool) {
 		}
 		v = strings.Trim(v, `"`)
 		switch k {
-		case "TPM2_KIRA_NET":
+		case "KIRA_NET":
 			c.Mode = v
-		case "TPM2_KIRA_NET_MATCH":
+		case "KIRA_NET_MATCH":
 			c.Match = strings.ToLower(v)
 			if !isMAC(v) {
 				c.Match = v
 			}
-		case "TPM2_KIRA_NET_ANNOUNCE":
+		case "KIRA_NET_ANNOUNCE":
 			c.Announce = v != "off"
 		}
 	}
@@ -228,7 +228,7 @@ func (r *Reader) Read(elapsed time.Duration) Status {
 	return st
 }
 
-// wanted is the image's scripts' choice (tpm2_kira_netdev): a device, by
+// wanted is the image's scripts' choice (kira_netdev): a device, by
 // its MAC or its name, or every wired one.
 func (r *Reader) wanted(dir, name string) bool {
 	if _, err := os.Stat(filepath.Join(dir, "device")); err != nil {

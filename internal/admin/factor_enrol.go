@@ -15,12 +15,12 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/tpm2-trust/go-tui-slim/secret"
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/core/attest"
+	"github.com/tpm2-trust/kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/phonegate"
+	"github.com/tpm2-trust/kira/internal/signing"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 )
 
 // FactorEnrolOptions is what 'phone salt enrol' takes.
@@ -70,7 +70,7 @@ func FactorEnrol(o FactorEnrolOptions) error {
 	}
 
 	fmt.Printf("\nKey written to %s\n\n", o.Out)
-	fmt.Println("Next steps - tpm2-kira does not touch your keyslots:")
+	fmt.Println("Next steps - kira does not touch your keyslots:")
 	fmt.Printf("    cryptsetup luksAddKey <device> %s\n", o.Out)
 	fmt.Printf("    cryptsetup open --test-passphrase <device> --key-file %s\n", o.Out)
 	fmt.Printf("    rm %s\n", o.Out)
@@ -86,11 +86,11 @@ func FactorEnrol(o FactorEnrolOptions) error {
 	if o.Keyboard {
 		mark += " --keyboard-pepper"
 	}
-	fmt.Printf("Then: tpm2-kira luks mark <device> --keyslot N %s. The mark\n", mark)
+	fmt.Printf("Then: kira luks mark <device> --keyslot N %s. The mark\n", mark)
 	fmt.Println("is all the boot needs: it reads the recipe from the header, and once the phone has")
 	fmt.Println("verified the machine, asks for the password and derives this key. The recovery")
 	fmt.Println("passphrase in its own keyslot stays the way in without the phone: at cryptsetup's")
-	fmt.Println("prompt (Ctrl-C at tpm2-kira's).")
+	fmt.Println("prompt (Ctrl-C at kira's).")
 	return nil
 }
 
@@ -118,7 +118,7 @@ func remoteSaltKey(o FactorEnrolOptions) ([]byte, uint32, error) {
 
 	att, err := phonegate.LoadAttestBlob(tpmDev, idx)
 	if err != nil {
-		return nil, 0, fmt.Errorf("slot %d has no phone enrolled: run 'tpm2-kira phone enrol' first", slot)
+		return nil, 0, fmt.Errorf("slot %d has no phone enrolled: run 'kira phone enrol' first", slot)
 	}
 	warnUnclosedBoot(tpmDev)
 	_, sealed, err := phonegate.ReadSlot(tpmDev, idx)
@@ -347,7 +347,7 @@ func FactorStatus(tpmPath string, sealIndex uint32, jsonOut bool, debug bool) er
 		return enc.Encode(out)
 	}
 	if len(out) == 0 {
-		fmt.Println("No slot has a phone enrolled; a phone salt needs one ('tpm2-kira phone enrol').")
+		fmt.Println("No slot has a phone enrolled; a phone salt needs one ('kira phone enrol').")
 		return nil
 	}
 	for _, s := range out {
@@ -355,7 +355,7 @@ func FactorStatus(tpmPath string, sealIndex uint32, jsonOut bool, debug bool) er
 			fmt.Printf("Slot %d (%s): phone salt enrolled - the release key is in the slot's blob; the\n"+
 				"  factor itself is kept by the phone (%d enrolled) and opened by this TPM at boot\n", s.Slot, s.NVRAMIndex, s.Phones)
 		} else {
-			fmt.Printf("Slot %d (%s): no phone salt ('tpm2-kira phone salt enrol --out /run/tpm2-kira/luks.key')\n", s.Slot, s.NVRAMIndex)
+			fmt.Printf("Slot %d (%s): no phone salt ('kira phone salt enrol --out /run/kira/luks.key')\n", s.Slot, s.NVRAMIndex)
 		}
 	}
 	return nil

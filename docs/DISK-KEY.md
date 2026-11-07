@@ -1,14 +1,14 @@
 # The disk's key
 
 How the key of a LUKS volume is made at boot is not configured anywhere:
-the boot reads it from the volume's own LUKS2 header. The tpm2-kira token
+the boot reads it from the volume's own LUKS2 header. The kira token
 of a keyslot names the recipe, the same on Arch and Debian, and an
-enrolment needs no image rebuild. tpm2-kira never opens the disk; it
+enrolment needs no image rebuild. kira never opens the disk; it
 hands the key to `systemd-cryptsetup` (Arch) or `cryptroot`'s keyscript
 (Debian), and their own prompt with the recovery passphrase is always the
 fallback.
 
-`tpm2-kira luks status | enrol | remove | mark | route | derive`, and
+`kira luks status | enrol | remove | mark | route | derive`, and
 `vault` for the vault's side.
 
 ## The recipes
@@ -29,7 +29,7 @@ vault), flag `0x01` the pepper.
 
 | recipe | `luks enrol` | at boot |
 |---|---|---|
-| *(no token of tpm2-kira's)* | - | tpm2-kira stays out of it: cryptsetup's own prompt asks for the LUKS passphrase |
+| *(no token of kira's)* | - | kira stays out of it: cryptsetup's own prompt asks for the LUKS passphrase |
 | `0x2400` unattended: this TPM and the vault | `--password tpm --salt vault` | nothing is asked: the TPM's part and the vault's, both opened only in an approved boot state while the code screen holds; a key made ends the hold on its own ([VAULT.md](VAULT.md)) |
 | `0x2401` ... with a pepper | `--password tpm --salt vault --pepper` | the same, once an operator approved the boot with the pepper |
 | `0x1400` password typed, salt from the vault | `--salt vault` | the vault releases the salt while the code screen holds; the password is asked after it |
@@ -38,17 +38,17 @@ vault), flag `0x01` the pepper.
 | `0x1302` ... with a pepper typed through the phone's one-time keyboard | `--salt phone --keyboard-pepper` | as `0x1300`, and with the salt the TPM opens this boot's layout, which the phone shows; the password, then the pepper through the layout, are asked after the code screen |
 | `0x1402` ... through the vault's | `--salt vault --keyboard-pepper` | as `0x1400`, the layout shown by the vault (its CLI, its REST API) |
 | `0x1200` password typed, salt in this TPM | `--salt tpm` | the TPM opens the salt while the code screen holds; the password is asked after it |
-| `0x1100` recovery: password and salt typed | `--salt typed` | both are asked at tpm2-kira's prompt |
+| `0x1100` recovery: password and salt typed | `--salt typed` | both are asked at kira's prompt |
 
 A volume's recipes are tried in that order, each the fallback of the ones
 before it, and always in this order: the keyslot's own recipe (the vault,
 the phone, the TPM); without a salt from it, a **typed** salt at the same
 prompt - the recovery recipe, which opens a keyslot enrolled that way;
 then, at Ctrl-C or with a key that opens nothing, cryptsetup's own
-prompt with a **plain passphrase** - the only way in when tpm2-kira itself
+prompt with a **plain passphrase** - the only way in when kira itself
 fails, since the combiner's key ends in a newline that a passphrase
 prompt cannot take. Keep one in its own keyslot: `control` shows it red
-when every keyslot of a volume is tpm2-kira's.
+when every keyslot of a volume is kira's.
 
 "While the code screen holds" is the hold before the boot goes on (the
 close, PCR 15, ends the slot's policy after it). A slot sealed without a TOTP
@@ -163,7 +163,7 @@ stores the recipe's number, and its type repeats it, so a plain
 `cryptsetup luksDump` names the recipe too:
 
 ```json
-{"type": "tpm2-kira-1300", "keyslots": ["2"], "recipe": 4864, "slot": 0, "label": "luks", "created": "..."}
+{"type": "kira-1300", "keyslots": ["2"], "recipe": 4864, "slot": 0, "label": "luks", "created": "..."}
 ```
 
 The recovery recipe is bound to nothing: no TPM is in its key, and no
@@ -178,15 +178,15 @@ as such, never acted on: enrol the keyslot again. The design is
 
 Nothing but what you type, combined. No TPM is in the key, so the keyslot
 survives every slot, and it is the fallback of every other recipe at
-tpm2-kira's prompt. `luks enrol --salt typed` in one step, or by hand:
+kira's prompt. `luks enrol --salt typed` in one step, or by hand:
 
 ```bash
-sudo mkdir -m 700 -p /run/tpm2-kira
-sudo tpm2-kira luks derive --out /run/tpm2-kira/luks.key     # asks password (twice) and salt
-sudo cryptsetup luksAddKey /dev/nvme0n1p2 /run/tpm2-kira/luks.key
-sudo cryptsetup open --test-passphrase /dev/nvme0n1p2 --key-file /run/tpm2-kira/luks.key
-sudo rm /run/tpm2-kira/luks.key
-sudo tpm2-kira luks mark /dev/nvme0n1p2 --keyslot 1 --salt typed
+sudo mkdir -m 700 -p /run/kira
+sudo kira luks derive --out /run/kira/luks.key     # asks password (twice) and salt
+sudo cryptsetup luksAddKey /dev/nvme0n1p2 /run/kira/luks.key
+sudo cryptsetup open --test-passphrase /dev/nvme0n1p2 --key-file /run/kira/luks.key
+sudo rm /run/kira/luks.key
+sudo kira luks mark /dev/nvme0n1p2 --keyslot 1 --salt typed
 ```
 
 ## Password typed, salt in this TPM (`0x1200`)
@@ -199,7 +199,7 @@ after it. Whoever has the disk and the password still needs this
 machine in an approved boot.
 
 ```bash
-sudo tpm2-kira luks enrol /dev/nvme0n1p2 --salt tpm      # asks the password twice
+sudo kira luks enrol /dev/nvme0n1p2 --salt tpm      # asks the password twice
 ```
 
 One per slot; a new one replaces the old, and a keyslot enrolled with the
@@ -230,14 +230,14 @@ password.
    by hand, on the unlocked system, with Marify open on the phone:
 
    ```bash
-   sudo mkdir -m 700 -p /run/tpm2-kira
-   sudo tpm2-kira phone salt enrol --out /run/tpm2-kira/luks.key
+   sudo mkdir -m 700 -p /run/kira
+   sudo kira phone salt enrol --out /run/kira/luks.key
    ```
 
    The phone shows the ordinary verdict screen with a card "Keep this
    machine's phone salt"; accepting the verdict keeps it. The phone
    hands it straight back, and only if the round trip gives back what
-   was sent does tpm2-kira ask for your password and write the derived
+   was sent does kira ask for your password and write the derived
    key - once, to tmpfs. The first enrolment of a slot also adds the
    release key to its blob (needs the signing key).
 
@@ -245,14 +245,14 @@ password.
    is all the boot needs, it reads the header:
 
    ```bash
-   sudo cryptsetup luksAddKey /dev/nvme0n1p2 /run/tpm2-kira/luks.key
-   sudo cryptsetup open --test-passphrase /dev/nvme0n1p2 --key-file /run/tpm2-kira/luks.key
-   sudo rm /run/tpm2-kira/luks.key
-   sudo tpm2-kira luks mark /dev/nvme0n1p2 --keyslot 2 --salt phone
+   sudo cryptsetup luksAddKey /dev/nvme0n1p2 /run/kira/luks.key
+   sudo cryptsetup open --test-passphrase /dev/nvme0n1p2 --key-file /run/kira/luks.key
+   sudo rm /run/kira/luks.key
+   sudo kira luks mark /dev/nvme0n1p2 --keyslot 2 --salt phone
    ```
 
 At boot: code screen, the phone verifies and hands the salt back, the
-TPM opens it before the OS separator, and tpm2-kira's prompt says the
+TPM opens it before the OS separator, and kira's prompt says the
 salt came from the phone and asks for the *password*. No phone, no
 verdict, or a TPM that refused: a typed salt (the recovery recipe), then
 cryptsetup's own prompt. `phone salt status` says which slots have one
@@ -266,27 +266,27 @@ is tested separately.
 `/etc/crypttab` is not touched and does not need to be: only if a volume
 is kept there with `x-initrd.attach` instead of on the command line, the
 same socket goes into that line's key field
-(`cryptroot UUID=… /run/tpm2-kira/unlock.sock x-initrd.attach`), and
+(`cryptroot UUID=… /run/kira/unlock.sock x-initrd.attach`), and
 `sd-encrypt` copies it into the image as it is. Volumes with `none` or
 `-` as key file are still asked for by systemd's own console prompt;
 volumes with a key file or a token (`tpm2-device=`, `fido2-device=`,
-`pkcs11-uri=`) are not tpm2-kira's.
+`pkcs11-uri=`) are not kira's.
 
 ## The salt from the vault (`0x1400`, `0x1401`, `0x2400`, `0x2401`)
 
-The vault ([tpm2-kira-vault](../../tpm2-kira-vault)) keeps a part R that
+The vault ([kira-vault](../../kira-vault)) keeps a part R that
 only this machine's TPM opens, and releases it to a fresh quote of a boot
 your signing key approved - at once, or once an operator approves, with
 a pepper if the keyslot was enrolled with one. R is the salt (the pepper
 goes into it); the password is typed after the code screen (`0x1400`,
 `0x1401`) or is the TPM's own part L (`0x2400`, `0x2401`: nothing typed,
 the boot opens unattended). Revoked on the vault, the machine gets no
-salt; the recovery recipe is asked at tpm2-kira's prompt - at the console
+salt; the recovery recipe is asked at kira's prompt - at the console
 or over SSH - and without one, the recovery passphrase at cryptsetup's.
 
 ```bash
-sudo tpm2-kira luks enrol /dev/sda2 --password tpm --salt vault --url https://vault:8443 --pin sha256:… --token …
-sudo tpm2-kira luks enrol /dev/sda2 --salt vault --pepper --url https://vault:8443 --pin sha256:… --token …
+sudo kira luks enrol /dev/sda2 --password tpm --salt vault --url https://vault:8443 --pin sha256:… --token …
+sudo kira luks enrol /dev/sda2 --salt vault --pepper --url https://vault:8443 --pin sha256:… --token …
 ```
 
 Setting up both sides, the protocol, the vault's rules and recovery:
@@ -331,7 +331,7 @@ sequenceDiagram
   phone forgets it with the session, the vault shows the layout for 15 minutes, in memory, never in
   the audit.
 - **A wrong pepper** of the right form makes a key that opens nothing, which goes where any such
-  key goes (above: Debian's `tries=` asks at tpm2-kira's prompt again, the same layout; systemd's own
+  key goes (above: Debian's `tries=` asks at kira's prompt again, the same layout; systemd's own
   prompt on the others). A pepper of the wrong form is asked for again at once, three times.
 - **Without the salt or the layout**: the recovery recipe, then cryptsetup's own prompt, as for every
   device-held salt. An operator's pepper (`--pepper`) and this one are not taken together.
@@ -355,12 +355,12 @@ implementation of its text alone (2026-11-07).
 | What | Derivation | Known answer |
 |---|---|---|
 | the key of every recipe | `Combine(password, salt)` = base64 without padding of Argon2id(password, salt, 16 passes, 1 GiB, 4 lanes, 64 bytes), followed by `\n` (the newline is part of the key) | `TestCombineKnownAnswer` |
-| the phone's salt (`0x1300`, `0x1302`), the TPM's (`0x1200`, of its part T) | `hex(HKDF-SHA256(ikm = F, salt = "", info = "tpm2-kira/factor/v1" ‖ u16be(len(label)) ‖ label, 32))`, label default `luks` | `TestFactorSaltKnownAnswer` |
-| the vault's salt (`0x14xx`, `0x24xx`) | `hex(HKDF-SHA256(ikm = R, salt = pepper or "", info = "tpm2-kira/vault/salt/v1" ‖ u16be(len(label)) ‖ label, 32))` | `TestVaultDerivationsKnownAnswer` |
-| the unattended password (`0x24xx`) | `hex(HKDF-SHA256(ikm = L, salt = "", info = "tpm2-kira/vault/password/v1" ‖ u16be(len(label)) ‖ label, 32))` | the same |
-| the pepper's check in the slot (`0x2401`) | the first 16 bytes of `HMAC-SHA256(key, "tpm2-kira/vault/pepper-check/v1")` | the same |
-| a pepper typed through the keyboard (`0x1302`, `0x1402`) | the salt is `HMAC-SHA256(device salt, "tpm2-kira/keyboard-pepper/v1" ‖ pepper)`, 32 bytes as they are | `TestKeyboardSaltKnownAnswer` |
-| the keyboard's layout | start from `abcdefghijklmnopqrstuvwxyz0123456789`; for i = 35 down to 1, take the next byte b with `b < 256 - 256 mod (i+1)` from the stream `HMAC-SHA256(seed, "tpm2-kira/keyboard-layout/v1" ‖ u32be(n))`, n = 0, 1, ..., and swap places i and `b mod (i+1)`; place k then shows what key k types | `TestKeyboardLayoutKnownAnswer` (phone, vault and machine must agree) |
+| the phone's salt (`0x1300`, `0x1302`), the TPM's (`0x1200`, of its part T) | `hex(HKDF-SHA256(ikm = F, salt = "", info = "kira/factor/v1" ‖ u16be(len(label)) ‖ label, 32))`, label default `luks` | `TestFactorSaltKnownAnswer` |
+| the vault's salt (`0x14xx`, `0x24xx`) | `hex(HKDF-SHA256(ikm = R, salt = pepper or "", info = "kira/vault/salt/v1" ‖ u16be(len(label)) ‖ label, 32))` | `TestVaultDerivationsKnownAnswer` |
+| the unattended password (`0x24xx`) | `hex(HKDF-SHA256(ikm = L, salt = "", info = "kira/vault/password/v1" ‖ u16be(len(label)) ‖ label, 32))` | the same |
+| the pepper's check in the slot (`0x2401`) | the first 16 bytes of `HMAC-SHA256(key, "kira/vault/pepper-check/v1")` | the same |
+| a pepper typed through the keyboard (`0x1302`, `0x1402`) | the salt is `HMAC-SHA256(device salt, "kira/keyboard-pepper/v1" ‖ pepper)`, 32 bytes as they are | `TestKeyboardSaltKnownAnswer` |
+| the keyboard's layout | start from `abcdefghijklmnopqrstuvwxyz0123456789`; for i = 35 down to 1, take the next byte b with `b < 256 - 256 mod (i+1)` from the stream `HMAC-SHA256(seed, "kira/keyboard-layout/v1" ‖ u32be(n))`, n = 0, 1, ..., and swap places i and `b mod (i+1)`; place k then shows what key k types | `TestKeyboardLayoutKnownAnswer` (phone, vault and machine must agree) |
 
 Two length prefixes are in use: these derivations' `u16be(len) ‖ x`, kept as they are,
 and the protocol's `lp(x) = u32le(len(x)) ‖ x` (PROTOCOL-BLE.md) for what is signed.
@@ -370,17 +370,17 @@ A new derivation takes `lp`.
 
 ### Arch (systemd in the initrd)
 
-The passphrase is asked at tpm2-kira's prompt, after the code screen, for
-every volume whose *key file* is tpm2-kira's socket,
-`/run/tpm2-kira/unlock.sock`. That is `crypttab(5)`'s own way of taking a
+The passphrase is asked at kira's prompt, after the code screen, for
+every volume whose *key file* is kira's socket,
+`/run/kira/unlock.sock`. That is `crypttab(5)`'s own way of taking a
 key from a service ("AF_UNIX key files"): `systemd-cryptsetup` connects
-to the socket and reads the key when it activates the volume. tpm2-kira
+to the socket and reads the key when it activates the volume. kira
 is meant for the main disk, which on a systemd initrd is named on the
 kernel command line; name its key file there too, next to
 `rd.luks.name=`:
 
 ```
-rd.luks.name=<UUID>=cryptroot rd.luks.key=<UUID>=/run/tpm2-kira/unlock.sock
+rd.luks.name=<UUID>=cryptroot rd.luks.key=<UUID>=/run/kira/unlock.sock
 ```
 
 `<UUID>` is the LUKS UUID (`cryptsetup luksUUID /dev/<partition>`), the
@@ -388,68 +388,68 @@ same in both. `rd.luks.key=` is honoured in the initrd only
 (`systemd-cryptsetup-generator(8)`), so the running system sees no
 change. With a UKI the command line is the file in your preset
 (`/etc/kernel/cmdline` or `/etc/cmdline.d/`); with a boot loader it is
-the entry's `options` line. `rd.luks.key=/run/tpm2-kira/unlock.sock`
+the entry's `options` line. `rd.luks.key=/run/kira/unlock.sock`
 without a UUID routes every volume named on the command line.
 
 Both parameters stay; a second `rd.luks.name=` with the socket as its
-"name" makes systemd set up a volume called `/run/tpm2-kira/unlock.sock`
+"name" makes systemd set up a volume called `/run/kira/unlock.sock`
 and no `cryptroot` ("Failed to start Cryptography Setup for
-/run/tpm2-kira/unlock.sock").
+/run/kira/unlock.sock").
 
-**tpm2-kira does not edit the command line, it tells you what it should
-read**: `tpm2-kira luks route` reads the files the command line comes from
+**kira does not edit the command line, it tells you what it should
+read**: `kira luks route` reads the files the command line comes from
 (`/etc/cmdline.d/*.conf`, else `/etc/kernel/cmdline`; boot loader
 entries; `/etc/crypttab`), names what is wrong for every device with a
-keyslot of tpm2-kira's - the parameter missing, a doubled `rd.luks.name=`,
+keyslot of kira's - the parameter missing, a doubled `rd.luks.name=`,
 the socket as the volume's name, another key file - and prints the line
-as it should read. `luks enrol` ends with it, `tpm2-kira status` notes it,
+as it should read. `luks enrol` ends with it, `kira status` notes it,
 and `mkinitcpio -P` runs it (the hook's `the volume <UUID> is unlocked
-through tpm2-kira's prompt`, or a warning with the lines to change).
+through kira's prompt`, or a warning with the lines to change).
 
-The passphrase prompt is tpm2-kira's: `systemd-cryptsetup`
+The passphrase prompt is kira's: `systemd-cryptsetup`
 activates the volume with every option in your `crypttab`, connects to
-`/run/tpm2-kira/unlock.sock` for the key, tpm2-kira asks `Passphrase
+`/run/kira/unlock.sock` for the key, kira asks `Passphrase
 for disk <volume>:` and answers with what you type, or with the key the
-token's recipe makes. tpm2-kira never opens the disk itself; it only
+token's recipe makes. kira never opens the disk itself; it only
 provides the key. A typo is not fatal: `systemd-cryptsetup` then asks on
 its own prompt for the remaining two tries, as it does for a wrong key
 file, and a recovery passphrase in another LUKS keyslot works at either
-prompt. There is no mode in which tpm2-kira withholds the prompt: the
+prompt. There is no mode in which kira withholds the prompt: the
 passphrase can always be entered by hand.
 
 ### Debian (initramfs-tools)
 
 There is no `systemd-cryptsetup` in a Debian initramfs; `cryptroot` runs
 a `keyscript=` from `/etc/crypttab` instead and reads the key from its
-stdout. Add tpm2-kira's to the root volume's line:
+stdout. Add kira's to the root volume's line:
 
 ```
-vda3_crypt UUID=… none luks,discard,keyscript=/lib/cryptsetup/scripts/tpm2-kira
+vda3_crypt UUID=… none luks,discard,keyscript=/lib/cryptsetup/scripts/kira
 ```
 
 and `sudo update-initramfs -u`. The keyscript asks the same socket
-`systemd-cryptsetup` would on Arch (`tpm2-kira-boot unlock-key`): the display
+`systemd-cryptsetup` would on Arch (`kira-boot unlock-key`): the display
 started by `init-premount` answers once the code screen is confirmed,
 with what you type at `🔐 Passphrase for disk vda3_crypt:`
 (or, with a phone and a factor, the key derived from your password).
 `cryptroot` re-runs the keyscript for each of its tries (`tries=`, 3 by
-default): the first ones are tpm2-kira's prompt, the last is cryptsetup's
-own, for the recovery passphrase; Ctrl-C at tpm2-kira's prompt goes
+default): the first ones are kira's prompt, the last is cryptsetup's
+own, for the recovery passphrase; Ctrl-C at kira's prompt goes
 there at once. Without the socket (`run` failed) the keyscript is
-cryptsetup's own prompt, as without tpm2-kira. (On Arch, `systemd-cryptsetup`
-tries a key file once: after a wrong answer at tpm2-kira's prompt its own
+cryptsetup's own prompt, as without kira. (On Arch, `systemd-cryptsetup`
+tries a key file once: after a wrong answer at kira's prompt its own
 prompt follows.)
 
 What the display reported at boot - when the volume asked, when the hold
 ended, when the prompt opened and answered - is in
-`/run/initramfs/tpm2-kira.log` after the boot (on Arch:
-`journalctl -b -u tpm2-kira.service`). Tested on Debian 13 with
+`/run/initramfs/kira.log` after the boot (on Arch:
+`journalctl -b -u kira.service`). Tested on Debian 13 with
 initramfs-tools 0.148 and cryptsetup 2.7.
 
 ## How systemd takes the key, and why this way
 
 What systemd does to unlock a disk at boot, where it lets another program
-provide the key, and how tpm2-kira uses exactly that and nothing else.
+provide the key, and how kira uses exactly that and nothing else.
 Everything here was checked against systemd 262 and mkinitcpio 42
 (`crypttab(5)`, `systemd-cryptsetup@.service(8)`, `systemd.exec(5)`, the
 installed binaries and the sd-encrypt install script).
@@ -502,7 +502,7 @@ In this order, per volume, all documented in `crypttab(5)`:
 | the **kernel keyring** (`password-cache=`) | options | a passphrase typed earlier in this boot |
 | the **password agent** | nothing (the default) | `systemd-tty-ask-password-agent` on the console, or plymouth |
 
-The third row is the one made for a program like tpm2-kira. `crypttab(5)`:
+The third row is the one made for a program like kira. `crypttab(5)`:
 when the key file is an `AF_UNIX` stream socket, `systemd-cryptsetup`
 connects to it, reads the key until EOF, and connects from an abstract
 socket named `\0<random>/cryptsetup/<volume>` so that the provider can
@@ -515,25 +515,25 @@ typed passphrase without a trailing newline opens the same keyslot.
 
 **Configure, do not patch.** A key source is the administrator's
 statement, in the same place `tpm2-device=auto` or a key file would be
-written. tpm2-kira is for the main disk, and on a systemd initrd the
+written. kira is for the main disk, and on a systemd initrd the
 main disk is named on the kernel command line (`rd.luks.name=`), so its
 key file is named there too:
 
 ```
-rd.luks.name=<UUID>=cryptroot rd.luks.key=<UUID>=/run/tpm2-kira/unlock.sock
+rd.luks.name=<UUID>=cryptroot rd.luks.key=<UUID>=/run/kira/unlock.sock
 ```
 
 `rd.luks.key=` is "the analogue of the third crypttab(5) field", honoured
 in the initrd only: the generator passes the path to `systemd-cryptsetup`
 as the key file, and the main system never sees it. `/etc/crypttab` is
-not touched. `rd.luks.key=/run/tpm2-kira/unlock.sock` without a UUID
+not touched. `rd.luks.key=/run/kira/unlock.sock` without a UUID
 applies to every volume named on the command line.
 
 A volume kept in `/etc/crypttab` with `x-initrd.attach` instead takes
 the socket in that line's key field:
 
 ```
-cryptroot  UUID=…  /run/tpm2-kira/unlock.sock  x-initrd.attach,discard
+cryptroot  UUID=…  /run/kira/unlock.sock  x-initrd.attach,discard
 ```
 
 sd-encrypt copies the line into the image unchanged and the generator
@@ -547,9 +547,9 @@ running system for something that happens in the initrd only.
 Either way no hook rewrites anything, no hook replaces another, the order
 of hooks does not matter, and reading the configuration tells the truth.
 
-**Provide the socket with a socket unit.** `tpm2-kira-unlock.socket`
-creates `/run/tpm2-kira/unlock.sock` (root, 0600) `Before=cryptsetup-pre.target`
-and hands it to `tpm2-kira.service` (`Sockets=`, `LISTEN_FDS`). The socket
+**Provide the socket with a socket unit.** `kira-unlock.socket`
+creates `/run/kira/unlock.sock` (root, 0600) `Before=cryptsetup-pre.target`
+and hands it to `kira.service` (`Sockets=`, `LISTEN_FDS`). The socket
 exists before any `systemd-cryptsetup@` unit can run, whether or not the
 service is up yet; a connection simply waits. The socket and the close pull
 `cryptsetup-pre.target` in, and the mkinitcpio hook puts its file into the image:
@@ -571,7 +571,7 @@ goes the same way: the transfer never changes.
 
 **Treat the bytes like libcryptsetup does.** `systemd-cryptsetup` locks
 its memory (`mlockall`), keeps the key in guarded buffers and erases them
-(`explicit_bzero`). tpm2-kira reads the passphrase into one fixed buffer
+(`explicit_bzero`). kira reads the passphrase into one fixed buffer
 of cryptsetup's limit (512 bytes, no growing copy; from a pipe too, and more than
 that is an error), `mlock`s it, wipes it to its full capacity after the answer, on
 Backspace, on cancel and on a failed read, and locks the whole process and is not
@@ -588,11 +588,11 @@ a salt from the device (no phone in range, a vault that refused, nothing
 released), the password and a **typed** salt - the recovery recipe, which
 opens a keyslot enrolled that way, if there is one; and at Ctrl-C, or
 when the derived key opens nothing, systemd's own prompt and a plain
-passphrase. Each step is offered at tpm2-kira's prompt and says which it
+passphrase. Each step is offered at kira's prompt and says which it
 is.
 
 What `systemd-cryptsetup` does with a key that does not open the volume
-decides whether a typo at tpm2-kira's prompt, or a tpm2-kira that cannot
+decides whether a typo at kira's prompt, or a kira that cannot
 answer, is a reboot or a second chance. It is a second chance, by
 systemd's design. From `src/cryptsetup/cryptsetup.c` (systemd 262), the
 attach loop runs `tries` times (default 3, `rd.luks.options=<UUID>=tries=N`):
@@ -605,9 +605,9 @@ attach loop runs `tries` times (default 3, `rd.luks.options=<UUID>=tries=N`):
    fall back to the next best thing": `key_file = NULL`.
 3. **Tries 2 and 3: a passphrase from the password agent** - the console
    prompt that sd-encrypt installs (`systemd-ask-password-console`), on
-   the console tpm2-kira gave up at the end of its hold. Any keyslot's
+   the console kira gave up at the end of its hold. Any keyslot's
    passphrase works, so a recovery passphrase in a second keyslot is the
-   way out of a lost or wrong tpm2-kira answer.
+   way out of a lost or wrong kira answer.
 4. Only after the last try: `Too many attempts to activate; giving up.`;
    the unit fails, `cryptsetup.target` fails, the initrd reaches
    `emergency.target`. In an initrd `sulogin` finds the root account
@@ -621,18 +621,18 @@ wrong answer and the no-answer case with `headless=true`, which makes the
 agent step fail with `Password querying disabled via 'headless' option.`
 instead of prompting - exactly where the fallback prompt would be.
 
-What this means for tpm2-kira:
+What this means for kira:
 
-- **The manual passphrase is always there.** Whatever tpm2-kira does -
+- **The manual passphrase is always there.** Whatever kira does -
   asks and gets a typo, is cancelled with Ctrl-C, cannot derive a key, has
   no phone, crashes - the next try is systemd's own prompt, with the
-  volume's passphrase or a recovery passphrase. tpm2-kira adds a way to
+  volume's passphrase or a recovery passphrase. kira adds a way to
   unlock; it never takes the ordinary way away.
 - **Therefore there is no enforced mode.** An enforced mode would have to
   hold the connection open and never answer until the phone approved,
   because closing it is the fallback, not a refusal - and it would still
   be a local software gate that an image without it bypasses (PLAN-BLE.md
-  §7.4). The intention is the opposite: tpm2-kira does its work, the
+  §7.4). The intention is the opposite: kira does its work, the
   phone's verdict informs the person at the keyboard, and the passphrase
   can always be entered by hand. What enforces, if anything, is a missing
   phone salt ([below](#password-typed-salt-from-the-phone-0x1300)): a key the disk needs and the machine
@@ -640,8 +640,8 @@ What this means for tpm2-kira:
   as the manual way in.
 - **Prompt options** of `crypttab(5)` - `timeout`, `verify`,
   `password-cache`, `headless`, `password-echo` - describe the agent
-  prompt and apply to the fallback only; `tries` counts tpm2-kira's answer
-  as the first attempt. Plymouth shows the fallback prompt, not tpm2-kira's.
+  prompt and apply to the fallback only; `tries` counts kira's answer
+  as the first attempt. Plymouth shows the fallback prompt, not kira's.
 
 ### Kept as an option, not used
 

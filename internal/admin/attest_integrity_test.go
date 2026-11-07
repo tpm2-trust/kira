@@ -13,11 +13,11 @@ import (
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpm2/transport"
 
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
+	"github.com/tpm2-trust/kira/core/attest"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/phonegate"
+	"github.com/tpm2-trust/kira/internal/signing"
 )
 
 // testSigningPublic is a well-formed signing key public area, so that the
@@ -282,7 +282,7 @@ func TestBlobIndexIsASlot(t *testing.T) {
 			t.Errorf("slot 0x%08X's generation index 0x%08X is a record counter", idx, g)
 		}
 	}
-	for _, idx := range []uint32{nvslot.NVRAMSlotStart - 1, nvslot.NVRAMSlotEnd + 1, 0x01803100, nvslot.GenerationIndex(nvslot.NVRAMSlotStart), nvslot.AttestCounterIndex(nvslot.NVRAMSlotStart) - nvslot.GenerationIndexOffset} {
+	for _, idx := range []uint32{nvslot.NVRAMSlotStart - 1, nvslot.NVRAMSlotEnd + 1, 0x01803100, nvslot.AttestCounterIndex(nvslot.NVRAMSlotStart), nvslot.AttestCounterIndex(nvslot.NVRAMSlotEnd)} {
 		if err := nvslot.ValidateBlobIndex(idx); err == nil {
 			t.Errorf("0x%08X accepted as a slot", idx)
 		}

@@ -1,4 +1,4 @@
-// Package ble is a minimal Bluetooth LE peripheral for tpm2-kira, speaking
+// Package ble is a minimal Bluetooth LE peripheral for kira, speaking
 // directly to the controller over an HCI user channel (PLAN-BLE.md §3.2): no
 // BlueZ, no D-Bus, no daemon, no cgo.
 //
@@ -53,7 +53,7 @@ func (u UUID) String() string {
 	return h[0:8] + "-" + h[8:12] + "-" + h[12:16] + "-" + h[16:20] + "-" + h[20:]
 }
 
-// The tpm2-kira GATT service. Allocated once for the project from a random
+// The kira GATT service. Allocated once for the project from a random
 // UUID; never change these.
 var (
 	ServiceUUID = mustUUID("883f0100-9727-459b-a589-a62200c064c0")

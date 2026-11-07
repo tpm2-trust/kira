@@ -9,8 +9,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/piv"
-	"github.com/tpm2-trust/tpm2-kira/internal/piv/pivtest"
+	"github.com/tpm2-trust/kira/internal/piv"
+	"github.com/tpm2-trust/kira/internal/piv/pivtest"
 )
 
 func open(t *testing.T, card *pivtest.Card) *piv.Card {
@@ -102,7 +102,7 @@ func TestPIN(t *testing.T) {
 }
 
 func TestSign(t *testing.T) {
-	digest := sha256.Sum256([]byte("tpm2-kira"))
+	digest := sha256.Sum256([]byte("kira"))
 	card := pivtest.New(1)
 	ec := card.AddECKey(piv.SlotAuthentication, piv.PINPolicyOnce, piv.TouchPolicyNever, false)
 	rk := card.AddRSAKey(piv.SlotSignature, 2048, piv.PINPolicyAlways, piv.TouchPolicyNever, false)

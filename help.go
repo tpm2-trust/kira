@@ -6,15 +6,15 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/admin"
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
-	"github.com/tpm2-trust/tpm2-kira/internal/imageplan"
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
-	"github.com/tpm2-trust/tpm2-kira/internal/sshscreen"
+	"github.com/tpm2-trust/kira/internal/admin"
+	"github.com/tpm2-trust/kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/imageplan"
+	"github.com/tpm2-trust/kira/internal/signing"
+	"github.com/tpm2-trust/kira/internal/sshscreen"
 )
 
-// The help in two layers: 'tpm2-kira help' is one screen - the commands
-// grouped by what a person is doing - and 'tpm2-kira help <command>' (or
+// The help in two layers: 'kira help' is one screen - the commands
+// grouped by what a person is doing - and 'kira help <command>' (or
 // '<command> --help') is that command's page: its subcommands, options and
 // examples. Nothing is said twice; the overview points at the pages.
 
@@ -25,14 +25,14 @@ func isHelp(arg string) bool {
 
 // printUsage is the overview.
 func printUsage() {
-	fmt.Print(`tpm2-kira - a boot code from the TPM, a phone that verifies the boot, and
+	fmt.Print(`kira - a boot code from the TPM, a phone that verifies the boot, and
 the disk's key at the prompt
 
 USAGE
-  tpm2-kira <command> [subcommand] [options]
-  tpm2-kira help <command>       that command's page: subcommands, options, examples
+  kira <command> [subcommand] [options]
+  kira help <command>       that command's page: subcommands, options, examples
 
-Everything but the help needs root: the TPM, the keys in /etc/tpm2-kira,
+Everything but the help needs root: the TPM, the keys in /etc/kira,
 the LUKS headers and the initramfs are root's. How a disk's key is made
 is in its own LUKS header (the keyslot's token), read at boot: there is
 no unlock mode to set anywhere.
@@ -61,17 +61,17 @@ WHERE THE CODE SCREEN IS
   host key certified by the SSH CA in the TPM ('help ssh-child')
 
 THE DISK'S KEY (the recipe in each volume's LUKS header)
-  luks         status, enrol, remove, mark, route, derive: tpm2-kira's LUKS
+  luks         status, enrol, remove, mark, route, derive: kira's LUKS
                keyslots - each a recipe: where its password and its salt
                come from - and where the initrd takes the key from
   vault        enrol, status, unenrol: the key from this TPM and
-               tpm2-kira-vault, unattended (--password tpm --salt vault)
+               kira-vault, unattended (--password tpm --salt vault)
 
 THE BOOT IMAGE
   initramfs    plan: what the boot image carries - the disk unlock, and each
                part the machine uses (codes, phone, vault, network, SSH)
-  The image carries tpm2-kira-boot alone, which the units and scripts run
-  (its pages are here too: tpm2-kira help run):
+  The image carries kira-boot alone, which the units and scripts run
+  (its pages are here too: kira help run):
     run          Show the code, hold for Enter, start the parts the image's
                  plan names: the phone's gate, SSH, the vault, the disk's key
     close        End the boot's slots and the SSH CA until the next boot:
@@ -99,15 +99,15 @@ GLOBAL OPTIONS (before the command, or after it as the command's own)
   without one of them ignores it.
 
 FIRST STEPS
-  tpm2-kira control                                  guided, in two steps; or:
-  tpm2-kira setup && tpm2-kira slot add --totp      a code at every boot
-  tpm2-kira phone enrol                              the phone verifies the boot
-  tpm2-kira luks enrol /dev/sda2 --salt phone
+  kira control                                  guided, in two steps; or:
+  kira setup && kira slot add --totp      a code at every boot
+  kira phone enrol                              the phone verifies the boot
+  kira luks enrol /dev/sda2 --salt phone
                                                      the disk's key from your
                                                      password and the phone's salt
   then rebuild the initramfs: mkinitcpio -P (Arch), update-initramfs -u (Debian)
 
-More: tpm2-kira help slot | status | phone | luks | vault | run | initramfs |
+More: kira help slot | status | phone | luks | vault | run | initramfs |
 ssh-child | gate-child; docs/ and README.md
 `)
 }
@@ -135,14 +135,14 @@ func printHelp(topic string) {
 		names = append(names, n)
 	}
 	sort.Strings(names)
-	fmt.Fprintf(os.Stderr, "tpm2-kira: no help page %q; there is one for: %s\n\n", topic, strings.Join(names, ", "))
+	fmt.Fprintf(os.Stderr, "kira: no help page %q; there is one for: %s\n\n", topic, strings.Join(names, ", "))
 	printUsage()
 }
 
-// helpPages are the pages of 'tpm2-kira help <command>'. A command with
+// helpPages are the pages of 'kira help <command>'. A command with
 // subcommands has one page; the subcommands are on it.
 var helpPages = map[string]string{
-	"control": `tpm2-kira control [--tpm PATH] [--pin-fd N] [--lines]
+	"control": `kira control [--tpm PATH] [--pin-fd N] [--lines]
 
 The guided way through the protections, on one screen (docs/CONTROL.md).
 
@@ -152,7 +152,7 @@ gives it back as it was when it is left. On the left the sections:
   Overview        the machine's status, judged line by line (green good,
                   red not good with the risk in brackets, orange a
                   warning), and a line per section
-  Boot chain      the prerequisites, the sd-tpm2-kira hook in HOOKS, the
+  Boot chain      the prerequisites, the sd-kira hook in HOOKS, the
                   key's route, the PCR key in uki.conf - each line shown
                   as it should read and written when you say so; the
                   other sections open once it is in place
@@ -186,13 +186,13 @@ empty) say "checking" until they are done.
   --lines   the numbered line menus instead, as without a terminal size,
             on TERM=dumb and with --debug: a number and Enter
 
-Control alone writes the configuration, /etc/tpm2-kira/control.conf: the
+Control alone writes the configuration, /etc/kira/control.conf: the
 radio settings and the image's network and SSH server - what the image is
-built with, nothing else; and beside it aSSH's, /etc/tpm2-kira/assh.conf:
+built with, nothing else; and beside it aSSH's, /etc/kira/assh.conf:
 the SSH CA and its slots (the PCRs it signs in), the port, the keys that
 may log in. Beside them: the YubiKey's PIN, checked on the token, in
-/etc/tpm2-kira/pin (root's alone), and the keys that may log in at boot in
-/etc/tpm2-kira/authorized_keys.
+/etc/kira/pin (root's alone), and the keys that may log in at boot in
+/etc/kira/authorized_keys.
 Every other file stays yours to edit, with three exceptions, each asked
 for every time: the HOOKS of mkinitcpio.conf, the key's route and the PCR
 key's lines in uki.conf. The steps run without the commands' advisory
@@ -201,12 +201,12 @@ The image is built once, when you leave control, after you said yes. No
 colours with NO_COLOR; ASCII glyphs where the locale is not UTF-8.
 Without a terminal it prints everything and leaves (a script's look).
 
-  tpm2-kira control
+  kira control
 `,
 
-	"setup": `tpm2-kira setup [--yubikey[=SERIAL] [--slot SLOT] | --local]
+	"setup": `kira setup [--yubikey[=SERIAL] [--slot SLOT] | --local]
 
-Creates /etc/tpm2-kira/keys/ with seal.pub and seal.key, the signing key
+Creates /etc/kira/keys/ with seal.pub and seal.key, the signing key
 that approves PCR values and authorises every write to a slot. It first
 looks for a YubiKey: when one holds a usable key, it asks on the terminal
 whether to use it or local key files (without a terminal: local files).
@@ -217,7 +217,7 @@ with slot add and slot approve.
 
   --yubikey[=SERIAL]  Take the key from a YubiKey without asking; SERIAL
                       picks the token when several are in. The slot must hold
-                      a key already: tpm2-kira never writes to a token
+                      a key already: kira never writes to a token
   --slot SLOT         The PIV slot with --yubikey (default 9a; an sbctl key
                       in 9c only when named)
   --local             Local key files, without looking for a YubiKey
@@ -226,19 +226,19 @@ The signing key can also be the sbctl secure boot DB key: point the
 --privkey of slot add and slot approve at it to approve the boot state
 with the key that signs the boot components.
 
-  tpm2-kira setup
-  tpm2-kira setup --yubikey
-  tpm2-kira setup --yubikey=12345678 --slot 9c
+  kira setup
+  kira setup --yubikey
+  kira setup --yubikey=12345678 --slot 9c
 `,
 
-	"slot": `tpm2-kira slot add     [--totp] [--nvram N] [--pcrs LIST] [--measure-point M]
+	"slot": `kira slot add     [--totp] [--nvram N] [--pcrs LIST] [--measure-point M]
                        [--pubkey PATH] [--privkey PATH] [--pin-fd N] [--sha1]
                        [--verify-uki=false]
-tpm2-kira slot approve [--nvram N] [--pcrs LIST] [--measure-point M]
+kira slot approve [--nvram N] [--pcrs LIST] [--measure-point M]
                        [--privkey PATH] [--pubkey PATH] [--pin-fd N] [--require-key] [--if-moved]
                        [--unattended] [--seal-channel]
-tpm2-kira slot info    [--nvram N] [--json] [--pubkey PATH]
-tpm2-kira slot list | status | delete [--yes] [--sweep]   [--nvram N]
+kira slot info    [--nvram N] [--json] [--pubkey PATH]
+kira slot list | status | delete [--yes] [--sweep]   [--nvram N]
 
 A slot is a boot state your signing key approved: PCR values and a
 generation, in one of the slots 0-15: a record in the EFI variable
@@ -288,7 +288,7 @@ one named (else 0), the PCRs named (else the selection).
                      boot. On Debian with GRUB, 8 and 9 are predicted from
                      grub.cfg and the files it loads (docs/SEALING.md)
   --measure-point M  systemd's enter-initrd extend of PCR 11, which happens
-                     before tpm2-kira runs: auto (default), on, off
+                     before kira runs: auto (default), on, off
   --pubkey PATH      The signing key's public half, PEM, X.509 or raw, RSA or
                      ECDSA (default: ` + signing.DefaultPublicKeyPath + `)
   --privkey PATH     The private half (default: the key from setup)
@@ -298,11 +298,11 @@ one named (else 0), the PCRs named (else the selection).
   --verify-uki       Check the PCR 11 computation against this boot's event
                      log first (default true)
 
-  tpm2-kira slot add                        slot 0 as measured
-  tpm2-kira slot add --totp                 slot 0 with a code, 1 the fallback
-  tpm2-kira slot add --pcrs "0e,2e,4u,7e,11u"  slot 0 with these
-  tpm2-kira slot add --nvram 2 --pcrs "7e,11u"
-  tpm2-kira slot add --sha1 --pcrs "0e,2e,7e"
+  kira slot add                        slot 0 as measured
+  kira slot add --totp                 slot 0 with a code, 1 the fallback
+  kira slot add --pcrs "0e,2e,4u,7e,11u"  slot 0 with these
+  kira slot add --nvram 2 --pcrs "7e,11u"
+  kira slot add --sha1 --pcrs "0e,2e,7e"
 
 approve
 Approves the current (predicted next) boot state for a slot, with the
@@ -311,7 +311,7 @@ the PCRs to match and never reads the TOTP key. Without --nvram it also
 approves the SSH CA (` + admin.DefaultSSHCA + `) for the next boot, in each of
 its slots (assh.conf's) that has no approval. The initramfs hooks run it
 after every image rebuild; a slot sealed with the key on a YubiKey needs
-the token and its PIN (--pin-fd N, or /etc/tpm2-kira/pin, which control stores,
+the token and its PIN (--pin-fd N, or /etc/kira/pin, which control stores,
 root-only; else asked).
 
   --pcrs LIST        A new selection (default: the slot's, with its sources)
@@ -356,9 +356,9 @@ of a hook would hand the secrets to whatever moved it.
 Any command here says when Secure Boot is off, in Setup Mode or not readable,
 once; it never stops for it.
 
-  tpm2-kira slot approve
-  tpm2-kira slot approve --nvram 0 --pcrs "0e,2,4u,7e"
-  tpm2-kira slot approve --privkey /path/to/my-key.key
+  kira slot approve
+  kira slot approve --nvram 0 --pcrs "0e,2,4u,7e"
+  kira slot approve --privkey /path/to/my-key.key
 
 info
 Shows a slot's blob: the TOTP key's policy (PCRs, sources, generation), the
@@ -371,8 +371,8 @@ signed by this machine's key.
                   key from setup). A blob that does not verify is shown as
                   untrusted, and no file it names is opened
 
-  tpm2-kira slot info
-  tpm2-kira slot info --nvram 0x01803010 --json
+  kira slot info
+  kira slot info --nvram 0x01803010 --json
 
 list, status, delete
 The slots 0-15: each a record in the EFI variable KIRAslotN (the TOTP key,
@@ -385,38 +385,38 @@ index and record counter (0x01803010-0x0180301F are the slots' numbers).
                    record holds; another NV index: size and attributes
   delete           Delete the slot: its record (KIRAslotN), its generation
                    index and record counter. Without --nvram: everything of
-                   tpm2-kira - every slot, the leftover indices, the boot
+                   kira - every slot, the leftover indices, the boot
                    settings, the sealed machine-id (KIRAmachineID) and the
-                   SSH CA (its EFI variable and /etc/tpm2-kira/ssh_ca.pub) -
+                   SSH CA (its EFI variable and /etc/kira/ssh_ca.pub) -
                    after asking on a terminal,
-                   or with --yes. An index with tpm2-kira's shape is taken.
+                   or with --yes. An index with kira's shape is taken.
                    One of another shape at its own places (the generation
                    index, the record counter, the boot settings) is shown:
                    a terminal asks, No unless said; --force removes it
                    without asking; --yes alone leaves it and names --force.
                    Anywhere else nothing removes it - but with --sweep.
                    --sweep (without --nvram): also everything else at
-                   tpm2-kira's places, whatever its shape and whichever
+                   kira's places, whatever its shape and whichever
                    version left it - every NV index in its range
                    (0x01803000-0x01803FFF), aSSH's SSH CA indices
                    (0x01802912-15), every EFI variable of its GUID and
                    KIRAasshCA - listed first; without it they are listed
                    and left.
                    A LUKS keyslot bound to the slot stays and leaves the
-                   slot dirty; 'tpm2-kira control' (the slot's line)
+                   slot dirty; 'kira control' (the slot's line)
                    deletes a slot whole
 
-  tpm2-kira slot list
-  tpm2-kira slot delete --nvram 0
-  tpm2-kira slot delete --yes --sweep
+  kira slot list
+  kira slot delete --nvram 0
+  kira slot delete --yes --sweep
 `,
 
-	"status": `tpm2-kira status [--json] [--pubkey PATH] [--conf PATH]
+	"status": `kira status [--json] [--pubkey PATH] [--conf PATH]
 
 The overview, read-only: every slot with what it is sealed to, its
 generation (does the TPM's index match, or is an approval due), whether this
 machine's key signed it, its phones and whether a phone salt is enrolled;
-every LUKS device's keyslots and which are tpm2-kira's (how a key is made
+every LUKS device's keyslots and which are kira's (how a key is made
 is each keyslot's token, read from the header at boot). Then the notes:
 what does not fit together and what to run - a phone salt without a
 keyslot for it, a keyslot bound to a slot that is gone, no fallback
@@ -427,7 +427,7 @@ slot, a slot that needs an approval. Root for the LUKS headers.
   --conf PATH         The configuration file (default ` + admin.DefaultControlConfigPath + `)
 `,
 
-	"run": `tpm2-kira-boot run [--plan DIR] [--hold S] [--unlock SOCKET] [--ssh [--ssh-conf PATH] ...]
+	"run": `kira-boot run [--plan DIR] [--hold S] [--unlock SOCKET] [--ssh [--ssh-conf PATH] ...]
 
 What the initramfs runs, the same on Arch and Debian: shows the code of
 every slot and holds the boot for Enter; waits up to 5 s for the TPM when
@@ -435,8 +435,8 @@ a part of the plan needs it; with a phone enrolled, starts the Bluetooth
 gate's radio worker ('gate-child', nobody, confined), coordinates it and shows
 the phone's code in the slot's line as soon as the phone is in; with
 --unlock, serves the disk's key to systemd-cryptsetup (rd.luks.key=<UUID>=
-/run/tpm2-kira/unlock.sock) or the Debian keyscript, made as the volume's
-LUKS2 header says (the token of tpm2-kira's keyslot):
+/run/kira/unlock.sock) or the Debian keyscript, made as the volume's
+LUKS2 header says (the token of kira's keyslot):
 
   no token                nothing; cryptsetup's own prompt
   0x2400, 0x2401          asks nothing: the TPM's part and the vault's, opened
@@ -447,11 +447,11 @@ LUKS2 header says (the token of tpm2-kira's keyslot):
   (a volume's recipes in this order, each the fallback of the ones before)
 
 Ctrl-C at the prompt skips to cryptsetup's own prompt, where the recovery
-passphrase works. The log of the boot: journalctl -b -u tpm2-kira.service
-(Arch), /run/initramfs/tpm2-kira.log (Debian).
+passphrase works. The log of the boot: journalctl -b -u kira.service
+(Arch), /run/initramfs/kira.log (Debian).
 
   --plan DIR       Start only what the boot image names in DIR (the units pass
-                   ` + imageplan.Dir + `, 'tpm2-kira help initramfs'): without
+                   ` + imageplan.Dir + `, 'kira help initramfs'): without
                    the codes in it the TPM is not asked for them, without the
                    phone no gate is coordinated, without the vault none is
                    asked. Without --plan, all it finds
@@ -483,7 +483,7 @@ passphrase works. The log of the boot: journalctl -b -u tpm2-kira.service
 
 	"phone": attestUsage + "\n" + factorUsage,
 
-	"gate-child": `tpm2-kira-boot gate-child [--debug]
+	"gate-child": `kira-boot gate-child [--debug]
 
 The phone's radio worker at boot (docs/PHONE.md). With a phone in the
 image's plan, 'run' is the gate's coordinator: it holds the TPM, issues
@@ -496,22 +496,22 @@ with two socket pairs to 'run' and /dev/rfkill as its only open files.
 It then confines itself on every thread: no new privileges, no
 executable memory, no file but /sys (Landlock), none of the system calls
 that administer the machine (seccomp). It has no TPM. The same on Arch
-and Debian; nobody runs it by hand ('tpm2-kira phone gate' is the gate
+and Debian; nobody runs it by hand ('kira phone gate' is the gate
 on the unlocked system).
 
 Its narrative goes to run's (the journal, or Debian's
-/run/initramfs/tpm2-kira.log); what needs eyes, to run's stderr.
+/run/initramfs/kira.log); what needs eyes, to run's stderr.
 `,
 
-	"ssh-child": `tpm2-kira-boot ssh-child
+	"ssh-child": `kira-boot ssh-child
 
 The code screen over SSH (docs/SSH.md). The network and the SSH
-server of the boot image are set in /etc/tpm2-kira/control.conf
-(TPM2_KIRA_NET_*, TPM2_KIRA_SSH_*; 'tpm2-kira control' sets them and
+server of the boot image are set in /etc/kira/control.conf
+(KIRA_NET_*, KIRA_SSH_*; 'kira control' sets them and
 suggests the network from /etc/systemd/network or /etc/network/interfaces);
 what aSSH does - the SSH CA and its slots, the port, the keys that may log
 in - in ` + sshscreen.DefaultConf + ` (ASSH_*). Both are off until set; the
-image build puts them in ('tpm2-kira help initramfs').
+image build puts them in ('kira help initramfs').
 
 The SSH server is a library (github.com/tpm2-trust/assh/server) inside
 'run', split in two processes. 'run' opens the port and starts this
@@ -525,7 +525,7 @@ password; a login becomes a session of the code screen in 'run'. Nobody
 runs 'ssh-child' by hand.
 
 The host key is made in the TPM at every boot and certified by the SSH
-CA, which 'tpm2-kira control' creates in the TPM and keeps in the EFI
+CA, which 'kira control' creates in the TPM and keeps in the EFI
 variable ` + admin.DefaultSSHCA + `, and which signs only while the PCRs of one of its slots
 hold values the signing key approved. control writes two slots into
 assh.conf when it creates the CA: PCR 0, 2, 4, 7 and the image's (11, or 8
@@ -533,14 +533,14 @@ and 9 with GRUB), and PCR 7 and the image alone, which outlasts a firmware
 or option-ROM change. A CA certifies
 from the boot after its creation; it is closed (PCR 15 extended) with
 every slot by run and by the image when the code screen is over, and
-before a resume from hibernation (tpm2-kira-boot close; a close that
+before a resume from hibernation (kira-boot close; a close that
 fails stops the boot or the resume). slot approve approves them after every image rebuild, and makes the
 CA's slots assh.conf's first (ASSH_CA_SLOT_<N>=PCRs). Clients trust the CA once, in known_hosts:
 
   @cert-authority <the machine's names> <the contents of ` + admin.DefaultSSHCAPub + `>
 `,
 
-	"initramfs": `tpm2-kira initramfs plan [--buildroot DIR --format mkinitcpio|initramfs-tools] [--conf PATH] [--tpm PATH]
+	"initramfs": `kira initramfs plan [--buildroot DIR --format mkinitcpio|initramfs-tools] [--conf PATH] [--tpm PATH]
 
 The boot plan: what the boot image carries, decided from what this
 machine uses. The disk unlock is always in it - how a volume's key is
@@ -548,11 +548,11 @@ made, its LUKS2 header says at boot. Every other part is in only when
 something uses it, and says why it is out otherwise:
 
   TOTP codes          a slot is sealed in the TPM
-  Phone (Bluetooth)   a phone is enrolled, or TPM2_KIRA_ATTEST_BLUETOOTH=always;
+  Phone (Bluetooth)   a phone is enrolled, or KIRA_ATTEST_BLUETOOTH=always;
                       needs the TPM, the signing key and the adapter
   Vault               a slot is enrolled with a vault; needs the network
-  Network             TPM2_KIRA_NET in control.conf
-  SSH server          TPM2_KIRA_SSH=on; needs the network, the TPM, the SSH
+  Network             KIRA_NET in control.conf
+  SSH server          KIRA_SSH=on; needs the network, the TPM, the SSH
                       CA (its EFI variable), and a key that may log in
 
 A machine without a TPM gets the disk unlock alone. Without --buildroot
@@ -565,7 +565,7 @@ the digest of its settings), and the lines the hook adds by are printed:
 say, warning, module, bt-module, bt-firmware, net-module, net-modules-all.
 A part that cannot be had stays out; nothing stops the build.
 
-'tpm2-kira control' compares the plan with the image the next boot starts:
+'kira control' compares the plan with the image the next boot starts:
 a part in use and not in the image, or in it with other settings, makes it
 rebuild the image when it is left, and so does the SSH server or the
 network switched off while the image still carries it: the next boot must
@@ -577,7 +577,7 @@ reason to rebuild: the next build leaves it out.
                    journal is read in any case)
 `,
 
-	"close": `tpm2-kira-boot close [--tpm PATH]
+	"close": `kira-boot close [--tpm PATH]
 
 Closes the boot: PCR 15 extended with aSSH's close event, in every bank.
 Every slot object (the TOTP key, the sealed machine-id, the boot key, the
@@ -585,7 +585,7 @@ release key) and the SSH CA require PCR 15 at zero in their own policies,
 so from then on none can be used until the next boot - not by root, not
 by anything the signing key approves. run closes when the code screen is
 over; the image closes once more whatever run did (Arch:
-tpm2-kira-close.service, required by initrd.target; Debian: local-top, before
+kira-close.service, required by initrd.target; Debian: local-top, before
 cryptroot, with --ready-file and --run-pid to wait for the code screen's end),
 and right before a resume from hibernation. Waits for the TPM (30 s at
 most) and goes down aSSH's ladder: PCR 15, the kill switch, PCR 7. A degraded
@@ -596,13 +596,13 @@ close: what it can come to"). --resume: the close before a resume, which only PC
 15 itself lets go on. --late: the waiting closer.
 `,
 
-	"unlock-key": `tpm2-kira-boot unlock-key [--socket PATH] [--wait DUR] [VOLUME]
+	"unlock-key": `kira-boot unlock-key [--socket PATH] [--wait DUR] [VOLUME]
 
-The Debian keyscript (/lib/cryptsetup/scripts/tpm2-kira runs it, VOLUME
+The Debian keyscript (/lib/cryptsetup/scripts/kira runs it, VOLUME
 from CRYPTTAB_NAME): the volume's key from the socket of 'run --unlock' to
 stdout, as systemd-cryptsetup would ask it. Without the socket ('run'
 failed), or without
-a key to give (no tpm2-kira token on the volume, the phone salt or the
+a key to give (no kira token on the volume, the phone salt or the
 vault's part not released, Ctrl-C), it becomes cryptsetup's
 own prompt, /lib/cryptsetup/askpass. On the last of cryptroot's tries the
 keyscript asks at askpass directly.
@@ -617,14 +617,14 @@ keyscript asks at askpass directly.
 
 	"vault": vaultUsage,
 
-	"luks": `tpm2-kira luks status [<device>…] [--json]
-tpm2-kira luks enrol  <device> [--password typed|tpm] --salt typed|tpm|phone|vault [--pepper|--keyboard-pepper] [options]
-tpm2-kira luks remove <device> --keyslot N
-tpm2-kira luks route  [<device>…] [--cmdline FILE]… [--crypttab FILE] [--json]
-tpm2-kira luks mark   <device> --keyslot N [--password typed|tpm] --salt typed|tpm|phone|vault [--pepper|--keyboard-pepper] [options]
-tpm2-kira luks derive --out PATH
+	"luks": `kira luks status [<device>…] [--json]
+kira luks enrol  <device> [--password typed|tpm] --salt typed|tpm|phone|vault [--pepper|--keyboard-pepper] [options]
+kira luks remove <device> --keyslot N
+kira luks route  [<device>…] [--cmdline FILE]… [--crypttab FILE] [--json]
+kira luks mark   <device> --keyslot N [--password typed|tpm] --salt typed|tpm|phone|vault [--pepper|--keyboard-pepper] [options]
+kira luks derive --out PATH
 
-tpm2-kira's LUKS keyslots. A keyslot's key is always the combiner's
+kira's LUKS keyslots. A keyslot's key is always the combiner's
 (Argon2id) of a password and a salt; its recipe says where each comes
 from, as a number 0xPSFF - P the password (1 typed at the machine, 2 held
 by this TPM: unattended), S the salt (1 typed: the recovery recipe, 2 this
@@ -638,13 +638,13 @@ typed through a one-time keyboard (nothing keeps it):
   0x1401  --salt vault --pepper            ... with an operator's pepper
   0x1302  --salt phone --keyboard-pepper  ... with a pepper of yours, typed through the one-time
                                            keyboard layout the phone shows, other at every boot
-  0x1402  --salt vault --keyboard-pepper  ... the vault's layout (tpm2-kira-vault requests, its REST API)
+  0x1402  --salt vault --keyboard-pepper  ... the vault's layout (kira-vault requests, its REST API)
   0x2400  --password tpm --salt vault      unattended: this TPM and the vault
   0x2401  --password tpm --salt vault --pepper
 
-Every keyslot tpm2-kira adds
+Every keyslot kira adds
 is marked with a LUKS2 token in the header (no secret), of type
-tpm2-kira-<number>, so a plain luksDump names the recipe too
+kira-<number>, so a plain luksDump names the recipe too
 (docs/VAULT.md). status, removal and rotation know the keyslots by it,
 and the boot reads the key's recipe from it; a token of ours without a
 keyslot is named as a leftover, with the 'cryptsetup token remove' that
@@ -658,12 +658,12 @@ others. A plain passphrase stays in a keyslot of its own, unmarked:
 cryptsetup's prompt is always the last way in (docs/PLAN-LUKS.md).
 
   status    Every crypto_LUKS device (or the ones named): per keyslot whose
-            it is - tpm2-kira and its recipe (and slot), or not tpm2-kira's
+            it is - kira and its recipe (and slot), or not kira's
   enrol     The whole thing in one step: asks the password and the salt (or
             runs the phone salt's hand-over with the phone, or enrols with
             the vault), derives the key, asks an existing passphrase of the
             device (the recovery one) to authorise, 'cryptsetup luksAddKey'
-            (a device whose every keyslot is tpm2-kira's is refused),
+            (a device whose every keyslot is kira's is refused),
             imports the token - which is all the boot needs: it reads the
             recipe from the header when the volume asks. Nothing else is
             configured.
@@ -672,25 +672,25 @@ cryptsetup's prompt is always the last way in (docs/PLAN-LUKS.md).
                                       0; the phone's salt: whose phone keeps it)
               --label STR             the key's label (default luks)
               --url --pin --token     the vault's salt: the vault, from
-                                      'tpm2-kira-vault token create'; --name the
+                                      'kira-vault token create'; --name the
                                       machine's name there
               --existing-key-file F   a passphrase file to authorise (scripts)
               --privkey --pubkey --adapter --timeout --adapter-wait  as phone salt enrol
               --pin-fd N              a YubiKey's PIN ('help slot', approve)
-  remove    'cryptsetup luksKillSlot' for a keyslot tpm2-kira marked, and
+  remove    'cryptsetup luksKillSlot' for a keyslot kira marked, and
             its token. A remaining passphrase, asked, authorises it
             (--existing-key-file F for scripts). Never the last keyslot,
-            never one that is not tpm2-kira's. The TPM salt's last keyslot
+            never one that is not kira's. The TPM salt's last keyslot
             takes the signing key: --privkey PATH, --pin-fd N
   mark      The token for a keyslot made by hand (derive or phone salt enrol
             --out, then luksAddKey): --keyslot N, the recipe's flags
             [--nvram N --label STR]
-  route     Where the initrd is told to take the key from tpm2-kira, for
+  route     Where the initrd is told to take the key from kira, for
             every device with a keyslot of ours (or the ones named): the
             kernel command line (/etc/cmdline.d/*.conf or /etc/kernel/cmdline,
-            boot loader entries) needs rd.luks.key=<UUID>=/run/tpm2-kira/unlock.sock
+            boot loader entries) needs rd.luks.key=<UUID>=/run/kira/unlock.sock
             next to rd.luks.name=; /etc/crypttab the socket as key file with
-            x-initrd.attach, or on Debian keyscript=/lib/cryptsetup/scripts/tpm2-kira.
+            x-initrd.attach, or on Debian keyscript=/lib/cryptsetup/scripts/kira.
             Nothing is edited: a wrong line is named and the line is printed
             as it should read. Exit 1 while something is wrong. 'luks enrol'
             ends with it, 'status' notes it, the mkinitcpio hook runs it
@@ -699,25 +699,25 @@ cryptsetup's prompt is always the last way in (docs/PLAN-LUKS.md).
             to PATH on tmpfs, for 'cryptsetup luksAddKey <device> PATH' and
             'luks mark --salt typed' afterwards. Remove the file after use.
 
-  tpm2-kira luks status
-  tpm2-kira luks enrol /dev/sda2 --salt typed
-  tpm2-kira luks enrol /dev/sda2 --salt phone
-  tpm2-kira luks enrol /dev/sda2 --password tpm --salt vault --url https://vault:8443 --pin sha256:… --token …
-  tpm2-kira luks remove /dev/sda2 --keyslot 1
-  tpm2-kira luks route
-  tpm2-kira luks mark /dev/sda2 --keyslot 1 --salt typed
-  tpm2-kira luks derive --out /run/tpm2-kira/luks.key
+  kira luks status
+  kira luks enrol /dev/sda2 --salt typed
+  kira luks enrol /dev/sda2 --salt phone
+  kira luks enrol /dev/sda2 --password tpm --salt vault --url https://vault:8443 --pin sha256:… --token …
+  kira luks remove /dev/sda2 --keyslot 1
+  kira luks route
+  kira luks mark /dev/sda2 --keyslot 1 --salt typed
+  kira luks derive --out /run/kira/luks.key
 `,
 
-	"yubikey": `tpm2-kira yubikey list
+	"yubikey": `kira yubikey list
 
 The YubiKeys plugged in and the keys in their PIV slots, and which of them
-tpm2-kira can use as the signing key. Read-only; no PIN. With the signing
+kira can use as the signing key. Read-only; no PIN. With the signing
 key on a YubiKey, slot add and slot approve need the token and its PIN (see
 'help slot'); run and info never do.
 `,
 
-	"pcrtips": `tpm2-kira pcrtips
+	"pcrtips": `kira pcrtips
 
 What each PCR measures and which to seal to: 0,2,4,7 and the image by default; 8 and 9 on
 Debian with GRUB; 11 with a unified kernel image (docs/SEALING.md).

@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"testing"
 
-	. "github.com/tpm2-trust/tpm2-kira/core/attest"
-	"github.com/tpm2-trust/tpm2-kira/core/attest/attesttest"
+	. "github.com/tpm2-trust/kira/core/attest"
+	"github.com/tpm2-trust/kira/core/attest/attesttest"
 )
 
 // keyboardBackend is the soft TPM with a release key: in the hand-over it offers a phone salt and

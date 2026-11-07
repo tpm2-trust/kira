@@ -2,7 +2,7 @@ package phonegate
 
 // The enrolment baseline: which PCR values the phone pins.
 //
-// The gate quotes inside the initramfs, at tpm2-kira's measure point. The
+// The gate quotes inside the initramfs, at kira's measure point. The
 // enrolment quote is taken in the running system, after systemd has extended
 // PCR 11 with its later boot phases (and PCR 9 with NvPCR initialisation), so
 // those registers can never match a boot-check quote. The TOTP seal has the
@@ -22,9 +22,9 @@ import (
 
 	"github.com/google/go-tpm/tpm2/transport"
 
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/core/attest"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/nvslot"
 )
 
 // measurePoint is the boot-check prediction for one enrolment: the values,

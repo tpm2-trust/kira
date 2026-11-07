@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The acceptance run of tpm2-kira on a machine of one distribution.
+"""The acceptance run of kira on a machine of one distribution.
 
     tools/acceptance.py --distro arch   --host 172.17.2.198 --user pix --ask-password
     tools/acceptance.py --distro debian --host 172.17.2.196 --user pix --password-file ~/.vm-pw
@@ -37,13 +37,13 @@ import urllib.request
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # The recipe is no setting: the keyslot's token in the LUKS2 header names
-# it by its type, tpm2-kira-<number> (internal/diskkey/recipe.go), and the
+# it by its type, kira-<number> (internal/diskkey/recipe.go), and the
 # boot reads it from there. Here by the words of this script's --mode.
 TOKEN_MODES = {
-    "tpm2-kira-1100": "recovery",
-    "tpm2-kira-1300": "phone",
-    "tpm2-kira-2400": "vault",
-    "tpm2-kira-2401": "vault",
+    "kira-1100": "recovery",
+    "kira-1300": "phone",
+    "kira-2400": "vault",
+    "kira-2401": "vault",
 }
 
 # The recipe flags of luks enrol for a mode of this script.
@@ -51,7 +51,7 @@ ENROL_FLAGS = {"recovery": "--salt typed", "phone": "--salt phone"}
 
 
 def marked_keyslots(status, mode, device=None):
-    """The (device, keyslot) pairs whose token is tpm2-kira's in that mode."""
+    """The (device, keyslot) pairs whose token is kira's in that mode."""
     return [(d["device"], ks["keyslot"]) for d in status.get("devices", [])
             if device is None or d["device"] == device
             for ks in d.get("keyslots", [])
@@ -115,7 +115,7 @@ class Target:
 
     def __init__(self, host, user, port, password, key, log):
         self.host, self.user, self.port, self.password, self.key, self.log = host, user, port, password, key, log
-        self.sockdir = tempfile.mkdtemp(prefix="tpm2-kira-acceptance-")
+        self.sockdir = tempfile.mkdtemp(prefix="kira-acceptance-")
         self.nopasswd_sudo = None
 
     def _base(self, scp=False):
@@ -314,14 +314,14 @@ def source_archive(rev, prefix, out):
 def build_and_install(t, distro, rev, log, rep):
     short = git("rev-parse", "--short", rev)
     full = git("rev-parse", rev)
-    tarball = f"tpm2-kira-{short}.tar.gz"
+    tarball = f"kira-{short}.tar.gz"
     local = os.path.join(log.dir, tarball)
-    source_archive(rev, f"tpm2-kira-{short}/", local)
+    source_archive(rev, f"kira-{short}/", local)
     digest = hashlib.sha256(open(local, "rb").read()).hexdigest()
     # The user's home by its path: '~' would be root's in the root commands.
-    work = t.run("echo $HOME")[1].strip() + "/tpm2-kira-acceptance"
+    work = t.run("echo $HOME")[1].strip() + "/kira-acceptance"
     log.head(f"build {short} on {t.host} ({distro})")
-    t.run(f"mkdir -p {work} && rm -rf {work}/tpm2-kira-* {work}/PKGBUILD {work}/src {work}/pkg")
+    t.run(f"mkdir -p {work} && rm -rf {work}/kira-* {work}/PKGBUILD {work}/src {work}/pkg")
     t.copy_to(local, f"{work}/{tarball}")
 
     if distro == "arch":
@@ -346,14 +346,14 @@ def build_and_install(t, distro, rev, log, rep):
         log.save("build.log", out)
         if not rep.check("package builds (makepkg)", rc == 0, out[-800:] if rc else ""):
             return None
-        rc, pkg = t.run(f"ls {work}/tpm2-kira-{version}-*.pkg.tar.zst | grep -v debug | head -1")
+        rc, pkg = t.run(f"ls {work}/kira-{version}-*.pkg.tar.zst | grep -v debug | head -1")
         pkg = pkg.strip()
         t.copy_from(pkg, os.path.join(log.dir, os.path.basename(pkg)))
         rc, out = t.run(f"pacman -U --noconfirm {shlex.quote(pkg)} 2>&1", root=True)
         log.save("install.log", out)
         # pacman's exit is non-zero when a hook (mkinitcpio) reports an
         # error; the package may still be installed. The version decides.
-        rc2, installed = t.run("pacman -Q tpm2-kira")
+        rc2, installed = t.run("pacman -Q kira")
         rep.check("package installs (pacman -U)", rc2 == 0 and version in installed, installed.strip() + ("" if rc == 0 else " (pacman exit %d: see install.log)" % rc))
         if rc != 0:
             rep.issues.append("pacman -U exited %d; a hook reported an error (install.log)" % rc)
@@ -380,8 +380,8 @@ def build_and_install(t, distro, rev, log, rep):
         # The version as 'make deb' and the release workflow set it.
         version = subprocess.check_output([os.path.join(REPO, "packaging", "deb-version.sh"),
                                            git("describe", "--tags", rev)], text=True).strip()
-        rc, out = t.run(f"set -e; cd {work} && tar xzf {tarball} && cd tpm2-kira-{short} && "
-                        f"sed -i '1s/^tpm2-kira (.*)/tpm2-kira ({version})/' debian/changelog && "
+        rc, out = t.run(f"set -e; cd {work} && tar xzf {tarball} && cd kira-{short} && "
+                        f"sed -i '1s/^kira (.*)/kira ({version})/' debian/changelog && "
                         # debian/rules caches under the tree, which this run throws
                         # away: the user's cache instead, kept across runs. The unit
                         # tests have their own run; the package build skips them.
@@ -390,11 +390,11 @@ def build_and_install(t, distro, rev, log, rep):
         log.save("build.log", out)
         if not rep.check("package builds (dpkg-buildpackage)", rc == 0, out[-800:] if rc else ""):
             return None
-        deb = f"{work}/tpm2-kira_{version}_amd64.deb"
+        deb = f"{work}/kira_{version}_amd64.deb"
         t.copy_from(deb, os.path.join(log.dir, os.path.basename(deb)))
         rc, out = t.run(f"dpkg -i {deb} 2>&1", root=True)
         log.save("install.log", out)
-        rc2, installed = t.run("dpkg-query -W -f='${Version}' tpm2-kira")
+        rc2, installed = t.run("dpkg-query -W -f='${Version}' kira")
         rep.check("package installs (dpkg -i)", rc == 0 and installed.strip() == version, installed.strip())
         expected = version
 
@@ -408,24 +408,24 @@ def build_and_install(t, distro, rev, log, rep):
 
 def check_installed(t, distro, expected, mode_wanted, luks_device, log, rep):
     log.head("checks on the installed system")
-    rc, out = t.run("tpm2-kira version")
+    rc, out = t.run("kira version")
     rep.check("version is the built commit", rc == 0 and expected in out, out.strip())
 
-    rc, out = t.run("tpm2-kira status 2>&1; echo rc=$?")
-    rep.check("root gate: 'status' as a user refuses", "root is needed - sudo tpm2-kira status" in out and "rc=1" in out, out.strip())
-    rc, out = t.run("tpm2-kira control </dev/null 2>&1; echo rc=$?")
-    rep.check("root gate: 'control' as a user refuses", "root is needed - sudo tpm2-kira control" in out and "rc=1" in out, out.strip())
-    rc, out = t.run("tpm2-kira help >/dev/null 2>&1; echo rc=$?")
+    rc, out = t.run("kira status 2>&1; echo rc=$?")
+    rep.check("root gate: 'status' as a user refuses", "root is needed - sudo kira status" in out and "rc=1" in out, out.strip())
+    rc, out = t.run("kira control </dev/null 2>&1; echo rc=$?")
+    rep.check("root gate: 'control' as a user refuses", "root is needed - sudo kira control" in out and "rc=1" in out, out.strip())
+    rc, out = t.run("kira help >/dev/null 2>&1; echo rc=$?")
     rep.check("'help' answers as a user", "rc=0" in out)
 
     # The boot plan as the next build makes it: control.conf loads, and the
     # sealed slots put the codes in.
-    rc, out = t.run("tpm2-kira initramfs plan 2>&1", root=True)
+    rc, out = t.run("kira initramfs plan 2>&1", root=True)
     log.save("initramfs-plan.txt", out)
     rep.check("control.conf loads (initramfs plan)", rc == 0 and "does not load" not in out, out.strip())
     rep.check("the boot plan has the codes", rc == 0 and re.search(r"^in\s+TOTP codes", out, re.M) is not None, out.strip())
 
-    rc, out = t.run("tpm2-kira status --json", root=True)
+    rc, out = t.run("kira status --json", root=True)
     log.save("status-installed.json", out)
     status = None
     try:
@@ -446,7 +446,7 @@ def check_installed(t, distro, expected, mode_wanted, luks_device, log, rep):
         if mode_wanted != "skip":
             marked = marked_keyslots(status, mode_wanted, luks_device)
             rep.check(f"a LUKS keyslot is marked {mode_wanted}", bool(marked), str(marked))
-    rc, out = t.run("tpm2-kira status", root=True)
+    rc, out = t.run("kira status", root=True)
     log.save("status-installed.txt", out)
     log.say(out.rstrip())
 
@@ -467,11 +467,11 @@ else
   cp "$img" initrd
 fi
 lsinitcpio -x initrd >/dev/null
-ls usr/bin/tpm2-kira-boot
-test ! -e usr/bin/tpm2-kira || echo 'ADMIN BINARY IN THE IMAGE: usr/bin/tpm2-kira'
-echo '--- tpm2-kira files in the image:'
-find etc/tpm2-kira root/.ssh 2>/dev/null || true
-grep -rl 'TPM2_KIRA_PIN' . 2>/dev/null | sed 's/^/PIN LINE IN: /' || true
+ls usr/bin/kira-boot
+test ! -e usr/bin/kira || echo 'ADMIN BINARY IN THE IMAGE: usr/bin/kira'
+echo '--- kira files in the image:'
+find etc/kira root/.ssh 2>/dev/null || true
+grep -rl 'KIRA_PIN' . 2>/dev/null | sed 's/^/PIN LINE IN: /' || true
 cd /; rm -rf "$d"
 """
     else:
@@ -482,25 +482,25 @@ img=/boot/initrd.img-$(uname -r)
 echo "image: $img"
 unmkinitramfs "$img" x
 cd x; [ -d main ] && cd main
-ls usr/bin/tpm2-kira-boot 2>/dev/null || ls bin/tpm2-kira-boot
-test ! -e usr/bin/tpm2-kira || echo 'ADMIN BINARY IN THE IMAGE: usr/bin/tpm2-kira'
-echo '--- tpm2-kira files in the image:'
-find etc/tpm2-kira root/.ssh 2>/dev/null || true
-grep -rl 'TPM2_KIRA_PIN' . 2>/dev/null | sed 's/^/PIN LINE IN: /' || true
+ls usr/bin/kira-boot 2>/dev/null || ls bin/kira-boot
+test ! -e usr/bin/kira || echo 'ADMIN BINARY IN THE IMAGE: usr/bin/kira'
+echo '--- kira files in the image:'
+find etc/kira root/.ssh 2>/dev/null || true
+grep -rl 'KIRA_PIN' . 2>/dev/null | sed 's/^/PIN LINE IN: /' || true
 cd /; rm -rf "$d"
 """
     rc, out = t.run(script, root=True)
     log.save("initramfs.log", out)
     log.say(out.rstrip())
-    rep.check("initramfs holds tpm2-kira-boot", rc == 0, out[-400:] if rc else "")
-    rep.check("initramfs holds no tpm2-kira (the administration)", "ADMIN BINARY IN THE IMAGE" not in out)
+    rep.check("initramfs holds kira-boot", rc == 0, out[-400:] if rc else "")
+    rep.check("initramfs holds no kira (the administration)", "ADMIN BINARY IN THE IMAGE" not in out)
     rep.check("initramfs holds no control.conf and no PIN", rc == 0 and "control.conf" not in out and "PIN LINE IN" not in out and "/pin" not in out)
-    rep.check("initramfs names the codes in its plan", "etc/tpm2-kira/plan/codes/" in out, out[-400:])
+    rep.check("initramfs names the codes in its plan", "etc/kira/plan/codes/" in out, out[-400:])
 
-    rc, out = t.run("ls -la /etc/tpm2-kira/ /etc/tpm2-kira/keys/ 2>&1; stat -c '%U %a %n' /etc/tpm2-kira/pin 2>/dev/null", root=True)
-    log.save("etc-tpm2-kira.log", out)
-    if out.strip().endswith("/etc/tpm2-kira/pin"):
-        rep.check("the PIN file is root's, mode 600", out.strip().endswith("root 600 /etc/tpm2-kira/pin"), out.strip().split("\n")[-1])
+    rc, out = t.run("ls -la /etc/kira/ /etc/kira/keys/ 2>&1; stat -c '%U %a %n' /etc/kira/pin 2>/dev/null", root=True)
+    log.save("etc-kira.log", out)
+    if out.strip().endswith("/etc/kira/pin"):
+        rep.check("the PIN file is root's, mode 600", out.strip().endswith("root 600 /etc/kira/pin"), out.strip().split("\n")[-1])
 
     # The codes are on the next boot's code screen: none on the running system, which is closed.
 
@@ -511,13 +511,13 @@ def ensure_luks(t, mode_wanted, luks_device, log, rep):
     no rebuild."""
     if mode_wanted == "skip" or not luks_device:
         return
-    rc, out = t.run("tpm2-kira status --json", root=True)
+    rc, out = t.run("kira status --json", root=True)
     status = json.loads(out) if rc == 0 else {}
     if not marked_keyslots(status, mode_wanted, luks_device):
         log.head(f"luks enrol {luks_device} {ENROL_FLAGS[mode_wanted]}")
-        log.say("No keyslot of tpm2-kira's with that mode. The enrolment asks for the device's")
+        log.say("No keyslot of kira's with that mode. The enrolment asks for the device's")
         log.say("passphrase, then the password and the salt the boot will ask for. Your terminal now:")
-        rc = t.interactive(f"sudo tpm2-kira luks enrol {shlex.quote(luks_device)} {ENROL_FLAGS[mode_wanted]}")
+        rc = t.interactive(f"sudo kira luks enrol {shlex.quote(luks_device)} {ENROL_FLAGS[mode_wanted]}")
         rep.check(f"luks enrol {luks_device} {ENROL_FLAGS[mode_wanted]}", rc == 0, f"exit {rc}")
 
 
@@ -545,7 +545,7 @@ def reboot_and_ask(t, mode_wanted, log, rep):
     a = log.ask_yes_no("Did the fallback slot's code (slot 1) match its authenticator entry?")
     rep.answers.append(("slot 1's code matched the authenticator", a))
     if mode_wanted != "skip":
-        a = log.ask_yes_no(f"Did the disk unlock at tpm2-kira's prompt with the password and the salt ({mode_wanted})?")
+        a = log.ask_yes_no(f"Did the disk unlock at kira's prompt with the password and the salt ({mode_wanted})?")
         rep.answers.append((f"the disk unlocked with {mode_wanted}", a))
     note = log.ask("Anything else you saw (empty for nothing)?")
     if note:
@@ -556,7 +556,7 @@ def reboot_and_ask(t, mode_wanted, log, rep):
 def check_booted(t, distro, expected, mode_wanted, log, rep):
     log.head("checks on the booted system")
     t.nopasswd_sudo = None
-    rc, out = t.run("tpm2-kira status --json", root=True)
+    rc, out = t.run("kira status --json", root=True)
     log.save("status-booted.json", out)
     try:
         status = json.loads(out)
@@ -570,43 +570,43 @@ def check_booted(t, distro, expected, mode_wanted, log, rep):
                   "; ".join(f"slot {s['slot_number']}: {s['generation_state']}" for s in slots))
         rep.check("after boot: no slot needs an approval", not any("NOT" in s["generation_state"] or "unavailable" in s["generation_state"] for s in slots))
         rep.check("after boot: no notes", not status.get("notes"), "\n".join(status.get("notes", [])))
-    rc, out = t.run("tpm2-kira status", root=True)
+    rc, out = t.run("kira status", root=True)
     log.save("status-booted.txt", out)
     log.say(out.rstrip())
 
-    units = "tpm2-kira.service tpm2-kira-close.service tpm2-kira-unlock.socket tpm2-kira-unlock.service"
-    rc, out = t.run(f"journalctl -b -o short-iso --no-pager -t tpm2-kira $(for u in {units}; do echo -u $u; done) 2>&1", root=True)
-    log.save("journal-tpm2-kira.log", out)
+    units = "kira.service kira-close.service kira-unlock.socket kira-unlock.service"
+    rc, out = t.run(f"journalctl -b -o short-iso --no-pager -t kira $(for u in {units}; do echo -u $u; done) 2>&1", root=True)
+    log.save("journal-kira.log", out)
     rc, errs = t.run("journalctl -b -o short-iso --no-pager -p err 2>&1", root=True)
     log.save("journal-errors.log", errs)
     rc, cs = t.run("journalctl -b -o short-iso --no-pager -u 'systemd-cryptsetup@*' 2>&1", root=True)
     log.save("journal-cryptsetup.log", cs)
-    rc, units_out = t.run(f"systemctl --no-pager --no-legend list-units --all '{'tpm2-kira*'}' 2>&1; systemctl --failed --no-legend --no-pager", root=True)
+    rc, units_out = t.run(f"systemctl --no-pager --no-legend list-units --all '{'kira*'}' 2>&1; systemctl --failed --no-legend --no-pager", root=True)
     log.save("units.log", units_out)
 
-    # The analysis: what the boot's journal says against tpm2-kira.
+    # The analysis: what the boot's journal says against kira.
     bad = re.compile(r"FAILED|SKIPPED|mismatch|cannot|refused|unavailable|error", re.I)
     for line in out.split("\n"):
-        if bad.search(line) and "tpm2-kira" in line:
+        if bad.search(line) and "kira" in line:
             rep.issues.append("journal: " + line.strip())
     for line in errs.split("\n"):
-        if "tpm2-kira" in line or "cryptsetup" in line:
+        if "kira" in line or "cryptsetup" in line:
             rep.issues.append("journal (err): " + line.strip())
     for line in units_out.split("\n"):
-        if "failed" in line and "tpm2-kira" in line:
+        if "failed" in line and "kira" in line:
             rep.issues.append("unit: " + line.strip())
-    rep.check("the boot's journal has no tpm2-kira failure", not any(i.startswith("journal") for i in rep.issues))
-    rep.check("the code screen ran (tpm2-kira.service in the journal)", "tpm2-kira.service" in out or "KIRA" in out,
-              "" if "tpm2-kira" in out else "nothing from tpm2-kira in this boot's journal")
+    rep.check("the boot's journal has no kira failure", not any(i.startswith("journal") for i in rep.issues))
+    rep.check("the code screen ran (kira.service in the journal)", "kira.service" in out or "KIRA" in out,
+              "" if "kira" in out else "nothing from kira in this boot's journal")
     if mode_wanted != "skip":
-        rep.check("the unlock socket served the boot", "tpm2-kira-unlock" in out and "cryptsetup" in cs.lower(),
-                  "" if "tpm2-kira-unlock" in out else "no tpm2-kira-unlock lines in the journal")
-    rc, out = t.run("tpm2-kira version")
+        rep.check("the unlock socket served the boot", "kira-unlock" in out and "cryptsetup" in cs.lower(),
+                  "" if "kira-unlock" in out else "no kira-unlock lines in the journal")
+    rc, out = t.run("kira version")
     rep.check("after boot: the version is the built commit", expected in out, out.strip())
 
 
 def write_report(log, rep, args, expected):
-    lines = [f"tpm2-kira acceptance: {args.distro} on {args.host}, package {expected}",
+    lines = [f"kira acceptance: {args.distro} on {args.host}, package {expected}",
              datetime.datetime.now().isoformat(timespec="seconds"), ""]
     for name, status, detail in rep.checks:
         lines.append(f"[{status}] {name}" + (f" - {detail}" if detail and status != "PASS" else ""))
@@ -684,7 +684,7 @@ def main():
             return 1
 
     if args.no_build:
-        rc, out = t.run("tpm2-kira version")
+        rc, out = t.run("kira version")
         expected = out.strip().split(" ")[-1] if rc == 0 else "-"
     else:
         expected = build_and_install(t, args.distro, args.rev, log, rep)
@@ -692,7 +692,7 @@ def main():
             write_report(log, rep, args, "-")
             return 1
 
-    rc, out = t.run("tpm2-kira status --json", root=True)
+    rc, out = t.run("kira status --json", root=True)
     mode_now = mode_of(json.loads(out)) if rc == 0 else "skip"
     mode_wanted = args.mode or mode_now
     ensure_luks(t, mode_wanted, args.luks, log, rep)

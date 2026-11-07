@@ -12,12 +12,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/journal"
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
-	"github.com/tpm2-trust/tpm2-kira/internal/sbstate"
-	"github.com/tpm2-trust/tpm2-kira/internal/totp"
+	"github.com/tpm2-trust/kira/internal/journal"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/phonegate"
+	"github.com/tpm2-trust/kira/internal/sbstate"
+	"github.com/tpm2-trust/kira/internal/totp"
 
 	"golang.org/x/sys/unix"
 )
@@ -616,7 +616,7 @@ func TestSayFirmwareState(t *testing.T) {
 	// Debian's image has no journal: the log file holds it too, and only with a
 	// separate log is it written twice.
 	journal.JournalOnce.Do(func() {})
-	logPath := filepath.Join(t.TempDir(), "tpm2-kira.log")
+	logPath := filepath.Join(t.TempDir(), "kira.log")
 	f, err := os.Create(logPath)
 	if err != nil {
 		t.Fatal(err)

@@ -2,7 +2,7 @@
 """govulncheck with a list of findings that are known to be wrong.
 
     tools/vulncheck.py ./...
-    tools/vulncheck.py -mode binary dist/tpm2-kira-linux-amd64
+    tools/vulncheck.py -mode binary dist/kira-linux-amd64
 
 The arguments go to govulncheck as they are. A vulnerability counts when the
 code calls a vulnerable symbol (govulncheck's own rule); one in a module the

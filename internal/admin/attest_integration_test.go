@@ -19,12 +19,12 @@ import (
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpm2/transport"
 
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
-	"github.com/tpm2-trust/tpm2-kira/core/attest/attesttest"
-	"github.com/tpm2-trust/tpm2-kira/internal/bootrun"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/core/attest"
+	"github.com/tpm2-trust/kira/core/attest/attesttest"
+	"github.com/tpm2-trust/kira/internal/bootrun"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/phonegate"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 )
 
 // TestAttestationOnSWTPM runs enrolment (real EK, PolicySecret session,
@@ -461,7 +461,7 @@ func TestCoordinatorAndWorker(t *testing.T) {
 	}
 	dir := t.TempDir()
 	conf := filepath.Join(dir, "control.conf")
-	if err := os.WriteFile(conf, []byte("TPM2_KIRA_ATTEST_ADAPTER=0\n"), 0o600); err != nil {
+	if err := os.WriteFile(conf, []byte("KIRA_ATTEST_ADAPTER=0\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	// The gate is in the image when the hook put the signer there.
@@ -609,7 +609,7 @@ func TestStaleSlotCanBeRemoved(t *testing.T) {
 		t.Fatal("slot 5's record survived 'slot delete'")
 	}
 	// Nothing left: it says so instead of claiming success.
-	if err := NVRAMDeleteCommand(sock, 0, true, false, false, false); err == nil || !strings.Contains(err.Error(), "nothing of tpm2-kira") {
+	if err := NVRAMDeleteCommand(sock, 0, true, false, false, false); err == nil || !strings.Contains(err.Error(), "nothing of kira") {
 		t.Fatalf("second slot delete: %v", err)
 	}
 

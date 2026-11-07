@@ -1,7 +1,7 @@
 // Package pcsc is a pure-Go client for the pcsc-lite daemon (pcscd).
 //
 // It speaks pcscd's Unix-socket protocol directly, the protocol libpcsclite
-// implements, so tpm2-kira can talk to smart cards without cgo.
+// implements, so kira can talk to smart cards without cgo.
 //
 // Every wire structure lives in this file. Each one mirrors a C struct from
 // pcsc-lite 2.5.2 (src/winscard_msg.h and src/readers.h), cited per type.

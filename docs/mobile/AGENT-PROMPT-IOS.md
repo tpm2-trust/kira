@@ -1,7 +1,7 @@
-# Agent prompt — build the tpm2-kira verifier app for iOS
+# Agent prompt — build the kira verifier app for iOS
 
 > Hand this file to a coding agent together with a checkout of the
-> tpm2-kira repository. The Android counterpart is
+> kira repository. The Android counterpart is
 > [AGENT-PROMPT-ANDROID.md](AGENT-PROMPT-ANDROID.md); both implement the same
 > protocol, [docs/PROTOCOL-BLE.md](../PROTOCOL-BLE.md), through the same Go core.
 
@@ -10,7 +10,7 @@
 ## Your task
 
 Build **"Marify"** (bundle id `io.wiora.marify`), an iOS app that acts as
-the *verifier* for tpm2-kira machines. An implementation exists in the
+the *verifier* for kira machines. An implementation exists in the
 `marify` repository (`ios/`, next to the Android app in `android/`); this
 brief describes what it must do. Where the two apps differ, the Android app
 is the reference. Before the user types their disk passphrase on a Linux laptop, the
@@ -67,13 +67,13 @@ gomobile into an `.xcframework` and call.
 ```sh
 go install golang.org/x/mobile/cmd/gomobile@latest
 gomobile init
-# from the tpm2-kira checkout:
+# from the kira checkout:
 gomobile bind -target=ios,iossimulator -o Frameworks/Kiracore.xcframework ./mobile/kiracore
 gomobile bind -target=ios,iossimulator -o Frameworks/Kiratest.xcframework ./mobile/kiratest   # tests only
 ```
 
 Add `scripts/build-core.sh` that rebuilds both frameworks from a pinned
-tpm2-kira commit, and document it. Generated Objective-C API (verified with
+kira commit, and document it. Generated Objective-C API (verified with
 gobind; Go `int` is `long`, `[]byte` is `NSData`):
 
 ```objc
@@ -242,7 +242,7 @@ simulator has no Secure Enclave — tests inject a software key, see Testing).
   `.completeFileProtection`, `isExcludedFromBackup = true`. Never edit the
   JSON; parse display fields via `KiracoreRecordSummary`.
 - Deleting a machine: delete the record and its Keychain items; tell the user
-  to run `sudo tpm2-kira phone unenrol` on the machine.
+  to run `sudo kira phone unenrol` on the machine.
 
 ## Screens
 
@@ -251,7 +251,7 @@ simulator has no Secure Enclave — tests inject a software key, see Testing).
 2. **Machines** — enrolled machines with last-attested time; "Enrol a
    machine"; a banner "<machine> is asking for attestation" when its
    advertisement is seen (tap → session).
-3. **Enrol** — instructions ("run `sudo tpm2-kira phone enrol` on the
+3. **Enrol** — instructions ("run `sudo kira phone enrol` on the
    machine"), ENROL-mode advertisements, then the **SAS screen**: six large
    digits, "Does this match the number on your computer's screen?" *Matches* /
    *Does not match*. Then Face ID "Bind", then success.
@@ -308,8 +308,8 @@ notification, connect immediately.
 3. **SwiftUI previews and snapshot/UI tests** for the three verdict screens
    with fixed JSON.
 4. **Real hardware checklist** (`TESTING.md`): a Linux machine with a
-   Bluetooth adapter running `sudo tpm2-kira phone enrol` and
-   `sudo tpm2-kira phone gate`; an iPhone with Face ID and one with Touch ID;
+   Bluetooth adapter running `sudo kira phone enrol` and
+   `sudo kira phone gate`; an iPhone with Face ID and one with Touch ID;
    background discovery; Bluetooth toggled mid-session; app killed
    mid-session; two machines in range.
 

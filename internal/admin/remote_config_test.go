@@ -12,14 +12,14 @@ import (
 // The network and SSH lines load, each refused with its line number, and
 // what one line cannot tell is Problem's.
 func TestRemoteConfigLines(t *testing.T) {
-	cfg, err := ParseControlConfig([]byte(`TPM2_KIRA_NET=static
-TPM2_KIRA_NET_MATCH=AA:BB:CC:DD:EE:FF
-TPM2_KIRA_NET_ADDRESS="192.0.2.10/24 2001:db8::10/64"
-TPM2_KIRA_NET_GATEWAY=192.0.2.1
-TPM2_KIRA_NET_DNS="192.0.2.53 9.9.9.9"
-TPM2_KIRA_SSH=on
-TPM2_KIRA_SSH_HOLD=300
-TPM2_KIRA_NET_DHCP_ID=mac
+	cfg, err := ParseControlConfig([]byte(`KIRA_NET=static
+KIRA_NET_MATCH=AA:BB:CC:DD:EE:FF
+KIRA_NET_ADDRESS="192.0.2.10/24 2001:db8::10/64"
+KIRA_NET_GATEWAY=192.0.2.1
+KIRA_NET_DNS="192.0.2.53 9.9.9.9"
+KIRA_SSH=on
+KIRA_SSH_HOLD=300
+KIRA_NET_DHCP_ID=mac
 `))
 	if err != nil {
 		t.Fatal(err)
@@ -31,31 +31,31 @@ TPM2_KIRA_NET_DHCP_ID=mac
 		t.Fatalf("%+v %q", r, r.Problem())
 	}
 	if !r.Net.Announce {
-		t.Fatal("TPM2_KIRA_NET_ANNOUNCE is on unless it says off")
+		t.Fatal("KIRA_NET_ANNOUNCE is on unless it says off")
 	}
-	if c, err := ParseControlConfig([]byte("TPM2_KIRA_NET=dhcp\nTPM2_KIRA_NET_ANNOUNCE=off\n")); err != nil || c.Remote.Net.Announce {
+	if c, err := ParseControlConfig([]byte("KIRA_NET=dhcp\nKIRA_NET_ANNOUNCE=off\n")); err != nil || c.Remote.Net.Announce {
 		t.Fatalf("announce off: %+v %v", c.Remote.Net, err)
 	}
-	if d := DefaultControlConfig().Remote; !d.Net.Announce || d.Net.Mode != "off" || d.SSH.On || d.SSH.Port() != 22 || d.Net.DHCPID != "auto" || d.SSH.Assh.KeyID != "tpm2-kira boot" {
+	if d := DefaultControlConfig().Remote; !d.Net.Announce || d.Net.Mode != "off" || d.SSH.On || d.SSH.Port() != 22 || d.Net.DHCPID != "auto" || d.SSH.Assh.KeyID != "kira boot" {
 		t.Fatalf("defaults: %+v", d)
 	}
 	for _, bad := range []string{
-		"TPM2_KIRA_NET=wifi", "TPM2_KIRA_NET_MATCH=eth 0", "TPM2_KIRA_NET_ADDRESS=192.0.2.10",
-		"TPM2_KIRA_NET_GATEWAY=gw", "TPM2_KIRA_NET_DNS=1.1.1.1 dns", "TPM2_KIRA_SSH=yes",
-		"TPM2_KIRA_SSH_HOLD=-1", "TPM2_KIRA_NET_DHCP_ID=zz", "TPM2_KIRA_NET_ANNOUNCE=yes",
+		"KIRA_NET=wifi", "KIRA_NET_MATCH=eth 0", "KIRA_NET_ADDRESS=192.0.2.10",
+		"KIRA_NET_GATEWAY=gw", "KIRA_NET_DNS=1.1.1.1 dns", "KIRA_SSH=yes",
+		"KIRA_SSH_HOLD=-1", "KIRA_NET_DHCP_ID=zz", "KIRA_NET_ANNOUNCE=yes",
 	} {
 		if _, err := ParseControlConfig([]byte("# x\n" + bad + "\n")); err == nil || !strings.Contains(err.Error(), "line 2") {
 			t.Errorf("%s: %v", bad, err)
 		}
 	}
 	for content, want := range map[string]string{
-		"TPM2_KIRA_NET=static\nTPM2_KIRA_NET_MATCH=eth0\n":            "needs TPM2_KIRA_NET_ADDRESS",
-		"TPM2_KIRA_NET=static\nTPM2_KIRA_NET_ADDRESS=192.0.2.10/24\n": "needs TPM2_KIRA_NET_MATCH",
-		"TPM2_KIRA_SSH=on\n":                                                                   "needs a network",
-		"TPM2_KIRA_NET=dhcp\nTPM2_KIRA_SSH=on\n":                                               "",
-		"TPM2_KIRA_NET=dhcp\nTPM2_KIRA_NET_ADDRESS=192.0.2.10/24\n":                            "",
-		"TPM2_KIRA_NET=off\nTPM2_KIRA_NET_ADDRESS=192.0.2.10/24\n":                             "",
-		"TPM2_KIRA_NET=static\nTPM2_KIRA_NET_MATCH=enp1s0\nTPM2_KIRA_NET_ADDRESS=10.0.0.2/8\n": "",
+		"KIRA_NET=static\nKIRA_NET_MATCH=eth0\n":            "needs KIRA_NET_ADDRESS",
+		"KIRA_NET=static\nKIRA_NET_ADDRESS=192.0.2.10/24\n": "needs KIRA_NET_MATCH",
+		"KIRA_SSH=on\n":                                                         "needs a network",
+		"KIRA_NET=dhcp\nKIRA_SSH=on\n":                                          "",
+		"KIRA_NET=dhcp\nKIRA_NET_ADDRESS=192.0.2.10/24\n":                       "",
+		"KIRA_NET=off\nKIRA_NET_ADDRESS=192.0.2.10/24\n":                        "",
+		"KIRA_NET=static\nKIRA_NET_MATCH=enp1s0\nKIRA_NET_ADDRESS=10.0.0.2/8\n": "",
 	} {
 		cfg, err := ParseControlConfig([]byte(content))
 		if err != nil {
@@ -97,7 +97,7 @@ func TestNetworkdFile(t *testing.T) {
 // port in assh.conf beside it; the rest of each file stays.
 func TestSetRemoteConfig(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "control.conf")
-	os.WriteFile(path, []byte("TPM2_KIRA_ATTEST_BLUETOOTH=always\n"), 0o644)
+	os.WriteFile(path, []byte("KIRA_ATTEST_BLUETOOTH=always\n"), 0o644)
 	r := DefaultRemoteConfig()
 	r.SSH.Assh = sshConfDefaults(config.Default(), path)
 	r.Net = NetConfig{Mode: "static", Match: "aa:bb:cc:dd:ee:ff", Addresses: []string{"192.0.2.10/24", "2001:db8::10/64"}, DNS: []string{"9.9.9.9"}, Announce: false}
@@ -119,9 +119,9 @@ func TestSetRemoteConfig(t *testing.T) {
 	if cfg.Remote.SSH.Assh.CA != sshCAPath(path) || cfg.Remote.SSH.Assh.AuthorizedKeys != sshAuthorizedKeysPath(path) {
 		t.Fatalf("the CA and the keys beside control.conf: %+v", cfg.Remote.SSH.Assh)
 	}
-	// A key of assh's that tpm2-kira has no use for is refused, and says why.
+	// A key of assh's that kira has no use for is refused, and says why.
 	os.WriteFile(sshConfPath(path), []byte("ASSH_AUTHORITY=/a.pem\n"), 0o644)
-	if _, err := LoadControlConfig(path); err == nil || !strings.Contains(err.Error(), "the CA's authority is tpm2-kira's signing key") {
+	if _, err := LoadControlConfig(path); err == nil || !strings.Contains(err.Error(), "the CA's authority is kira's signing key") {
 		t.Fatalf("ASSH_AUTHORITY: %v", err)
 	}
 }

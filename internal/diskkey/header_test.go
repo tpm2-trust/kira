@@ -28,14 +28,14 @@ func writeLuks2Header(t *testing.T, tokensJSON string) string {
 }
 
 // The recipe is read straight from the device's LUKS2 header: the
-// tpm2-kira tokens, a foreign token ignored, the phone salt's recipe
+// kira tokens, a foreign token ignored, the phone salt's recipe
 // winning over the recovery recipe, another version's token obsolete.
 func TestReadLuks2TokensAndRecipe(t *testing.T) {
 	dev := writeLuks2Header(t, `{
-	  "0": {"type": "tpm2-kira-1100", "keyslots": ["1"], "recipe": 4352, "created": "2026-10-07T17:30:00Z"},
+	  "0": {"type": "kira-1100", "keyslots": ["1"], "recipe": 4352, "created": "2026-10-07T17:30:00Z"},
 	  "1": {"type": "systemd-tpm2", "keyslots": ["2"], "tpm2-blob": "x"},
-	  "2": {"type": "tpm2-kira-1300", "keyslots": ["3"], "recipe": 4864, "slot": 0, "label": "luks", "created": "2026-10-07T18:00:00Z"},
-	  "3": {"type": "tpm2-kira-1300", "keyslots": ["4"], "recipe": 4864, "slot": 0, "created": "x"}
+	  "2": {"type": "kira-1300", "keyslots": ["3"], "recipe": 4864, "slot": 0, "label": "luks", "created": "2026-10-07T18:00:00Z"},
+	  "3": {"type": "kira-1300", "keyslots": ["4"], "recipe": 4864, "slot": 0, "created": "x"}
 	}`)
 	toks, err := ReadLuks2Tokens(dev)
 	if err != nil || len(toks) != 3 {
@@ -87,7 +87,7 @@ func TestVolumeDevice(t *testing.T) {
 	bootCmdlinePath = filepath.Join(dir, "cmdline")
 	bootCrypttabPaths = []string{filepath.Join(dir, "crypttab"), filepath.Join(dir, "cryptroot")}
 
-	os.WriteFile(bootCmdlinePath, []byte("quiet rd.luks.name=ABCD-1234=cryptroot rd.luks.key=ABCD-1234=/run/tpm2-kira/unlock.sock\n"), 0o644)
+	os.WriteFile(bootCmdlinePath, []byte("quiet rd.luks.name=ABCD-1234=cryptroot rd.luks.key=ABCD-1234=/run/kira/unlock.sock\n"), 0o644)
 	if dev, err := VolumeDevice("cryptroot"); err != nil || dev != bootByUUIDDir+"/abcd-1234" {
 		t.Fatalf("cmdline: %q %v", dev, err)
 	}
@@ -104,7 +104,7 @@ func TestVolumeDevice(t *testing.T) {
 	}
 
 	// The routed volumes, for the code screen's words.
-	uuids := routedUUIDs("rd.luks.name=ABCD-1234=cryptroot rd.luks.key=ABCD-1234=/run/tpm2-kira/unlock.sock luks.key=FFFF-2222=/run/tpm2-kira/unlock.sock rd.luks.key=DDDD-3333=/other.sock", "/run/tpm2-kira/unlock.sock")
+	uuids := routedUUIDs("rd.luks.name=ABCD-1234=cryptroot rd.luks.key=ABCD-1234=/run/kira/unlock.sock luks.key=FFFF-2222=/run/kira/unlock.sock rd.luks.key=DDDD-3333=/other.sock", "/run/kira/unlock.sock")
 	if len(uuids) != 2 || uuids[0] != "abcd-1234" || uuids[1] != "ffff-2222" {
 		t.Fatalf("routed: %v", uuids)
 	}
@@ -118,12 +118,12 @@ func TestScreenRecipeFollowsBothRoutes(t *testing.T) {
 	defer func(c string, ct []string) { bootCmdlinePath, bootCrypttabPaths = c, ct }(bootCmdlinePath, bootCrypttabPaths)
 	bootCmdlinePath = filepath.Join(dir, "cmdline")
 	bootCrypttabPaths = []string{filepath.Join(dir, "crypttab")}
-	dev := writeLuks2Header(t, `{"0": {"type": "tpm2-kira-1100", "keyslots": ["1"], "recipe": 4352, "created": "x"}}`)
+	dev := writeLuks2Header(t, `{"0": {"type": "kira-1100", "keyslots": ["1"], "recipe": 4352, "created": "x"}}`)
 	os.WriteFile(bootCmdlinePath, []byte("quiet\n"), 0o644)
 
 	os.WriteFile(bootCrypttabPaths[0], []byte("vda3_crypt "+dev+" none luks,discard\n"), 0o644)
 	if modes := ScreenRecipe(DefaultUnlockSocket)(); len(modes) != 0 {
-		t.Fatalf("a volume not routed through tpm2-kira: %q", modes)
+		t.Fatalf("a volume not routed through kira: %q", modes)
 	}
 	os.WriteFile(bootCrypttabPaths[0], []byte("vda3_crypt "+dev+" none luks,discard,keyscript="+DebianKeyscript+"\n"), 0o644)
 	if modes := ScreenRecipe(DefaultUnlockSocket)(); len(modes) != 1 || modes[0] != RecipeRecovery {
@@ -139,7 +139,7 @@ func TestUnlockRecipe(t *testing.T) {
 	defer func(c string, ct []string) { bootCmdlinePath, bootCrypttabPaths = c, ct }(bootCmdlinePath, bootCrypttabPaths)
 	bootCmdlinePath = filepath.Join(dir, "cmdline")
 	bootCrypttabPaths = []string{filepath.Join(dir, "crypttab")}
-	dev := writeLuks2Header(t, `{"0": {"type": "tpm2-kira-1100", "keyslots": ["1"], "recipe": 4352, "created": "x"}}`)
+	dev := writeLuks2Header(t, `{"0": {"type": "kira-1100", "keyslots": ["1"], "recipe": 4352, "created": "x"}}`)
 	os.WriteFile(bootCrypttabPaths[0], []byte("cryptroot "+dev+" none luks\n"), 0o644)
 
 	r := &UnlockRecipe{}

@@ -26,13 +26,13 @@ import (
 	"github.com/google/go-tpm/tpm2/transport"
 	"github.com/tpm2-trust/assh/hostkey"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/bootwait"
-	"github.com/tpm2-trust/tpm2-kira/internal/efivars"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/bootwait"
+	"github.com/tpm2-trust/kira/internal/efivars"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 )
 
 // CounterVar counts the hard reboots for a TPM that did not answer, under
-// tpm2-kira's GUID; a close that succeeds removes it. Nothing trusts it: whoever
+// kira's GUID; a close that succeeds removes it. Nothing trusts it: whoever
 // writes it can spare a boot that reboot, not a close.
 const CounterVar = "KIRAcloseReboot"
 
@@ -60,7 +60,7 @@ var (
 	// LateEvery is how often the late closer asks.
 	LateEvery = 2 * time.Second
 	// RunDir survives the change to the real root on both distributions.
-	RunDir     = "/run/tpm2-kira"
+	RunDir     = "/run/kira"
 	ACPITables = "/sys/firmware/acpi/tables"
 	EventLog   = "/sys/kernel/security/tpm0/binary_bios_measurements"
 	// out is where a close speaks: the console, by the unit or the script.
@@ -73,9 +73,9 @@ var (
 const stubMeasured = "StubPcrKernelImage-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f"
 
 // TestPaths points what this package reads and writes at a test's directory
-// when TPM2_KIRA_TEST_DIR is set, as machineid.TestPaths.
+// when KIRA_TEST_DIR is set, as machineid.TestPaths.
 func TestPaths() {
-	dir := os.Getenv("TPM2_KIRA_TEST_DIR")
+	dir := os.Getenv("KIRA_TEST_DIR")
 	if dir == "" {
 		return
 	}
@@ -150,7 +150,7 @@ func FirmwareSign() string {
 	return ""
 }
 
-// AwaitRun waits until the code screen is over, what After=tpm2-kira.service is on
+// AwaitRun waits until the code screen is over, what After=kira.service is on
 // a systemd image: run has made readyFile, past its own close and before it answers
 // a key request, or run is gone (pidFile names it; a boot without the file has no
 // run). It has no time of its own: the hold is the code screen's, and with SSH it may
@@ -212,13 +212,13 @@ func Boot(tpmPath string) error {
 		if werr := efivars.Write(CounterVar, []byte{1}); werr == nil {
 			return fmt.Errorf("%w: %w: rebooting once", ErrReboot, err)
 		} else {
-			fmt.Fprintf(out, "tpm2-kira: the reboot cannot be counted (%v): no reboot\n", werr)
+			fmt.Fprintf(out, "kira: the reboot cannot be counted (%v): no reboot\n", werr)
 		}
 	}
-	fmt.Fprintf(out, "\033[0;31mtpm2-kira: the TPM does not answer (%v): this boot goes on with the passphrase alone, and closes the moment the TPM answers. Nothing of a slot or of the SSH CA works. tpm2-kira control says more.\033[0m\n", err)
+	fmt.Fprintf(out, "\033[0;31mkira: the TPM does not answer (%v): this boot goes on with the passphrase alone, and closes the moment the TPM answers. Nothing of a slot or of the SSH CA works. kira control says more.\033[0m\n", err)
 	writeState(StatePending, err.Error())
 	if werr := touchPending(); werr != nil {
-		fmt.Fprintf(out, "tpm2-kira: the late closer will not start: %v\n", werr)
+		fmt.Fprintf(out, "kira: the late closer will not start: %v\n", werr)
 	}
 	return nil
 }
@@ -269,7 +269,7 @@ func Now(tpmPath string) error {
 }
 
 // Late waits for a TPM that did not answer at boot and closes the moment it does:
-// the rest of the initrd, then the real root (tpm2-kira-late-close.service in
+// the rest of the initrd, then the real root (kira-late-close.service in
 // both). Best effort: root can kill it. It ends when the close succeeded, and
 // when stop is closed.
 func Late(tpmPath string, stop <-chan struct{}) error {
@@ -278,12 +278,12 @@ func Late(tpmPath string, stop <-chan struct{}) error {
 		how, res, err := lateAttempt(tpmPath)
 		if how == closed {
 			succeeded(res)
-			fmt.Fprintf(out, "tpm2-kira: the TPM answers: the boot is closed late (%s)\n", res)
+			fmt.Fprintf(out, "kira: the TPM answers: the boot is closed late (%s)\n", res)
 			return nil
 		}
 		if err != nil && err.Error() != said {
 			said = err.Error()
-			fmt.Fprintf(out, "tpm2-kira: the late close waits: %v\n", err)
+			fmt.Fprintf(out, "kira: the late close waits: %v\n", err)
 		}
 		select {
 		case <-stop:
@@ -309,7 +309,7 @@ func lateAttempt(tpmPath string) (outcome, hostkey.CloseResult, error) {
 // written, a degraded one is said.
 func succeeded(res hostkey.CloseResult) {
 	if _, err := efivars.Remove(CounterVar); err != nil {
-		fmt.Fprintf(out, "tpm2-kira: the reboot's counter stays: %v\n", err)
+		fmt.Fprintf(out, "kira: the reboot's counter stays: %v\n", err)
 	}
 	os.Remove(filepath.Join(RunDir, pendingFile))
 	state := StateClosed
@@ -321,7 +321,7 @@ func succeeded(res hostkey.CloseResult) {
 	}
 	writeState(state, res.String())
 	if res.Degraded() {
-		fmt.Fprintf(out, "\033[0;31mtpm2-kira: the close went another way: %s. The boot goes on: passphrase and temporary host key work, no slot and no SSH CA, until the next boot.\033[0m\n", res)
+		fmt.Fprintf(out, "\033[0;31mkira: the close went another way: %s. The boot goes on: passphrase and temporary host key work, no slot and no SSH CA, until the next boot.\033[0m\n", res)
 	}
 }
 
@@ -351,7 +351,7 @@ func writeState(s State, detail string) {
 		if err == nil {
 			return
 		}
-		fmt.Fprintf(out, "tpm2-kira: the close's state is not kept: %v\n", err)
+		fmt.Fprintf(out, "kira: the close's state is not kept: %v\n", err)
 	}
 }
 
@@ -384,7 +384,7 @@ func Finding(dev transport.TPM) string {
 			if detail == "" || state != StateHierarchies {
 				detail = "TPM2_HierarchyControl, by someone"
 			}
-			return "the owner hierarchy of the TPM is off until the next boot: the close's kill switch (" + detail + ") (risk: a TPM that refused PCR 15: no slot and no SSH CA, and nothing of tpm2-kira's can be set up, until the next boot)"
+			return "the owner hierarchy of the TPM is off until the next boot: the close's kill switch (" + detail + ") (risk: a TPM that refused PCR 15: no slot and no SSH CA, and nothing of kira's can be set up, until the next boot)"
 		}
 	}
 	if state == StateHierarchies {

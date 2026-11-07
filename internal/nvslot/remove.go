@@ -1,18 +1,18 @@
 package nvslot
 
-// What tpm2-kira keeps in the TPM is removed one way, aSSH's persist's,
+// What kira keeps in the TPM is removed one way, aSSH's persist's,
 // like everything aSSH keeps there:
 //
-//   - A removal takes an index that has the public area tpm2-kira defines at
+//   - A removal takes an index that has the public area kira defines at
 //     that place (Ours: a blob's, a generation index's, a record counter's),
 //     never whatever sits at a handle of its range on its own; anything else
 //     is left, and named (persist.ErrNotOurs).
-//   - An index of another shape at one of tpm2-kira's own places (OwnPlace)
+//   - An index of another shape at one of kira's own places (OwnPlace)
 //     goes when a person saw it and said so (TakeForeign, persist.Any), and
 //     nowhere else: a place can be stale, and only a person can tell.
 //   - Absent is not an error: a removal reports what went.
-//   - A write at one of tpm2-kira's own places replaces what is there,
-//     whatever it is (replaceAt): the range is tpm2-kira's, and a stale or
+//   - A write at one of kira's own places replaces what is there,
+//     whatever it is (replaceAt): the range is kira's, and a stale or
 //     planted index at it must not stop a slot from being written.
 
 import (
@@ -24,21 +24,22 @@ import (
 	"github.com/tpm2-trust/assh/persist"
 )
 
-// definedAt is the public area tpm2-kira defines at index, told by its
-// place: the record counters, the generation indices above them, and below
-// those the boot settings. The size of 0 is any, the policy not compared.
+// definedAt is the public area kira defines at index, told by its
+// place: the slots' generation indices (0x01803010-1F), their record counters
+// (0x01803020-2F), and the boot settings below them. The size of 0 is any, the
+// policy not compared.
 func definedAt(index uint32) tpm2.TPMSNVPublic {
 	switch {
 	case index >= AttestCounterStart && index <= AttestCounterIndex(NVRAMSlotEnd):
 		return AttestCounterPublic(index)
-	case index >= AppNVRAMStart+GenerationIndexOffset:
+	case index >= GenerationIndex(NVRAMSlotStart) && index <= GenerationIndex(NVRAMSlotEnd):
 		return generationIndexPublic(index, tpm2.TPM2BDigest{})
 	default:
 		return blobPublic(index, tpm2.TPM2BDigest{}, 0)
 	}
 }
 
-// Ours is what tpm2-kira defines at index. Outside the range nothing is ours.
+// Ours is what kira defines at index. Outside the range nothing is ours.
 func Ours(index uint32) persist.Owned {
 	if ValidateNVRAMIndex(index) != nil {
 		return func(*tpm2.TPMSNVPublic, tpm2.TPM2BName) bool { return false }
@@ -46,7 +47,7 @@ func Ours(index uint32) persist.Owned {
 	return persist.Shaped(definedAt(index))
 }
 
-// OwnPlace says whether index is a place tpm2-kira itself defines an index
+// OwnPlace says whether index is a place kira itself defines an index
 // at: the boot settings, a slot's generation index or record counter. The
 // rest of the range is only reserved for it.
 func OwnPlace(index uint32) bool {
@@ -55,17 +56,17 @@ func OwnPlace(index uint32) bool {
 		(index >= AttestCounterIndex(NVRAMSlotStart) && index <= AttestCounterIndex(NVRAMSlotEnd))
 }
 
-// Foreign is an index at one of tpm2-kira's own places without the public
-// area tpm2-kira defines there.
+// Foreign is an index at one of kira's own places without the public
+// area kira defines there.
 type Foreign struct {
 	Index  uint32
 	Public tpm2.TPMSNVPublic // what is there
 	Name   tpm2.TPM2BName
-	Want   tpm2.TPMSNVPublic // what tpm2-kira defines there
+	Want   tpm2.TPMSNVPublic // what kira defines there
 }
 
 // ForeignAt is the index of another shape at index, or nil: none there, it is
-// tpm2-kira's, the place is not one of its own, or it cannot be read (the
+// kira's, the place is not one of its own, or it cannot be read (the
 // removal then says why).
 func ForeignAt(tpmDev transport.TPM, index uint32) *Foreign {
 	if !OwnPlace(index) {
@@ -82,7 +83,7 @@ func ForeignAt(tpmDev transport.TPM, index uint32) *Foreign {
 // shown it: true removes it. nil is No, without asking.
 type TakeForeign func(Foreign) (bool, error)
 
-// RemoveIndex removes tpm2-kira's index at index, when it is there and has
+// RemoveIndex removes kira's index at index, when it is there and has
 // its shape, or one of another shape at an own place that take says yes to.
 // It reports whether it removed one.
 func RemoveIndex(tpmDev transport.TPM, index uint32, take TakeForeign) (bool, error) {
@@ -108,16 +109,16 @@ func removeAt(tpmDev transport.TPM, index uint32, owned persist.Owned) (bool, er
 	ok, err := persist.RemoveNV(tpmDev, tpm2.TPMHandle(index), owned)
 	switch {
 	case errors.Is(err, tpm2.TPMRCBadAuth), errors.Is(err, tpm2.TPMRCAuthFail):
-		return ok, fmt.Errorf("NV index 0x%08X: the TPM's owner hierarchy has a password, and tpm2-kira presents the empty one throughout: remove the password (tpm2_changeauth -c owner -p PASSWORD) and do this again (%w)", index, err)
+		return ok, fmt.Errorf("NV index 0x%08X: the TPM's owner hierarchy has a password, and kira presents the empty one throughout: remove the password (tpm2_changeauth -c owner -p PASSWORD) and do this again (%w)", index, err)
 	case errors.Is(err, tpm2.TPMRCNVAuthorization):
-		return ok, fmt.Errorf("NV index 0x%08X: the platform's firmware defined it, and only the platform can remove it: neither tpm2-kira nor the TPM's owner can (%w)", index, err)
+		return ok, fmt.Errorf("NV index 0x%08X: the platform's firmware defined it, and only the platform can remove it: neither kira nor the TPM's owner can (%w)", index, err)
 	case errors.Is(err, tpm2.TPMRCAttributes):
 		return ok, fmt.Errorf("NV index 0x%08X: it is defined to go by its own policy alone (TPM2_NV_UndefineSpaceSpecial, with the platform): the TPM's owner cannot remove it (%w)", index, err)
 	}
 	return ok, err
 }
 
-// RemoveSwept removes whatever index is at index in tpm2-kira's range,
+// RemoveSwept removes whatever index is at index in kira's range,
 // whatever its shape: the sweep's removal (slot delete --sweep), of what a
 // person was shown - every index in the range, of this version's layout, an
 // earlier one's or another program's - and said to take.
@@ -165,7 +166,7 @@ func RemoveSlot(tpmDev transport.TPM, blobIndex uint32, take TakeForeign) ([]Rem
 	return removed, errors.Join(errs...)
 }
 
-// replaceAt clears tpm2-kira's own place index for a write: what is
+// replaceAt clears kira's own place index for a write: what is
 // there goes, whatever its shape.
 func replaceAt(tpmDev transport.TPM, index uint32) error {
 	if err := ValidateNVRAMIndex(index); err != nil {

@@ -50,7 +50,7 @@ type MeasurePointProvider interface {
 // the receipt itself, against the quotes it issued and the anchors it holds,
 // instead of the session doing so. It lets the process that talks to the
 // phone be a different one from the process that decides what the phone
-// said (tpm2-kira's radio worker and its coordinator).
+// said (kira's radio worker and its coordinator).
 type ReceiptJudge interface {
 	JudgeReceipt(r *Receipt, verifierID string) ReceiptCheck
 }

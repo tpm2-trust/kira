@@ -14,7 +14,7 @@ import (
 // stops; said by the image's plan to its hook; silent with Secure Boot on. A state
 // that cannot be read is said too.
 func TestSecureBootWarningPlaces(t *testing.T) {
-	testDir := os.Getenv("TPM2_KIRA_TEST_DIR")
+	testDir := os.Getenv("KIRA_TEST_DIR")
 	vars := filepath.Join(testDir, "efivars")
 	removeVars := func() {
 		for _, name := range []string{"SecureBoot", "SetupMode"} {

@@ -300,7 +300,7 @@ func LoadExternalPublicKey(tpmDev transport.TPM, pubKey crypto.PublicKey) (*tpm2
 }
 
 // ComputeNVWritePolicyDigestWithHandle computes the PolicySigned digest that
-// is the AuthPolicy of tpm2-kira's NV indices (blob and generation): any
+// is the AuthPolicy of kira's NV indices (blob and generation): any
 // write must satisfy a PolicySigned session proving possession of the
 // private key belonging to the public key loaded at keyHandle.
 func ComputeNVWritePolicyDigestWithHandle(tpmDev transport.TPM, keyHandle tpm2.TPMIDHObject, keyName tpm2.TPM2BName, pubKey crypto.PublicKey) (tpm2.TPM2BDigest, error) {

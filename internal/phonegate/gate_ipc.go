@@ -23,7 +23,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
+	"github.com/tpm2-trust/kira/core/attest"
 )
 
 const (

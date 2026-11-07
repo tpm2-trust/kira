@@ -1,12 +1,12 @@
 #!/bin/bash
-# Predict the PCR 11 value of a unified kernel image at tpm2-kira's measure point.
+# Predict the PCR 11 value of a unified kernel image at kira's measure point.
 #
-# tpm2-kira computes this internally via the 'u' PCR source ("11u", or
+# kira computes this internally via the 'u' PCR source ("11u", or
 # "11u:/path.efi"), which needs neither objcopy nor systemd-measure. This script
 # is kept as an INDEPENDENT CROSS-CHECK of that built-in implementation:
 #
 #   tpm2-pcr11predict                 # via systemd-measure
-#   tpm2-kira slot add --pcrs 11u --debug # via the built-in implementation
+#   kira slot add --pcrs 11u --debug # via the built-in implementation
 #
 # The two must agree. Override the defaults via the environment:
 #   UKI=/boot/EFI/Linux/other.efi tpm2-pcr11predict
@@ -14,7 +14,7 @@ set -euo pipefail
 
 UKI="${UKI:-/boot/EFI/Linux/arch-linux.efi}"
 SYSTEMDMEASURE="${SYSTEMDMEASURE:-/usr/lib/systemd/systemd-measure}"
-# systemd-pcrphase-initrd extends this before tpm2-kira reads PCR 11.
+# systemd-pcrphase-initrd extends this before kira reads PCR 11.
 PHASE="${PHASE:-enter-initrd}"
 
 for tool in objcopy "$SYSTEMDMEASURE"; do

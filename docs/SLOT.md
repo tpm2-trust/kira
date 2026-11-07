@@ -1,6 +1,6 @@
 # The slot: a boot state your signing key approved
 
-A slot is what everything else of tpm2-kira stands on: a policy of PCR
+A slot is what everything else of kira stands on: a policy of PCR
 values and a generation, approved by your signing key, in one of the
 slots 0-15 - a record in the EFI variable `KIRAslotN`, with its
 generation index and record counter in the TPM (*Deleting a slot*,
@@ -17,22 +17,22 @@ below). Its methods work only in a boot whose PCRs match the approval:
 `slot add` makes a slot, `slot approve` approves the boot state anew after
 an update (the hooks run it), `slot info` shows it, `slot list | status |
 delete` show and remove it. The signing key comes from
-`tpm2-kira setup` (a file, or a YubiKey: [PLAN-YUBIKEY.md](PLAN-YUBIKEY.md));
+`kira setup` (a file, or a YubiKey: [PLAN-YUBIKEY.md](PLAN-YUBIKEY.md));
 the details of sealing - the measure point, SHA-1, your own keys, several
 slots - are in [SEALING.md](SEALING.md).
 
 ## Adding a slot: `slot add`
 
 ```bash
-tpm2-kira slot add            # the boot state alone: the methods are enrolled into it
-tpm2-kira slot add --totp     # and a TOTP code at boot, with slot 1 the fallback
+kira slot add            # the boot state alone: the methods are enrolled into it
+kira slot add --totp     # and a TOTP code at boot, with slot 1 the fallback
 ```
 
 `--totp` seals a TOTP key too: a code at boot, compared with your
 authenticator before you type anything, which proves the boot is one your
 signing key approved. Without it nothing is shown at boot for the slot;
 its other methods - the vault, the TPM salt, a phone - check the boot.
-`tpm2-kira control` asks.
+`kira control` asks.
 
 Without `--pcrs`, the selection is what this boot measured, read from the
 event log:
@@ -57,7 +57,7 @@ code in either. Pair both with your authenticator.
 
 On a UKI, once `control` has written the PCR key into `/etc/kernel/uki.conf` and
 the image carries its signature, PCR 11 goes `11s`: signed by
-`/etc/tpm2-kira/pcr.key` for `enter-initrd` alone, not approved. A kernel update
+`/etc/kira/pcr.key` for `enter-initrd` alone, not approved. A kernel update
 then needs no approval of 11, and slot 1 outlasts a kernel not approved. Any image
 ever signed with it keeps 11 valid; revocation is a new PCR key and the slots
 approved again. Sealed slots take it at their next approval.
@@ -76,7 +76,7 @@ terminal shows the old and new value and what the event log says PCR 7 is made o
 asks; `--seal-channel` is the same without a terminal, and `control` has a line for it.
 The hooks (`--unattended`), `--if-moved` and a run with no terminal approve the slot,
 leave the channel and say so; until it is sealed the phones find no machine, and `status`
-and `control` are red (`tpm2-kira help slot`).
+and `control` are red (`kira help slot`).
 
 With `--pcrs`, or `--nvram`, one slot is sealed: the one named (else 0),
 to the PCRs named (else the selection above).
@@ -95,10 +95,10 @@ You can mix sources freely:
 
 ```bash
 # PCR 0 and 7 from eventlog, PCR 2 from register
-tpm2-kira slot add --pcrs "0e,2,7e"
+kira slot add --pcrs "0e,2,7e"
 
 # Add a UKI-computed PCR 11
-tpm2-kira slot add --pcrs "0e,2e,7e,11u"
+kira slot add --pcrs "0e,2e,7e,11u"
 ```
 
 The `u` source parses the unified kernel image directly and reproduces what
@@ -112,7 +112,7 @@ is:
 
 | Mismatch | Meaning | Result |
 |---|---|---|
-| Section set or order differs | tpm2-kira models systemd-stub wrongly | **fails** |
+| Section set or order differs | kira models systemd-stub wrongly | **fails** |
 | Section content differs, image rebuilt after boot | cannot be checked yet | warns, proceeds |
 | Section content differs, image unchanged since boot | the computation is wrong | **fails** |
 
@@ -179,7 +179,7 @@ records "disabled" and nothing verifies which bootloader or kernel runs, so a
 matching PCR 7 does not mean the boot chain was checked. In Setup Mode the keys
 can be replaced without physical presence, so the policy it attests is one any
 root user can rewrite. The state is read from
-`/sys/firmware/efi/efivars`; if that is unavailable, tpm2-kira says so rather
+`/sys/firmware/efi/efivars`; if that is unavailable, kira says so rather
 than staying silent.
 
 ### The measure point
@@ -204,25 +204,25 @@ When PCR values change (kernel update, initramfs rebuild, firmware update), the 
 
 ```bash
 # Uses the default signing key from setup
-tpm2-kira slot approve
+kira slot approve
 
 # Or specify the key explicitly
-tpm2-kira slot approve --privkey /etc/tpm2-kira/keys/seal.key
+kira slot approve --privkey /etc/kira/keys/seal.key
 ```
 
 You can also change the PCR selection during reseal:
 
 ```bash
-tpm2-kira slot approve --pcrs "0e,2,4,7e"
+kira slot approve --pcrs "0e,2,4,7e"
 ```
 
 ## Inspecting a slot: `slot info`
 
 ```bash
-tpm2-kira slot info
-tpm2-kira slot info --nvram 0
-tpm2-kira slot info --json          # machine-readable
-tpm2-kira slot info --pubkey /path/to/key.pub   # verify with a custom key
+kira slot info
+kira slot info --nvram 0
+kira slot info --json          # machine-readable
+kira slot info --pubkey /path/to/key.pub   # verify with a custom key
 ```
 
 `slot info` first checks each blob's signature with the signing public key (`--pubkey`,
@@ -237,7 +237,7 @@ blob itself, so consumers never have to branch on the slot count.
 
 ## Deleting a slot
 
-**Deleting a slot is one act**: `tpm2-kira control`, the slot's own line. It
+**Deleting a slot is one act**: `kira control`, the slot's own line. It
 deletes everything the slot is made of - its record (the EFI variable
 `KIRAslotN`: the TOTP key, the phones, the phone salt's release key, the
 vault's part, the TPM salt), its two companion indices in the TPM, the
@@ -260,15 +260,15 @@ The pieces can still be taken by hand - these leave the slot dirty the
 same way where something of it remains:
 
 ```bash
-tpm2-kira slot delete              # everything tpm2-kira keeps (slots, TPM indices, the SSH CA): asks to type 'yes'
-tpm2-kira slot delete --yes        # the same, without asking
-tpm2-kira slot delete --yes --sweep   # and whatever else is at tpm2-kira's places, any version's, any shape:
+kira slot delete              # everything kira keeps (slots, TPM indices, the SSH CA): asks to type 'yes'
+kira slot delete --yes        # the same, without asking
+kira slot delete --yes --sweep   # and whatever else is at kira's places, any version's, any shape:
                                       # its NV range 0x01803000-0x01803FFF, aSSH's SSH CA handles
                                       # 0x01802912-15, every EFI variable of its GUID, KIRAasshCA
-tpm2-kira slot delete --nvram 0    # one slot: its record and its indices in the TPM
-tpm2-kira slot delete --nvram 0 --force   # and an index of another shape at its places, without asking
-tpm2-kira luks remove /dev/sda2 --keyslot 1   # one LUKS keyslot of tpm2-kira's, with its token
-tpm2-kira phone unenrol --nvram 0  # only the phones of one slot (needs the signing key)
+kira slot delete --nvram 0    # one slot: its record and its indices in the TPM
+kira slot delete --nvram 0 --force   # and an index of another shape at its places, without asking
+kira luks remove /dev/sda2 --keyslot 1   # one LUKS keyslot of kira's, with its token
+kira phone unenrol --nvram 0  # only the phones of one slot (needs the signing key)
 ```
 
 A slot is one record, under one signature: the EFI variable `KIRAslotN`,
@@ -285,9 +285,11 @@ list` shows the slots and their parts, and the machine's boot settings:
 | Where (slot *n*) | What it holds | Written by |
 |---|---|---|
 | EFI variable `KIRAslot`*n* | the slot's record: the boot state, its approval, its methods | `slot add`, `slot approve`, `phone enrol`/`unenrol`, `vault enrol`, `luks enrol` (TPM salt, vault) |
-| NV `0x01803810` + *n* | the generation index of the slot's policy (the slot exists while it does) | `slot add`, `slot approve` |
-| NV `0x01803820` + *n* | the record counter of the attestation part | the enrolments |
+| NV `0x01803010` + *n* | the generation index of the slot's policy, at the slot's own handle (the slot exists while it does) | `slot add`, `slot approve` |
+| NV `0x01803020` + *n* | the record counter of the attestation part | the enrolments |
 | NV `0x01803000` | the boot settings: "Debug at boot" (one per machine, only while it is on) | `control` |
+
+Every NV index of kira's, kira-vault's and aSSH's, with what it is for: NV-INDICES.md.
 
 Because the phones live in the slot's record,
 
@@ -307,20 +309,20 @@ Because the phones live in the slot's record,
 - every further phone makes the record larger (about 170 bytes); a record
   holds at most 8 KiB, checked for the record as it would be written.
 
-`slot delete` without `--nvram` removes everything of tpm2-kira's outside
+`slot delete` without `--nvram` removes everything of kira's outside
 the disk: every slot, what belongs to no slot any more (a counter whose
 slot is gone, a record left by a cleared TPM), the boot settings, the sealed machine-id (`KIRAmachineID`,
 docs/SSH.md §2.1; it goes with slot 0 too), and the SSH CA - its EFI
-variable `KIRAasshCA` and `/etc/tpm2-kira/ssh_ca.pub` (docs/SSH.md §4).
+variable `KIRAasshCA` and `/etc/kira/ssh_ca.pub` (docs/SSH.md §4).
 What it never touches is the LUKS header: a keyslot bound to a deleted
 slot is named as dirty, and `control` (or `luks remove`) takes it.
 
 Every removal - `slot delete`, `control`'s, the SSH CA's - goes the one way
 aSSH removes what it keeps (its `persist` package): an NV index goes when it
-has the public area tpm2-kira defines at that place; what is not there is no
+has the public area kira defines at that place; what is not there is no
 error.
 
-An index of another shape at one of tpm2-kira's own places (a slot's
+An index of another shape at one of kira's own places (a slot's
 generation index or record counter, the boot settings) is an earlier build's or
 another program's, and only a person can tell which. It is shown - handle,
 attributes, name algorithm, size, whether it has an auth policy - and goes on
@@ -334,7 +336,7 @@ that person's word:
 - Anywhere else in the range, and outside it, nothing removes it, `--force`
   neither.
 
-A removal needs the owner's authorization, and tpm2-kira presents the empty one
+A removal needs the owner's authorization, and kira presents the empty one
 throughout. On a TPM whose owner has a password the removal fails and says so:
 
 ```bash

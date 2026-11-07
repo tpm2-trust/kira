@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/go-tpm/tpm2"
 	"github.com/tpm2-trust/go-uefi-slim/uki"
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
+	"github.com/tpm2-trust/kira/core/attest"
 )
 
 // BootPCRSignaturePaths are where the initrd finds the booted image's
@@ -68,7 +68,7 @@ func UKIPCRSignatures(path string) (uki.PCRSignatures, error) {
 
 // CheckUKIPCRSig checks that the image's .pcrsig holds what the slots need and
 // nothing else: exactly one signature per bank, by the key in PKIX DER, and for
-// the banks tpm2-kira computes, the image's PCR 11 at enter-initrd. A signature
+// the banks kira computes, the image's PCR 11 at enter-initrd. A signature
 // of a later phase too would let the running system meet the policy.
 func CheckUKIPCRSig(path string, key []byte) error {
 	sigs, err := UKIPCRSignatures(path)

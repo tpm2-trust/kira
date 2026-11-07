@@ -13,9 +13,9 @@ import (
 	"golang.org/x/crypto/hkdf"
 
 	"github.com/tpm2-trust/go-tui-slim/secret"
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/core/attest"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 )
 
 // The factor: one half of the disk's key, held by the phone, opened by this
@@ -37,7 +37,7 @@ const FactorSize = 32
 
 // factorInfo is the derivation string of the salt (PLAN-PHONESALT.md
 // §5.1): part of the contract between an enrolled keyslot and this code.
-const factorInfo = "tpm2-kira/factor/v1"
+const factorInfo = "kira/factor/v1"
 
 // ErrNoReleaseKey: the slot has no release key, so no factor was enrolled.
 var ErrNoReleaseKey = errors.New("the slot has no release key: no factor is enrolled for it")

@@ -14,16 +14,15 @@ import (
 // version, and every variable-length part is length-prefixed with lp().
 
 const (
-	labelQD           = "tpm2-kira/qd/v1"
-	labelEnrolQD      = "tpm2-kira/enrol-qd/v1"
-	labelOfflineQD    = "tpm2-kira/offline-qd/v1"
-	labelReceipt      = "tpm2-kira/receipt/v1"
-	labelEnrolAccept  = "tpm2-kira/enrol-accept/v1"
-	labelSASCommit    = "tpm2-kira/sas-commit/v1"
-	labelSAS          = "tpm2-kira/sas/v1"
-	labelAdvertising  = "tpm2-kira/adv/v1"
-	labelFactor       = "tpm2-kira/factor/v1"
-	labelAnchorDigest = "tpm2-kira/anchor/v1"
+	labelQD           = "kira/qd/v1"
+	labelEnrolQD      = "kira/enrol-qd/v1"
+	labelOfflineQD    = "kira/offline-qd/v1"
+	labelReceipt      = "kira/receipt/v1"
+	labelEnrolAccept  = "kira/enrol-accept/v1"
+	labelSASCommit    = "kira/sas-commit/v1"
+	labelSAS          = "kira/sas/v1"
+	labelAdvertising  = "kira/adv/v1"
+	labelAnchorDigest = "kira/anchor/v1"
 )
 
 // NonceSize is the size of every protocol nonce.
@@ -137,7 +136,7 @@ func (s PCRSelection) canonical() []byte {
 
 // QualifyingData computes the value passed as TPM2_Quote's qualifyingData:
 //
-//	qd := SHA-256("tpm2-kira/qd/v1" ‖ nonce_a ‖ nonce_v ‖ cb ‖ u16le(alg) ‖ u8(n) ‖ indices)
+//	qd := SHA-256("kira/qd/v1" ‖ nonce_a ‖ nonce_v ‖ cb ‖ u16le(alg) ‖ u8(n) ‖ indices)
 //
 // nonce_a, nonce_v and cb are fixed at 32 bytes each.
 func QualifyingData(nonceA, nonceV, cb []byte, sel PCRSelection) ([]byte, error) {
@@ -154,7 +153,7 @@ func QualifyingData(nonceA, nonceV, cb []byte, sel PCRSelection) ([]byte, error)
 }
 
 // EnrolQualifyingData is the qualifying data of the quote carried in
-// EnrolOffer: SHA-256("tpm2-kira/enrol-qd/v1" ‖ cb). It binds the baseline
+// EnrolOffer: SHA-256("kira/enrol-qd/v1" ‖ cb). It binds the baseline
 // quote to the enrolment session.
 func EnrolQualifyingData(cb []byte) []byte {
 	h := sha256.New()
@@ -165,7 +164,7 @@ func EnrolQualifyingData(cb []byte) []byte {
 
 // OfflineQualifyingData is used by `phone quote` / `phone verify`, where
 // evidence is carried on a stick instead of a session:
-// SHA-256("tpm2-kira/offline-qd/v1" ‖ nonce). The nonce is chosen by whoever
+// SHA-256("kira/offline-qd/v1" ‖ nonce). The nonce is chosen by whoever
 // will verify, so the quote is fresh for them; there is no channel to bind.
 func OfflineQualifyingData(nonce []byte) []byte {
 	h := sha256.New()
@@ -209,7 +208,7 @@ func (v VerdictCode) Trusted() bool { return v == VerdictOK || v == VerdictAppro
 
 // ReceiptTBS is the byte string a receipt signature covers:
 //
-//	"tpm2-kira/receipt/v1" ‖ u8(verdict) ‖ lp(device_id) ‖ lp(ak_name) ‖ lp(qd) ‖
+//	"kira/receipt/v1" ‖ u8(verdict) ‖ lp(device_id) ‖ lp(ak_name) ‖ lp(qd) ‖
 //	lp(sha256(quoted)) ‖ lp(policy_id) ‖ u64le(issued_at) ‖ u64le(expires_at) ‖ lp(verifier_id)
 //
 // The signature is ECDSA P-256 over SHA-256(ReceiptTBS), DER-encoded: what
@@ -234,7 +233,7 @@ func ReceiptTBS(r *Receipt) []byte {
 // that the phone holds the anchor's private key and binds the anchor to this
 // enrolment session:
 //
-//	"tpm2-kira/enrol-accept/v1" ‖ lp(device_id) ‖ lp(cb) ‖ lp(ak_name) ‖
+//	"kira/enrol-accept/v1" ‖ lp(device_id) ‖ lp(cb) ‖ lp(ak_name) ‖
 //	lp(anchor_pub) ‖ lp(verifier_id) ‖ lp(policy_id)
 func EnrolAcceptTBS(deviceID, cb, akName, anchorPub []byte, verifierID, policyID string) []byte {
 	var b []byte
@@ -248,7 +247,7 @@ func EnrolAcceptTBS(deviceID, cb, akName, anchorPub []byte, verifierID, policyID
 	return b
 }
 
-// AnchorDigest identifies a pinned anchor: SHA-256("tpm2-kira/anchor/v1" ‖ anchor_pub).
+// AnchorDigest identifies a pinned anchor: SHA-256("kira/anchor/v1" ‖ anchor_pub).
 func AnchorDigest(anchorPub []byte) []byte {
 	h := sha256.New()
 	h.Write([]byte(labelAnchorDigest))
@@ -257,7 +256,7 @@ func AnchorDigest(anchorPub []byte) []byte {
 }
 
 // SASCommitment is the machine's commitment to its SAS nonce:
-// SHA-256("tpm2-kira/sas-commit/v1" ‖ cb ‖ nonce_m).
+// SHA-256("kira/sas-commit/v1" ‖ cb ‖ nonce_m).
 func SASCommitment(cb, nonceM []byte) []byte {
 	h := sha256.New()
 	h.Write([]byte(labelSASCommit))
@@ -268,7 +267,7 @@ func SASCommitment(cb, nonceM []byte) []byte {
 
 // ShortAuthString derives the six-digit enrolment confirmation code:
 //
-//	d   := SHA-256("tpm2-kira/sas/v1" ‖ cb ‖ nonce_p ‖ nonce_m)
+//	d   := SHA-256("kira/sas/v1" ‖ cb ‖ nonce_p ‖ nonce_m)
 //	SAS := u32be(d[0:4]) mod 1_000_000, as six decimal digits with leading zeros
 //
 // Why the commit/reveal: an attacker in the middle runs two handshakes and so
@@ -290,13 +289,13 @@ func ShortAuthString(cb, nonceP, nonceM []byte) string {
 }
 
 // Advertising: the machine's scan response carries 13 bytes of service data
-// for the tpm2-kira service UUID:
+// for the kira service UUID:
 //
 //	u8 flags ‖ prand[4] ‖ tag[8]
-//	tag := HMAC-SHA256(adv_key, "tpm2-kira/adv/v1" ‖ prand)[0:8]
+//	tag := HMAC-SHA256(adv_key, "kira/adv/v1" ‖ prand)[0:8]
 //
 // prand is random per boot. Without adv_key the bytes are indistinguishable
-// from random, so an observer learns that some tpm2-kira machine is booting,
+// from random, so an observer learns that some kira machine is booting,
 // not which. An enrolled phone recomputes the tag for each machine it holds
 // and knows which one is asking, before connecting.
 

@@ -1,11 +1,11 @@
 # AUR packaging
 
-The PKGBUILD published as [tpm2-kira](https://aur.archlinux.org/packages/tpm2-kira)
+The PKGBUILD published as [kira](https://aur.archlinux.org/packages/kira)
 on the AUR.
 
 ## How it is built
 
-`tpm2-kira` is a fixed-version package: it builds a **release tarball** pinned by
+`kira` is a fixed-version package: it builds a **release tarball** pinned by
 checksum, not a git checkout. GitHub's tag tarball leaves out the
 [aSSH](../../assh/README.md) submodule, so aSSH comes as a second source, the
 commit the tag's submodule is at:
@@ -27,7 +27,7 @@ checksummed. The committed `pkgver`, `_tag` and `_assh` are the last release's
 and the submodule's current commit; install from the AUR:
 
 ```bash
-paru -S tpm2-kira      # or your preferred helper
+paru -S kira      # or your preferred helper
 ```
 
 `.SRCINFO` is deliberately **not** committed here. It is generated from the
@@ -68,12 +68,12 @@ the assh commit on aSSH's.
 ## What the package does and does not do
 
 - Installs the binary, the mkinitcpio install and post hooks, the initrd units
-  (`tpm2-kira.service`, `tpm2-kira-close.service`, `tpm2-kira-machine-id.service`,
-  `tpm2-kira-unlock.socket`)
-  and `/etc/tpm2-kira/control.conf`.
+  (`kira.service`, `kira-close.service`, `kira-machine-id.service`,
+  `kira-unlock.socket`)
+  and `/etc/kira/control.conf`.
 - Does **not** enable the units on the host. The mkinitcpio install hook
   enables it inside the initramfs image, which is the only place it should run.
-- Does **not** run `tpm2-kira setup` or `tpm2-kira slot add`. Sealing generates a
+- Does **not** run `kira setup` or `kira slot add`. Sealing generates a
   new TOTP secret and writes to TPM NVRAM, which must never happen as a side
   effect of installing a package or building an image. Run both once by hand,
   then rebuild the initramfs.

@@ -11,8 +11,8 @@ import (
 	"github.com/tpm2-trust/assh/hostkey"
 	"github.com/tpm2-trust/assh/persist"
 	"github.com/tpm2-trust/go-uefi-slim/uki"
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/sys/unix"
 )

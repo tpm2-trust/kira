@@ -6,8 +6,8 @@ import (
 	"crypto/sha256"
 	"fmt"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/signing"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpm2/transport"
@@ -63,7 +63,7 @@ func ValidateBlobIndex(index uint32) error {
 	return nil
 }
 
-// WriteToNVRAM writes data to one of tpm2-kira's NV indices below the
+// WriteToNVRAM writes data to one of kira's NV indices below the
 // slots - the boot settings (bootsettings.go) - writable with the signing
 // key alone (PolicySigned). A slot's record is not in NV: record.go.
 //
@@ -132,7 +132,7 @@ func WriteToNVRAM(tpmDev transport.TPM, index uint32, data []byte, pubKey crypto
 
 	// ── Point of no return: the index is replaced from here on ──
 
-	// What is at the index goes, whatever it is: the index is tpm2-kira's
+	// What is at the index goes, whatever it is: the index is kira's
 	// own place (replace, remove.go). NVUndefineSpace is the owner's and
 	// works whatever the index's read/write attributes.
 	if err := replaceAt(tpmDev, index); err != nil {

@@ -8,7 +8,7 @@ package nvslot
 // unified kernel image under Secure Boot has a command line nobody can
 // edit at boot - and takes effect at the next boot.
 //
-// Only 'tpm2-kira control' writes it, with the signing key (PolicySigned,
+// Only 'kira control' writes it, with the signing key (PolicySigned,
 // as the slots' blobs): nobody else can turn on verbose output on the
 // console. Anyone with TPM access can read it; it holds nothing secret.
 // It is not measured: it changes how much is logged, not what is trusted.
@@ -18,13 +18,13 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 
 	"github.com/google/go-tpm/tpm2/transport"
 )
 
 // BootSettingsIndex is the boot settings' NV index: the free start of
-// tpm2-kira's range, below the slots.
+// kira's range, below the slots.
 const BootSettingsIndex = 0x01803000
 
 // bootSettingsVersion is the format: [version:1][flags:1].

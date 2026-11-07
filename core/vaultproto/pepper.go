@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
+	"github.com/tpm2-trust/kira/core/attest"
 )
 
 // WrappedPepper is the operator's pepper as a release carries it, so that
@@ -23,7 +23,7 @@ type WrappedPepper struct {
 }
 
 // pepperAAD binds the ciphertext to its purpose; the device ID follows.
-const pepperAAD = "tpm2-kira/vault/pepper/v1"
+const pepperAAD = "kira/vault/pepper/v1"
 
 // WrapPepper wraps pepper for the TPM whose EK is ekPublic (TPMT_PUBLIC)
 // and the release key named releaseKeyName, for the device deviceID.

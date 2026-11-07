@@ -11,9 +11,9 @@ import (
 
 	"github.com/google/go-tpm/tpm2/transport"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
-	"github.com/tpm2-trust/tpm2-kira/internal/netstate"
-	"github.com/tpm2-trust/tpm2-kira/internal/totp"
+	"github.com/tpm2-trust/kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/netstate"
+	"github.com/tpm2-trust/kira/internal/totp"
 )
 
 func captureStdout(t *testing.T, f func()) string {
@@ -83,7 +83,7 @@ func TestTheConsoleShowsTheScreenWithSSH(t *testing.T) {
 // the release.
 func TestNetPartSaysTheState(t *testing.T) {
 	conf := t.TempDir() + "/remote.conf"
-	if err := os.WriteFile(conf, []byte("TPM2_KIRA_NET=\"dhcp\"\nTPM2_KIRA_NET_MATCH=\"nosuchif0\"\nTPM2_KIRA_NET_ANNOUNCE=\"off\"\n"), 0o644); err != nil {
+	if err := os.WriteFile(conf, []byte("KIRA_NET=\"dhcp\"\nKIRA_NET_MATCH=\"nosuchif0\"\nKIRA_NET_ANNOUNCE=\"off\"\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	defer func(p, r time.Duration) { netPoll, netRemind = p, r }(netPoll, netRemind)

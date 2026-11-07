@@ -12,10 +12,10 @@ import (
 	"github.com/google/go-tpm/tpm2/transport"
 
 	"github.com/tpm2-trust/go-tui-slim/secret"
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/core/attest"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/signing"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 )
 
 // The phone channel's secrets: the machine's static Noise key and the
@@ -45,7 +45,7 @@ var channelPCRs = []int{7}
 
 // ErrChannelMoved marks a boot before the close whose channel PCRs are not those
 // the channel's secrets are sealed to.
-var ErrChannelMoved = fmt.Errorf("PCR %s moved since the phone channel was sealed (a db or dbx update, Secure Boot switched, another signed system): only the signing key opens it, 'tpm2-kira slot approve' at a terminal seals it again", ChannelPCRList())
+var ErrChannelMoved = fmt.Errorf("PCR %s moved since the phone channel was sealed (a db or dbx update, Secure Boot switched, another signed system): only the signing key opens it, 'kira slot approve' at a terminal seals it again", ChannelPCRList())
 
 // ChannelPCRList names channelPCRs for a message.
 func ChannelPCRList() string { return measure.FormatPCRList(channelPCRs) }

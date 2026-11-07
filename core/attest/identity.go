@@ -73,7 +73,7 @@ func AKTemplateRSA() tpm2.TPMTPublic {
 }
 
 // EK templates are the TCG reference templates shipped with go-tpm. The EK
-// is created on demand and never persisted by tpm2-kira.
+// is created on demand and never persisted by kira.
 var (
 	EKTemplateECC = tpm2.ECCEKTemplate
 	EKTemplateRSA = tpm2.RSAEKTemplate

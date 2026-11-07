@@ -134,12 +134,12 @@ func TestResolveBTDepsRejectsPathTraversal(t *testing.T) {
 func TestParseAttestConfig(t *testing.T) {
 	cfg, err := parseAttest([]byte(`
 # comment
-TPM2_KIRA_ATTEST_ADAPTER="hci1"
+KIRA_ATTEST_ADAPTER="hci1"
 `))
 	if err != nil || cfg.Adapter != 1 {
 		t.Fatalf("parsed %+v %v", cfg, err)
 	}
-	if _, err := parseAttest([]byte("TPM2_KIRA_SOMETHING=1\n")); err == nil {
+	if _, err := parseAttest([]byte("KIRA_SOMETHING=1\n")); err == nil {
 		t.Fatal("unknown key accepted")
 	}
 	conf, err := LoadControlConfig(filepath.Join(t.TempDir(), "missing"))

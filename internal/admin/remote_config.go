@@ -15,39 +15,39 @@ import (
 )
 
 // The network and the SSH server of the boot image (docs/SSH.md):
-// the TPM2_KIRA_NET_* and TPM2_KIRA_SSH_* lines of control.conf. They are
+// the KIRA_NET_* and KIRA_SSH_* lines of control.conf. They are
 // set for the image alone and do not depend on /etc/systemd/network or
-// /etc/network/interfaces, which configure the running system ('tpm2-kira
-// control' only reads them for a suggestion). The image build ('tpm2-kira
+// /etc/network/interfaces, which configure the running system ('kira
+// control' only reads them for a suggestion). The image build ('kira
 // initramfs plan', called by the hooks) turns them into a systemd-networkd
-// file and a drop-in of tpm2-kira.service (mkinitcpio), or into
-// /etc/tpm2-kira/remote.conf for the boot scripts (initramfs-tools);
+// file and a drop-in of kira.service (mkinitcpio), or into
+// /etc/kira/remote.conf for the boot scripts (initramfs-tools);
 // control.conf itself stays out of the image. The
 // network is its own setting because more than the SSH server will use it
 // (an outgoing request for the phone salt, PLAN-VAULT.md).
 
 // NetConfig is the image's network.
 type NetConfig struct {
-	Mode      string   // TPM2_KIRA_NET: "off", "dhcp" or "static"
-	Match     string   // TPM2_KIRA_NET_MATCH: a MAC address or an interface name; "" every wired interface
-	Addresses []string // TPM2_KIRA_NET_ADDRESS: static only, CIDR, IPv4 and/or IPv6
-	Gateways  []string // TPM2_KIRA_NET_GATEWAY: static only
-	DNS       []string // TPM2_KIRA_NET_DNS
-	// DHCPID is TPM2_KIRA_NET_DHCP_ID: the client identifier the image
+	Mode      string   // KIRA_NET: "off", "dhcp" or "static"
+	Match     string   // KIRA_NET_MATCH: a MAC address or an interface name; "" every wired interface
+	Addresses []string // KIRA_NET_ADDRESS: static only, CIDR, IPv4 and/or IPv6
+	Gateways  []string // KIRA_NET_GATEWAY: static only
+	DNS       []string // KIRA_NET_DNS
+	// DHCPID is KIRA_NET_DHCP_ID: the client identifier the image
 	// asks the DHCP server with - "auto" (the running system's, read at
 	// the build), "mac", or one in hex (remote_dhcpid.go).
 	DHCPID string
-	// Announce is TPM2_KIRA_NET_ANNOUNCE: the boot tells the neighbours
+	// Announce is KIRA_NET_ANNOUNCE: the boot tells the neighbours
 	// and the gateways a new address (internal/netstate), so that no stale
 	// ARP or neighbour entry keeps the machine unreachable. On by default.
 	Announce bool
 }
 
-// SSHConfig is the image's SSH server, started by 'tpm2-kira-boot run' while
+// SSHConfig is the image's SSH server, started by 'kira-boot run' while
 // the code screen holds.
 type SSHConfig struct {
-	On   bool // TPM2_KIRA_SSH: on or off
-	Hold int  // TPM2_KIRA_SSH_HOLD: seconds the boot waits for a confirmation; 0 until one comes
+	On   bool // KIRA_SSH: on or off
+	Hold int  // KIRA_SSH_HOLD: seconds the boot waits for a confirmation; 0 until one comes
 	// Assh is assh.conf beside control.conf (remote_assh.go): the SSH CA
 	// and its slots, the port, the keys that may log in.
 	Assh config.Config
@@ -64,10 +64,10 @@ type RemoteConfig struct {
 
 // Who may log in to the SSH server at boot.
 const (
-	// DefaultSSHAuthorizedKeys is tpm2-kira's own file, not root's: what
+	// DefaultSSHAuthorizedKeys is kira's own file, not root's: what
 	// may log in at boot is tracked apart from who may log in to the
 	// running system, and control writes it.
-	DefaultSSHAuthorizedKeys = "/etc/tpm2-kira/authorized_keys"
+	DefaultSSHAuthorizedKeys = "/etc/kira/authorized_keys"
 )
 
 // DefaultRemoteConfig is a file without these lines: no network, no SSH.
@@ -91,42 +91,42 @@ func isMAC(s string) bool { return macRe.MatchString(s) }
 func parseRemoteLine(cfg *RemoteConfig, n int, key, val string) (handled bool, err error) {
 	fields := strings.Fields(val)
 	switch key {
-	case "TPM2_KIRA_NET":
+	case "KIRA_NET":
 		switch val {
 		case "", "off":
 			cfg.Net.Mode = "off"
 		case "dhcp", "static":
 			cfg.Net.Mode = val
 		default:
-			return true, fmt.Errorf("control.conf line %d: TPM2_KIRA_NET must be off, dhcp or static, not %q", n, val)
+			return true, fmt.Errorf("control.conf line %d: KIRA_NET must be off, dhcp or static, not %q", n, val)
 		}
-	case "TPM2_KIRA_NET_MATCH":
+	case "KIRA_NET_MATCH":
 		if val != "" && !isMAC(val) && !ifaceRe.MatchString(val) {
-			return true, fmt.Errorf("control.conf line %d: TPM2_KIRA_NET_MATCH must be a MAC address (aa:bb:cc:dd:ee:ff) or an interface name, not %q", n, val)
+			return true, fmt.Errorf("control.conf line %d: KIRA_NET_MATCH must be a MAC address (aa:bb:cc:dd:ee:ff) or an interface name, not %q", n, val)
 		}
 		cfg.Net.Match = strings.ToLower(val)
 		if !isMAC(val) {
 			cfg.Net.Match = val
 		}
-	case "TPM2_KIRA_NET_ADDRESS":
+	case "KIRA_NET_ADDRESS":
 		for _, a := range fields {
 			if _, _, err := net.ParseCIDR(a); err != nil {
-				return true, fmt.Errorf("control.conf line %d: TPM2_KIRA_NET_ADDRESS takes addresses with their prefix (192.0.2.10/24), not %q", n, a)
+				return true, fmt.Errorf("control.conf line %d: KIRA_NET_ADDRESS takes addresses with their prefix (192.0.2.10/24), not %q", n, a)
 			}
 		}
 		cfg.Net.Addresses = fields
-	case "TPM2_KIRA_NET_GATEWAY", "TPM2_KIRA_NET_DNS":
+	case "KIRA_NET_GATEWAY", "KIRA_NET_DNS":
 		for _, a := range fields {
 			if net.ParseIP(a) == nil {
 				return true, fmt.Errorf("control.conf line %d: %s takes IP addresses, not %q", n, key, a)
 			}
 		}
-		if key == "TPM2_KIRA_NET_GATEWAY" {
+		if key == "KIRA_NET_GATEWAY" {
 			cfg.Net.Gateways = fields
 		} else {
 			cfg.Net.DNS = fields
 		}
-	case "TPM2_KIRA_NET_DHCP_ID":
+	case "KIRA_NET_DHCP_ID":
 		switch val {
 		case "", "auto":
 			cfg.Net.DHCPID = "auto"
@@ -134,32 +134,32 @@ func parseRemoteLine(cfg *RemoteConfig, n int, key, val string) (handled bool, e
 			cfg.Net.DHCPID = val
 		default:
 			if _, err := parseClientID(val); err != nil {
-				return true, fmt.Errorf("control.conf line %d: TPM2_KIRA_NET_DHCP_ID must be %v", n, err)
+				return true, fmt.Errorf("control.conf line %d: KIRA_NET_DHCP_ID must be %v", n, err)
 			}
 			cfg.Net.DHCPID = strings.ToLower(val)
 		}
-	case "TPM2_KIRA_NET_ANNOUNCE":
+	case "KIRA_NET_ANNOUNCE":
 		switch val {
 		case "", "on":
 			cfg.Net.Announce = true
 		case "off":
 			cfg.Net.Announce = false
 		default:
-			return true, fmt.Errorf("control.conf line %d: TPM2_KIRA_NET_ANNOUNCE must be on or off, not %q", n, val)
+			return true, fmt.Errorf("control.conf line %d: KIRA_NET_ANNOUNCE must be on or off, not %q", n, val)
 		}
-	case "TPM2_KIRA_SSH":
+	case "KIRA_SSH":
 		switch val {
 		case "", "off":
 			cfg.SSH.On = false
 		case "on":
 			cfg.SSH.On = true
 		default:
-			return true, fmt.Errorf("control.conf line %d: TPM2_KIRA_SSH must be on or off, not %q", n, val)
+			return true, fmt.Errorf("control.conf line %d: KIRA_SSH must be on or off, not %q", n, val)
 		}
-	case "TPM2_KIRA_SSH_HOLD":
+	case "KIRA_SSH_HOLD":
 		h, err := strconv.Atoi(val)
 		if err != nil || h < 0 {
-			return true, fmt.Errorf("control.conf line %d: TPM2_KIRA_SSH_HOLD must be seconds (0: until a confirmation comes), not %q", n, val)
+			return true, fmt.Errorf("control.conf line %d: KIRA_SSH_HOLD must be seconds (0: until a confirmation comes), not %q", n, val)
 		}
 		cfg.SSH.Hold = h
 	default:
@@ -176,7 +176,7 @@ func (r RemoteConfig) Problem() string {
 		return p
 	}
 	if r.SSH.On && r.Net.Mode == "off" {
-		return "TPM2_KIRA_SSH=on needs a network in the image (TPM2_KIRA_NET=dhcp or static)"
+		return "KIRA_SSH=on needs a network in the image (KIRA_NET=dhcp or static)"
 	}
 	return ""
 }
@@ -185,9 +185,9 @@ func (r RemoteConfig) Problem() string {
 func (n NetConfig) problem() string {
 	switch {
 	case n.Mode == "static" && len(n.Addresses) == 0:
-		return "TPM2_KIRA_NET=static needs TPM2_KIRA_NET_ADDRESS"
+		return "KIRA_NET=static needs KIRA_NET_ADDRESS"
 	case n.Mode == "static" && n.Match == "":
-		return "TPM2_KIRA_NET=static needs TPM2_KIRA_NET_MATCH (a MAC address or an interface name): one static address on every interface would collide"
+		return "KIRA_NET=static needs KIRA_NET_MATCH (a MAC address or an interface name): one static address on every interface would collide"
 	}
 	return ""
 }
@@ -199,8 +199,8 @@ func (n NetConfig) NetworkdFile(id dhcpIdentity) string {
 		return ""
 	}
 	var b strings.Builder
-	b.WriteString("# Written by 'tpm2-kira initramfs plan' from /etc/tpm2-kira/control.conf\n")
-	b.WriteString("# (TPM2_KIRA_NET_*), for the boot image alone.\n\n[Match]\n")
+	b.WriteString("# Written by 'kira initramfs plan' from /etc/kira/control.conf\n")
+	b.WriteString("# (KIRA_NET_*), for the boot image alone.\n\n[Match]\n")
 	switch {
 	case isMAC(n.Match):
 		fmt.Fprintf(&b, "MACAddress=%s\n", n.Match)
@@ -244,15 +244,15 @@ func (n NetConfig) NetworkdFile(id dhcpIdentity) string {
 func (r RemoteConfig) Lines() [][2]string {
 	onOff := map[bool]string{true: "on", false: "off"}
 	return [][2]string{
-		{"TPM2_KIRA_NET", r.Net.Mode},
-		{"TPM2_KIRA_NET_MATCH", r.Net.Match},
-		{"TPM2_KIRA_NET_ADDRESS", quoteList(r.Net.Addresses)},
-		{"TPM2_KIRA_NET_GATEWAY", quoteList(r.Net.Gateways)},
-		{"TPM2_KIRA_NET_DNS", quoteList(r.Net.DNS)},
-		{"TPM2_KIRA_NET_DHCP_ID", r.Net.DHCPID},
-		{"TPM2_KIRA_NET_ANNOUNCE", onOff[r.Net.Announce]},
-		{"TPM2_KIRA_SSH", onOff[r.SSH.On]},
-		{"TPM2_KIRA_SSH_HOLD", strconv.Itoa(r.SSH.Hold)},
+		{"KIRA_NET", r.Net.Mode},
+		{"KIRA_NET_MATCH", r.Net.Match},
+		{"KIRA_NET_ADDRESS", quoteList(r.Net.Addresses)},
+		{"KIRA_NET_GATEWAY", quoteList(r.Net.Gateways)},
+		{"KIRA_NET_DNS", quoteList(r.Net.DNS)},
+		{"KIRA_NET_DHCP_ID", r.Net.DHCPID},
+		{"KIRA_NET_ANNOUNCE", onOff[r.Net.Announce]},
+		{"KIRA_SSH", onOff[r.SSH.On]},
+		{"KIRA_SSH_HOLD", strconv.Itoa(r.SSH.Hold)},
 	}
 }
 

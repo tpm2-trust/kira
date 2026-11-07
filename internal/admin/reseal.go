@@ -10,14 +10,14 @@ import (
 	"os"
 	"strings"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
-	"github.com/tpm2-trust/tpm2-kira/internal/untrusted"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/signing"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/untrusted"
 
 	"github.com/tpm2-trust/assh/hostkey"
-	"github.com/tpm2-trust/tpm2-kira/internal/machineid"
+	"github.com/tpm2-trust/kira/internal/machineid"
 )
 
 // ResealCommand is the top-level entry point for the reseal CLI command.
@@ -201,7 +201,7 @@ func resealSSHCA(controlPath, tpmPath, privKeyPath string) error {
 	if err := signing.PrepareSigningKey(signer); err != nil {
 		var cause *signing.TokenUnavailableError
 		if errors.As(err, &cause) {
-			fmt.Printf("tpm2-kira: SKIPPED: the SSH CA is not approved for the next boot - the signing key was not available.\n  Reason: %s\n  The next boot serves a temporary host key unless slot 1 still fits; run 'sudo tpm2-kira slot approve' with the key at hand.\n", cause.Reason)
+			fmt.Printf("kira: SKIPPED: the SSH CA is not approved for the next boot - the signing key was not available.\n  Reason: %s\n  The next boot serves a temporary host key unless slot 1 still fits; run 'sudo kira slot approve' with the key at hand.\n", cause.Reason)
 			return fmt.Errorf("%w: the SSH CA", ErrResealSkipped)
 		}
 		return fmt.Errorf("SSH CA: %w", err)
@@ -266,7 +266,7 @@ func PrintResealSkipped(w io.Writer, skipped []*ResealSkippedError) {
 	for _, s := range skipped {
 		slots = append(slots, fmt.Sprintf("#%d", nvslot.SlotNumber(s.NVIndex)))
 	}
-	fmt.Fprintln(w, "tpm2-kira: SKIPPED: the approval did not happen — the signing key was not available.")
+	fmt.Fprintln(w, "kira: SKIPPED: the approval did not happen — the signing key was not available.")
 	fmt.Fprintf(w, "  Key file:      %s (%s)\n", first.KeyFile, first.Cause.Token)
 	fmt.Fprintf(w, "  Reason:        %s\n", indentContinuation(first.Cause.Reason, "                 "))
 	fmt.Fprintf(w, "  Slots:         %s (nothing was written; the sealed secrets are intact)\n", strings.Join(slots, ", "))
@@ -277,7 +277,7 @@ func PrintResealSkipped(w io.Writer, skipped []*ResealSkippedError) {
 	fmt.Fprintln(w, "                 TOTP code. That is expected here; it is not evidence of tampering.")
 	fmt.Fprintln(w, "  To fix:        plug in the YubiKey and run, with the PIN typed when asked")
 	fmt.Fprintln(w, "                 or given with --pin-fd N:")
-	fmt.Fprintln(w, "                     sudo tpm2-kira slot approve")
+	fmt.Fprintln(w, "                     sudo kira slot approve")
 }
 
 func indentContinuation(s, indent string) string {
@@ -324,7 +324,7 @@ func Reseal(tpmPath, pcrsStr string, nvramIndex uint32, pubKeyPath, privKeyPath 
 				"cannot approve: the stored blob is version %d but this build writes version %d.\n"+
 					"slot approve preserves the existing blob, so it cannot upgrade the format.\n"+
 					"Seal again to replace it (this generates a NEW TOTP secret, so re-enrol your authenticator):\n"+
-					"    tpm2-kira slot add --nvram 0x%08X",
+					"    kira slot add --nvram 0x%08X",
 				bve.FoundVersion, bve.RequiredVersion, nvramIndex)
 		}
 		return fmt.Errorf("failed to unmarshal sealed data: %w", err)
@@ -427,7 +427,7 @@ type resealKeys struct {
 //
 // The blob is not trusted until its signature is verified, and anyone with
 // TPM access can replace it (SECURITY-BACKGROUND §9). The key that verifies
-// it therefore comes from --privkey or tpm2-kira's default location; the
+// it therefore comes from --privkey or kira's default location; the
 // blob names no key file.
 func resolveResealKeys(sealedData []byte, sealedBlob *nvslot.SealedBlob, privKeyPath, pubKeyPath string, debug bool) (*resealKeys, error) {
 	keys := &resealKeys{privKeyPath: privKeyPath}
@@ -437,7 +437,7 @@ func resolveResealKeys(sealedData []byte, sealedBlob *nvslot.SealedBlob, privKey
 	if _, err := os.Lstat(keys.privKeyPath); errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("cannot approve: no signing private key at %s.\n"+
 			"  The key verifies the blob and authorizes the NV write, so slot approve needs it.\n"+
-			"  Pass --privkey <path>, or create the default key pair with 'tpm2-kira setup'.",
+			"  Pass --privkey <path>, or create the default key pair with 'kira setup'.",
 			keys.privKeyPath)
 	}
 

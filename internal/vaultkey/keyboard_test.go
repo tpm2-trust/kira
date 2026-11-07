@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
+	"github.com/tpm2-trust/kira/core/attest"
 )
 
 // Each prompt gets a copy of the layout, which it wipes; the next prompt (Debian's tries=) gets the

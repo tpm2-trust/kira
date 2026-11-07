@@ -20,13 +20,13 @@ Decisions already taken (§14 records the rest):
 - **No backwards compatibility.** The project is in developer mode, so there is
   no migration path from a PEM key to a token beyond running setup again and
   sealing again.
-- **`TPM2_KIRA_PIN`** is the environment variable, matching the
-  `TPM2_KIRA_*` convention of control.conf.
+- **`KIRA_PIN`** is the environment variable, matching the
+  `KIRA_*` convention of control.conf.
 - **A key file on disk stays the default.** The YubiKey is opt-in. `setup`
   with no flags generates a PEM pair exactly as it does today, `--privkey`
   without a scheme is still a path, and nothing about an existing installation
   changes.
-- **The slot must already hold a key.** tpm2-kira never writes to the token —
+- **The slot must already hold a key.** kira never writes to the token —
   no key generation, no certificate writing, no management-key handling. This
   is what makes sharing a slot with sbctl work, and it roughly halves the PIV
   code.
@@ -35,13 +35,13 @@ Decisions already taken (§14 records the rest):
 
 ## 1. Goal
 
-Today the PolicySigned recovery key lives at `/etc/tpm2-kira/keys/seal.key`
+Today the PolicySigned recovery key lives at `/etc/kira/keys/seal.key`
 as a PEM file on the encrypted root filesystem. The goal is to move it into a
 YubiKey PIV slot, so that:
 
 - the private key is **generated on the token and never exists off it**;
 - using it requires the physical token **and** a PIN, supplied via
-  `TPM2_KIRA_PIN`;
+  `KIRA_PIN`;
 - the token is needed **only for `slot approve`** (and `slot add`/`setup`), never for
   `reveal`, `run`, `slot info` or anything that happens in the initramfs;
 - when the token is absent, `slot approve` **warns instead of failing hard**, and the
@@ -170,7 +170,7 @@ not worth building until someone needs it.
 
 ### 4.3 Applet layer: PIV, strictly read-and-sign
 
-New package `internal/piv` on top of the transport. **tpm2-kira never writes to
+New package `internal/piv` on top of the transport. **kira never writes to
 the token.** The slot must already hold a key; if it does not, the command says
 so and stops. Four APDUs are all that is needed:
 
@@ -198,39 +198,39 @@ That is a large amount of security-critical code whose only purpose would be to
 reimplement `ykman` less well, in a program whose signing path has to work when
 everything else has already gone wrong.
 
-It also buys a property worth having in its own right: **tpm2-kira cannot alter
+It also buys a property worth having in its own right: **kira cannot alter
 or brick the token.** A bug in this code cannot destroy a Secure Boot signing
 key that happens to live in the same slot. Given that sharing a slot with sbctl
 is an explicit goal, read-only is the right posture.
 
-Enrolment is therefore a documented `ykman` procedure, not a tpm2-kira feature:
+Enrolment is therefore a documented `ykman` procedure, not a kira feature:
 
 ```bash
 # only if the slot is empty — skip entirely when reusing an sbctl key
 ykman piv keys generate --algorithm ECCP256 \
     --pin-policy ONCE --touch-policy NEVER 9a /tmp/seal.pub
-ykman piv certificates generate --subject "CN=tpm2-kira" 9a /tmp/seal.pub
+ykman piv certificates generate --subject "CN=kira" 9a /tmp/seal.pub
 
-sudo tpm2-kira setup --yubikey
+sudo kira setup --yubikey
 ```
 
 `setup --yubikey` is read-only *towards the token*: it reads the slot and
 reports the key type and the PIN and touch policies. On the filesystem it
-writes two files: the public key to `/etc/tpm2-kira/keys/seal.pub`, and the
-token stub (§5) to `/etc/tpm2-kira/keys/seal.key`. After that, every
+writes two files: the public key to `/etc/kira/keys/seal.pub`, and the
+token stub (§5) to `/etc/kira/keys/seal.key`. After that, every
 command that already defaults to `seal.key` uses the token without any new
 flag. Whether the TPM accepts the key is checked by `slot add`, which loads it
 before anything is written.
 
 ### 4.4 Slots, algorithms and policies — detect, do not dictate
 
-Because the slot is pre-populated, tpm2-kira takes what it finds. It supports
+Because the slot is pre-populated, kira takes what it finds. It supports
 any PIV slot (`9a`, `9c`, `9d`, `9e` and the retired slots `82`–`95`) and any
 key the TPM can load: RSA-2048, ECC P-256 and ECC P-384 (SECURITY-BACKGROUND
 §7). `setup` and `yubikey list` report what is there and warns about what will hurt, rather than
 insisting on one configuration.
 
-**For a slot created specifically for tpm2-kira**, `9a` with ECCP256, PIN
+**For a slot created specifically for kira**, `9a` with ECCP256, PIN
 policy `ONCE` and touch policy `NEVER` remains the recommendation, and the
 `ykman` line above produces exactly that.
 
@@ -252,7 +252,7 @@ rather than discovered one touch at a time.
 
 ### 4.5 The public key stays on disk
 
-The slot's public key is cached at `/etc/tpm2-kira/keys/seal.pub`, and its
+The slot's public key is cached at `/etc/kira/keys/seal.pub`, and its
 path is stored in the blob exactly as it is today. Blob-signature verification,
 the PolicyOR digest and `slot info` then all work with the token in a drawer. The
 token is only ever needed to *sign*.
@@ -268,7 +268,7 @@ document describing the token key (`slot`, `algorithm`, `pinPolicy`,
 Everything that reads the key by path keeps working; only the loader learns to
 recognise the second format.
 
-tpm2-kira does the same with `seal.key`, and adds the one thing sbctl leaves
+kira does the same with `seal.key`, and adds the one thing sbctl leaves
 out: **the serial number**. sbctl always uses whichever card it finds first in
 the signature slot, which is fine for a tool that runs interactively but not
 for an approval hook. With the serial in the file, "wrong YubiKey plugged in" is
@@ -327,7 +327,7 @@ outside the blob, the question is whether an attacker who can replace
 - The stub's `publicKey` is cross-checked against `seal.pub` and against the
   key used to verify the blob signature, so a swapped stub fails before any
   PIN is sent.
-- Writing to `/etc/tpm2-kira/keys/` already requires root. Whoever can do
+- Writing to `/etc/kira/keys/` already requires root. Whoever can do
   that can also replace a PEM `seal.key`, which is the status quo.
 
 The worst a tampered stub can do is make `slot approve` fail, which is the §7
@@ -341,9 +341,9 @@ degradation path: `SKIPPED:`, and the NV index is left untouched.
 
 Implemented in `readPIN` (`internal/signing/yubikey.go`):
 
-1. `TPM2_KIRA_PIN` environment variable — an explicit override.
-2. The `TPM2_KIRA_PIN` line in `/etc/tpm2-kira/control.conf` (§9.1), the
-   one configuration file, which `tpm2-kira control` writes (the signing key
+1. `KIRA_PIN` environment variable — an explicit override.
+2. The `KIRA_PIN` line in `/etc/kira/control.conf` (§9.1), the
+   one configuration file, which `kira control` writes (the signing key
    step: the PIN is checked on the token first). The same line serves the
    unattended approve the hooks run, so the PIN lives in one place and a
    manual slot add or slot approve does not ask for it again. When the file can be
@@ -354,7 +354,7 @@ Implemented in `readPIN` (`internal/signing/yubikey.go`):
    terminal.
 4. Nothing available → the degradation path of §7.
 
-A rejected PIN names its source ("PIN from /etc/tpm2-kira/control.conf"),
+A rejected PIN names its source ("PIN from /etc/kira/control.conf"),
 because a stale line in the file is the likely cause and it costs one attempt
 per run. A `--pin-file` option is not planned: the line covers it.
 
@@ -383,7 +383,7 @@ Rules:
 
 A slot shared with sbctl is probably `9c`, where PIV mandates PIN policy
 `ALWAYS`: the card discards the verified state after each cryptographic
-operation, so every signature needs its own `VERIFY`. tpm2-kira holds the PIN
+operation, so every signature needs its own `VERIFY`. kira holds the PIN
 for the lifetime of the process and re-verifies transparently before each
 signature.
 
@@ -399,7 +399,7 @@ during it.
 
 ### What the environment variable costs
 
-`TPM2_KIRA_PIN` is convenient and conventional, but it is worth writing down
+`KIRA_PIN` is convenient and conventional, but it is worth writing down
 plainly: it is visible in `/proc/<pid>/environ` (root only — `slot approve` is already
 root, so no privilege boundary is crossed), it lands in shell history if typed
 inline, and it is inherited by child processes. The mitigating fact is that the
@@ -433,8 +433,8 @@ and stays a `FAILED:`. In code, every such reason is a `TokenUnavailableError`
    the `FAILED:` marker:
 
 ```
-tpm2-kira: SKIPPED: the approval did not happen — the signing key was not available.
-  Key file:      /etc/tpm2-kira/keys/seal.key (YubiKey 12345678, slot 9a)
+kira: SKIPPED: the approval did not happen — the signing key was not available.
+  Key file:      /etc/kira/keys/seal.key (YubiKey 12345678, slot 9a)
   Reason:        no YubiKey with serial 12345678 is present
   Slots:         #0, #1 (nothing was written; the sealed secrets are intact)
   Sealed PCRs:   0,7
@@ -443,8 +443,8 @@ tpm2-kira: SKIPPED: the approval did not happen — the signing key was not avai
                  update — the next boot reports a PCR MISMATCH and shows no
                  TOTP code. That is expected here; it is not evidence of tampering.
   To fix:        plug in the YubiKey and run, with the PIN typed when asked
-                 or set in TPM2_KIRA_PIN:
-                     sudo tpm2-kira slot approve
+                 or set in KIRA_PIN:
+                     sudo kira slot approve
 ```
 
    The PCR line lists the PCRs the blob is sealed to. It does not compare them
@@ -458,12 +458,12 @@ there is nothing to preserve, and a half-sealed slot is worse than no slot.
 
 ### Making the warning impossible to miss
 
-- **Done:** `initramfs/mkinitcpio/post/sd-tpm2-kira` has a `SKIPPED:` branch
+- **Done:** `initramfs/mkinitcpio/post/sd-kira` has a `SKIPPED:` branch
   that prints the block framed, to stderr, and still exits 0.
 - Debian's `post-update.d` hook never approves (every PCR source there is read
   from the running system, so only an approval after the next boot is correct);
   it needs no change. The manual approve after boot asks for the PIN.
-- Not done: a stamp file for the skip, and **`tpm2-kira slot info` reporting
+- Not done: a stamp file for the skip, and **`kira slot info` reporting
   staleness** — the natural place to notice "I forgot to approve" before
   rebooting.
 
@@ -472,14 +472,14 @@ there is nothing to preserve, and a half-sealed slot is worse than no slot.
 ## 8. CLI surface
 
 ```
-tpm2-kira setup                     # probe; if a usable key is found, ask
+kira setup                     # probe; if a usable key is found, ask
                                     # (YubiKey slot or local key files)
-tpm2-kira setup --yubikey[=SERIAL] [--slot SLOT]
+kira setup --yubikey[=SERIAL] [--slot SLOT]
                                     # use the token without asking
-tpm2-kira setup --local             # local key files without probing or asking
-tpm2-kira yubikey list              # readers, serials, firmware, populated
+kira setup --local             # local key files without probing or asking
+kira yubikey list              # readers, serials, firmware, populated
                                     # slots, and which are usable; read-only
-tpm2-kira slot approve --require-key      # fail instead of SKIPPED (§7)
+kira slot approve --require-key      # fail instead of SKIPPED (§7)
 ```
 
 With a token, setup writes only `seal.pub` (the token's public key) and
@@ -495,7 +495,7 @@ explicitly. Sealing stays a separate `slot add` step.
 
 Deliberately absent: `adopt` (setup does it), `status` and `export-pubkey`
 (`list` and `seal.pub` cover them), and `generate`, `import` and `reset`.
-tpm2-kira only ever reads from and signs with the token; populating a slot is
+kira only ever reads from and signs with the token; populating a slot is
 `ykman`'s job.
 
 ### 8.1 `setup` looks for a YubiKey and asks
@@ -515,7 +515,7 @@ RSA-2048, ECC P-256 or ECC P-384. The check is static; `slot add` confirms it wi
 candidate, and can always choose local key files:
 
 ```
-Looking for a YubiKey... found one suitable for tpm2-kira:
+Looking for a YubiKey... found one suitable for kira:
   YubiKey serial 12345678, firmware 5.7.1 (Yubico YubiKey OTP+FIDO+CCID 00)
     slot 9a  ECCP256  PIN once    touch never   <- recommended
     slot 9c  RSA2048  PIN always  touch always
@@ -525,7 +525,7 @@ Where should the signing key live?
   1) YubiKey 12345678, slot 9a  (ECCP256, PIN once, touch never)  [recommended]
   2) YubiKey 12345678, slot 9c  (RSA2048, PIN always, touch always)
   3) YubiKey 12345678, slot 9d  (ECCP256, PIN never, touch never)  [no PIN required: insecure]
-  4) Local key files in /etc/tpm2-kira/keys (the private key is stored on disk)
+  4) Local key files in /etc/kira/keys (the private key is stored on disk)
 Choice [1]:
 ```
 
@@ -546,17 +546,17 @@ itself:
 ```
 Setup did not use the PIN; sealing does. Stored in one place, every step finds
 it - slot add, slot approve, and the approval the initramfs hooks run after every kernel
-or initramfs update: 'tpm2-kira control' stores it (the signing key step),
-as TPM2_KIRA_PIN='<your PIN>' in /etc/tpm2-kira/control.conf, readable by root alone.
+or initramfs update: 'kira control' stores it (the signing key step),
+as KIRA_PIN='<your PIN>' in /etc/kira/control.conf, readable by root alone.
 Without it, slot add and slot approve ask for the PIN on the terminal (or take it from
-TPM2_KIRA_PIN: read -rs TPM2_KIRA_PIN && export TPM2_KIRA_PIN), and the automatic approval
+KIRA_PIN: read -rs KIRA_PIN && export KIRA_PIN), and the automatic approval
 reports SKIPPED: the next boot then shows a PCR mismatch until you run
-'tpm2-kira slot approve' with the YubiKey plugged in.
+'kira slot approve' with the YubiKey plugged in.
 ```
 
 This is printed where `/etc/mkinitcpio.conf` exists. Without mkinitcpio, setup
-explains the terminal prompt and `read -rs TPM2_KIRA_PIN && export
-TPM2_KIRA_PIN` instead; when the file already sets the PIN, it says so.
+explains the terminal prompt and `read -rs KIRA_PIN && export
+KIRA_PIN` instead; when the file already sets the PIN, it says so.
 
 **No suitable key** (PIV disabled, empty slots, or only keys the TPM cannot
 load such as RSA-4096 or Ed25519): each token is listed with the reason, the
@@ -581,15 +581,15 @@ Much smaller than it would have been with a split binary:
 | `debian/control` | `Suggests: pcscd` — a *runtime* suggestion, not a link-time dependency |
 | `packaging/aur/PKGBUILD` | `optdepends=('pcsclite: ...')` |
 | `initramfs/*/hooks/*` | unchanged |
-| `initramfs/mkinitcpio/post/sd-tpm2-kira` | `SKIPPED:` branch (done) |
+| `initramfs/mkinitcpio/post/sd-kira` | `SKIPPED:` branch (done) |
 | `initramfs/mkinitcpio/mkinitcpio.conf.example` | says the PIN is in `control.conf`, not here (done) |
-| `initramfs/initramfs-tools/post-update.d/tpm2-kira` | unchanged: it does not approve |
+| `initramfs/initramfs-tools/post-update.d/kira` | unchanged: it does not approve |
 
 ### 9.1 Where the PIN lives for unattended approving
 
-**`/etc/tpm2-kira/control.conf`, as a plain `TPM2_KIRA_PIN='...'` line**,
+**`/etc/kira/control.conf`, as a plain `KIRA_PIN='...'` line**,
 next to the unlock mode and the radio settings: the one configuration file,
-written by `tpm2-kira control` and read by everything else. tpm2-kira reads
+written by `kira control` and read by everything else. kira reads
 the file itself (§6), in a manual slot add or slot approve and in the approval the hooks
 run after an image rebuild, which runs as root on the host; the mkinitcpio
 post hook and Debian's hook need no variable from their own environment.
@@ -606,7 +606,7 @@ file that does not load is shown red by `control` and warned about by the
 image build, which then builds with the defaults rather than stopping.
 
 **Warning when the automatic approval will lack the PIN (implemented).** Right
-after a manual `slot add` or `slot approve` has had the PIN accepted, tpm2-kira warns,
+after a manual `slot add` or `slot approve` has had the PIN accepted, kira warns,
 once per run, **only** when `control.conf` holds no usable PIN. `setup` says
 "stores the PIN" instead of the instructions when the line exists, and tells
 to `chmod 600` when the file is loose; `control` lists a loose file under
@@ -717,7 +717,7 @@ for file-based keys — SECURITY-BACKGROUND §11 argues that pointing `--privkey
 at the sbctl DB key means "the same key that signs boot components also
 authorises TOTP re-sealing, with no additional secret to manage". Moving that
 shared key onto a token strengthens it in the same way it strengthens the
-dedicated key, and the read-only posture of §4.3 means tpm2-kira cannot damage
+dedicated key, and the read-only posture of §4.3 means kira cannot damage
 the Secure Boot key it is borrowing.
 
 Two consequences, one of them a genuine operational trap:
@@ -736,10 +736,10 @@ Two consequences, one of them a genuine operational trap:
 
   ```
   1. replace the slot key K_old -> K_new       (PCR 7 has not moved yet)
-  2. tpm2-kira slot approve --pubkey <K_new.pub>     unseals via the PCR branch,
+  2. kira slot approve --pubkey <K_new.pub>     unseals via the PCR branch,
                                                re-binds the signed branch to K_new
   3. sbctl enroll-keys with K_new              PCR 7 moves now
-  4. reboot -> PCR mismatch -> tpm2-kira slot approve  unseals via PolicySigned
+  4. reboot -> PCR mismatch -> kira slot approve  unseals via PolicySigned
                                                  with K_new, re-binds PCR 7
   ```
 
@@ -754,7 +754,7 @@ Two consequences, one of them a genuine operational trap:
   instead of failing as an obscure TPM policy error.
 
   The simplest way to avoid the whole problem is to **not share the slot**: put
-  the sbctl key in `9c` and a dedicated tpm2-kira key in `9a` on the same token.
+  the sbctl key in `9c` and a dedicated kira key in `9a` on the same token.
   One device, two independent keys, no rotation coupling. Worth recommending as
   the default and documenting slot sharing as the deliberate choice it is.
 
@@ -764,13 +764,13 @@ Two consequences, one of them a genuine operational trap:
   ask the card to sign for the lifetime of the card session. Closing the session
   explicitly when the command finishes is cheap and should be done.
   `CACHED` or `ALWAYS` shrink the window further at a usability cost.
-- *Token plugged in at boot.* tpm2-kira never touches the key in `reveal`, but
+- *Token plugged in at boot.* kira never touches the key in `reveal`, but
   an attacker with physical access to a machine that has the token permanently
   inserted is in a different position than one facing a bare machine. Docs
   should say: remove the token when you are not approving. That is the entire
   point of it being removable.
 - *PIN capture.* A root-level attacker on a machine where the PIN sits in
-  `/etc/tpm2-kira/control.conf` has the PIN. They
+  `/etc/kira/control.conf` has the PIN. They
   still need the token. This is a deliberate trade and should read as one.
 - *Loss of the token is loss of recovery.* A lost key file is restorable from a
   backup; a lost token is not, and the blob's own docs call the signing key "the
@@ -794,14 +794,14 @@ Ranked by how much I think they matter.
    public area stores the size as a uint16, so a blob over 65535 bytes was
    silently truncated by the conversion), a read-back comparison after the last
    chunk, and `stashUnwrittenBlob`, which writes the blob to
-   `/etc/tpm2-kira/recovery/` if a step after the undefine fails — the
+   `/etc/kira/recovery/` if a step after the undefine fails — the
    sealed object's private area is wrapped by the TPM's deterministic primary
    key, so the secret survives in those bytes even though the index is gone.
 
-   Follow-up: a `tpm2-kira slot restore --from <file>` command to write a
+   Follow-up: a `kira slot restore --from <file>` command to write a
    stashed blob back. Deferred deliberately — it needs the key resolution that
    step 1 of §15 is about to rewrite.
-2. **`tpm2-kira slot info` should say whether the blob is stale.** The direct
+2. **`kira slot info` should say whether the blob is stale.** The direct
    consequence of "approve may legitimately be skipped" is that users need a way
    to ask "am I about to reboot into a mismatch?" that is not "reboot and see".
 3. **Key fingerprint and serial pinning in the key file** (the stub's `serial`
@@ -830,13 +830,13 @@ Ranked by how much I think they matter.
 |---|---|---|
 | 1 | Split binary vs. pure-Go PC/SC | **decided: pure Go, one binary** |
 | 2 | Where the token reference lives | **decided: in the key file, sbctl-style JSON stub with serial; blob format unchanged** (§5) |
-| 3 | Environment variable name | **decided: `TPM2_KIRA_PIN`** |
-| 4 | Token must be pre-populated | **decided: yes — tpm2-kira never writes to the token** |
+| 3 | Environment variable name | **decided: `KIRA_PIN`** |
+| 4 | Token must be pre-populated | **decided: yes — kira never writes to the token** |
 | 4a | Touch policy | detected, not dictated; `NEVER` recommended for a dedicated slot |
 | 5 | Backup for a lost token | proposed: PEM backup + switch procedure; three-branch PolicyOR would need its own blob bump |
-| 6 | Where the PIN for unattended approving lives | **a plain `TPM2_KIRA_PIN=` line in `/etc/tpm2-kira/control.conf`, written by `control`, `chmod 600`, never in the image, read from its own line for the signer alone** (§9.1) |
+| 6 | Where the PIN for unattended approving lives | **a plain `KIRA_PIN=` line in `/etc/kira/control.conf`, written by `control`, `chmod 600`, never in the image, read from its own line for the signer alone** (§9.1) |
 | 8 | File-backed key remains the default | **decided: yes — the token is opt-in** |
-| 9 | `TPM2_KIRA_EXPLAIN_MISMATCH` in `initramfs.conf` | proposed; carries no secret, unlike the PIN |
+| 9 | `KIRA_EXPLAIN_MISMATCH` in `initramfs.conf` | proposed; carries no secret, unlike the PIN |
 | 7 | Token detection in `setup` | **decided: always probe, read-only and PIN-free; with a usable key, ask on the terminal (token slot or local files), even for one candidate; report "none found" and create local files otherwise** (§8.1) |
 | 10 | Keys without a PIN | **decided: allowed, with a warning in report, menu and after choosing** |
 
@@ -879,20 +879,20 @@ Branch `feat/yubikey-v2`, 2026-09-30.
 | pcscd client (pure Go): version handshake with 4:6 → 4:4 fallback, context, reader states, connect, transactions, transmit, reset on disconnect | `internal/pcsc` | golden byte vectors and struct sizes; a scripted fake daemon (4:6, 4:4, refused 4:3, silent daemon timeout); **live against pcscd 2.5.2** (`TestLiveDaemon`, handshake, reader list and a connect error round trip) |
 | PIV read-and-sign: SELECT, GET VERSION, GET SERIAL, GET METADATA, GET DATA (certificate), VERIFY, GENERAL AUTHENTICATE; command and response chaining; PKCS #1 v1.5 padding for RSA | `internal/piv` | against `internal/piv/pivtest`, a software YubiKey that answers APDUs |
 | Key file stub, `LoadSigningPrivateKey`, lazy token signer | `internal/signing/yubikey.go`, `internal/signing/signingkey.go` | `internal/admin/yubikey_test.go` |
-| PIN: `TPM2_KIRA_PIN` or a no-echo prompt on `/dev/tty`; one session per process; wrong PIN poisons the session; nothing tried with one attempt left; retries shown when below 3; PIN policy `always` re-verified transparently; card reset on exit | `internal/signing/yubikey.go`, `main.go` | wrong PIN over four "slots" costs one attempt; last attempt never sent; no PIN costs none; policy `always` keeps the counter at 3 |
+| PIN: `KIRA_PIN` or a no-echo prompt on `/dev/tty`; one session per process; wrong PIN poisons the session; nothing tried with one attempt left; retries shown when below 3; PIN policy `always` re-verified transparently; card reset on exit | `internal/signing/yubikey.go`, `main.go` | wrong PIN over four "slots" costs one attempt; last attempt never sent; no PIN costs none; policy `always` keeps the counter at 3 |
 | Key check before the PIN: slot key compared with the stub; every token signature verified against the stub key | `internal/signing/yubikey.go` | regenerated slot key and wrong serial are reported by name |
 | `signForTPM`, `SignBlobPayload`, `verifyKeyPairMatch` on the public key | `internal/signing/signingkey.go`, `internal/nvslot/blob.go` | token-signed TPMT signatures and blob signatures verify; r/s padding over 20 runs |
 | Interactive `setup` (menu of usable slots plus local files; default `9a`, never a shared slot), `--yubikey[=SERIAL] [--slot]`, `--local`, no-terminal fallback; `yubikey list` | `internal/admin/setup.go`, `main.go` | menu, default, retries, EOF, single non-`9a` candidate, no terminal; binary run against the live pcscd |
-| PIN-policy warning (report, menu, after choosing); PIN instructions and the hint at `/etc/tpm2-kira/pin` | `internal/admin/setup.go`, `internal/signing/yubikey.go` | `TestPINGuidance` |
-| PIN taken from `/etc/tpm2-kira/pin`, root's alone (after the environment, before the prompt); warning after a manual seal/approve only when that file does not provide the PIN; `control` stores it after checking it on the token | `internal/admin/control_config.go`, `internal/signing/yubikey.go`, `internal/admin/control.go` | `TestPINFile`, `TestPINFromTheFile`, `TestControlConfigOneFile`, `TestControlYubiKeyPINStep` |
+| PIN-policy warning (report, menu, after choosing); PIN instructions and the hint at `/etc/kira/pin` | `internal/admin/setup.go`, `internal/signing/yubikey.go` | `TestPINGuidance` |
+| PIN taken from `/etc/kira/pin`, root's alone (after the environment, before the prompt); warning after a manual seal/approve only when that file does not provide the PIN; `control` stores it after checking it on the token | `internal/admin/control_config.go`, `internal/signing/yubikey.go`, `internal/admin/control.go` | `TestPINFile`, `TestPINFromTheFile`, `TestControlConfigOneFile`, `TestControlYubiKeyPINStep` |
 | §7 degradation: `PrepareSigningKey` pre-flight, `ResealSkippedError`, `ErrNVIndexReplaced` guard, one `SKIPPED:` block for all slots, `--require-key` | `internal/admin/reseal.go`, `internal/nvslot/nvram.go`, `main.go` | classification (skip before the write, never after it), block content, pre-flight with no PIN / unplugged / present |
-| mkinitcpio post hook `SKIPPED:` branch; example config line | `initramfs/mkinitcpio/` | hook run with a stand-in `tpm2-kira` |
+| mkinitcpio post hook `SKIPPED:` branch; example config line | `initramfs/mkinitcpio/` | hook run with a stand-in `kira` |
 | `slot add` refuses a mismatched key pair; `slot add` and `slot info` name the token | `internal/admin/seal.go`, `internal/admin/info.go` | — |
 | Packaging: `Suggests: pcscd` (not `Recommends`: the token is opt-in) and `optdepends` `pcsclite` | `debian/control`, `packaging/aur/PKGBUILD` | — |
 
 **Not done yet**
 
-- Ignoring `TPM2_KIRA_PIN` in `initramfs.conf`.
+- Ignoring `KIRA_PIN` in `initramfs.conf`.
 - Touch count announced up front (§4.4); per-signature "Touch the YubiKey"
   is printed.
 - `slot info` staleness, `slot restore`, attestation, and the README and

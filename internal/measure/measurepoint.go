@@ -1,6 +1,6 @@
-// Reconstruction of PCR values at tpm2-kira's measure point.
+// Reconstruction of PCR values at kira's measure point.
 //
-// The policy is checked against live registers at one instant: when tpm2-kira
+// The policy is checked against live registers at one instant: when kira
 // reads the TPM in the initrd, before the passphrase prompt. Neither reference
 // a caller might reach for describes that instant:
 //
@@ -26,7 +26,7 @@ import (
 	"strings"
 )
 
-// Words systemd measures as plain strings before tpm2-kira's measure point.
+// Words systemd measures as plain strings before kira's measure point.
 // The digest is H(word) over the literal bytes: no NUL terminator and no salt
 // (systemd src/pcrextend/pcrextend.c passes IOVEC_MAKE(word, strlen(word))
 // with secret == NULL), so these are universal constants, not per-host values.
@@ -40,7 +40,7 @@ const (
 // PCR indices systemd-pcrosseparator.service extends, from its ExecStart.
 var osSeparatorPCRs = []int{0, 1, 2, 3, 4, 5, 6, 7, 9, 12, 13, 14}
 
-// PCRs that are extended again after tpm2-kira's measure point, so their live
+// PCRs that are extended again after kira's measure point, so their live
 // register value at seal time is not the value the policy will be checked
 // against. They cannot be used to validate a measure-point prediction.
 var volatileAfterMeasurePoint = map[int]string{
@@ -50,7 +50,7 @@ var volatileAfterMeasurePoint = map[int]string{
 }
 
 // MeasurePointMode selects how the userspace extends that happen before
-// tpm2-kira runs are accounted for when reconstructing PCR values.
+// kira runs are accounted for when reconstructing PCR values.
 type MeasurePointMode int
 
 const (
@@ -100,7 +100,7 @@ var MeasurePointModeSetting = MeasurePointAuto
 type MeasurePoint int
 
 const (
-	// MeasurePointBeforeSeparator: the TOTP display (tpm2-kira.service),
+	// MeasurePointBeforeSeparator: the TOTP display (kira.service),
 	// after systemd-pcrphase-initrd's enter-initrd on PCR 11 and before the
 	// separator. Only enter-initrd is applied to a replayed value.
 	MeasurePointBeforeSeparator MeasurePoint = iota
@@ -187,7 +187,7 @@ func MeasurePointWords(pcr int) []string {
 	}
 	if pcr == 11 {
 		// systemd-pcrphase-initrd is ordered before cryptsetup-pre.target, and
-		// tpm2-kira orders itself after it.
+		// kira orders itself after it.
 		words = append(words, EnterInitrdWord)
 	}
 	return words

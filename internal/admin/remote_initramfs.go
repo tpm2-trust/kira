@@ -9,11 +9,11 @@ import (
 	"strings"
 
 	"github.com/tpm2-trust/assh/config"
-	"github.com/tpm2-trust/tpm2-kira/internal/netstate"
+	"github.com/tpm2-trust/kira/internal/netstate"
 )
 
 // The image's files for the network and the SSH server (control.conf's
-// TPM2_KIRA_NET_* and TPM2_KIRA_SSH_*, and assh.conf), written by the boot
+// KIRA_NET_* and KIRA_SSH_*, and assh.conf), written by the boot
 // plan (bootplan.go) when those parts are in: the systemd-networkd file or
 // the boot scripts' remote.conf, assh.conf and the keys that may log in,
 // and the drop-in that makes 'run' the SSH server. The SSH CA is not one
@@ -21,20 +21,20 @@ import (
 
 // The paths in the image.
 const (
-	imageNetworkFile = "/etc/systemd/network/10-tpm2-kira.network"
-	imageRunDropIn   = "/etc/systemd/system/tpm2-kira.service.d/remote.conf"
+	imageNetworkFile = "/etc/systemd/network/10-kira.network"
+	imageRunDropIn   = "/etc/systemd/system/kira.service.d/remote.conf"
 	// imageRemoteConf is the network's settings in every image: run reads
 	// what it shows and announces (netstate.ImageConf); initramfs-tools'
 	// init-premount script, in place of the two above, brings the network
-	// up from it and starts 'run' with TPM2_KIRA_REMOTE.
+	// up from it and starts 'run' with KIRA_REMOTE.
 	imageRemoteConf = netstate.ImageConf
 	// imageResumeDropIn closes the boot (PCR 15: the slots and the SSH CA)
 	// right before a resume from hibernation (resumeDropIn); initramfs-tools'
-	// is the package's local-top script tpm2-kira-close, which reads the plan.
-	imageResumeDropIn = "/etc/systemd/system/systemd-hibernate-resume.service.d/tpm2-kira-close.conf"
+	// is the package's local-top script kira-close, which reads the plan.
+	imageResumeDropIn = "/etc/systemd/system/systemd-hibernate-resume.service.d/kira-close.conf"
 	// imageUdhcpcScript is initramfs-tools' DHCP with a client identifier:
 	// busybox' udhcpc runs it at its events.
-	imageUdhcpcScript = "/etc/tpm2-kira/udhcpc.script"
+	imageUdhcpcScript = "/etc/kira/udhcpc.script"
 )
 
 // The image formats of 'initramfs plan --format'.
@@ -51,7 +51,7 @@ func imageKeys(keys []string) []byte {
 
 // imageSSHConf is the image's assh.conf: the running system's settings.
 func imageSSHConf(c config.Config) []byte {
-	return config.Format(c, "Written by 'tpm2-kira initramfs plan' from /etc/tpm2-kira/assh.conf,\nfor the boot image alone; read by 'tpm2-kira-boot run --ssh'.")
+	return config.Format(c, "Written by 'kira initramfs plan' from /etc/kira/assh.conf,\nfor the boot image alone; read by 'kira-boot run --ssh'.")
 }
 
 func keysSum(b []byte) string {
@@ -59,7 +59,7 @@ func keysSum(b []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// runDropIn makes tpm2-kira.service start the SSH server, and hold as long
+// runDropIn makes kira.service start the SSH server, and hold as long
 // as the setting says - without a limit, the unit may not time out either.
 // It is ordered after systemd-networkd: at switch-root systemd stops the
 // units in the reverse order, so the network stays until the SSH server
@@ -71,41 +71,41 @@ func runDropIn(s SSHConfig) string {
 		// The unit's own margin over its 90 s hold, kept.
 		timeout = fmt.Sprintf("%d", s.Hold+90)
 	}
-	return fmt.Sprintf(`# Written by 'tpm2-kira initramfs plan' from /etc/tpm2-kira/control.conf
-# (TPM2_KIRA_SSH_*), for the boot image alone; the rest is assh.conf's.
+	return fmt.Sprintf(`# Written by 'kira initramfs plan' from /etc/kira/control.conf
+# (KIRA_SSH_*), for the boot image alone; the rest is assh.conf's.
 [Unit]
 Wants=systemd-networkd.service
 After=systemd-networkd.service
 
 [Service]
 TimeoutStartSec=%s
-Environment="TPM2_KIRA_REMOTE=--ssh --ssh-hold=%d"
+Environment="KIRA_REMOTE=--ssh --ssh-hold=%d"
 `, timeout, s.Hold)
 }
 
-// remoteConf is the image's /etc/tpm2-kira/remote.conf on initramfs-tools,
+// remoteConf is the image's /etc/kira/remote.conf on initramfs-tools,
 // sourced by the init-premount script. Every value was checked when
 // control.conf was read (addresses, a MAC or an interface name, numbers),
 // so none needs more than the double quotes.
 func remoteConf(r RemoteConfig, id dhcpIdentity) string {
 	var b strings.Builder
-	b.WriteString("# Written by 'tpm2-kira initramfs plan' from /etc/tpm2-kira/control.conf,\n")
-	b.WriteString("# for the boot image alone; read by run and scripts/init-premount/tpm2-kira.\n")
+	b.WriteString("# Written by 'kira initramfs plan' from /etc/kira/control.conf,\n")
+	b.WriteString("# for the boot image alone; read by run and scripts/init-premount/kira.\n")
 	for _, kv := range [][2]string{
-		{"TPM2_KIRA_NET", r.Net.Mode},
-		{"TPM2_KIRA_NET_MATCH", r.Net.Match},
-		{"TPM2_KIRA_NET_ADDRESS", strings.Join(r.Net.Addresses, " ")},
-		{"TPM2_KIRA_NET_GATEWAY", strings.Join(r.Net.Gateways, " ")},
-		{"TPM2_KIRA_NET_DNS", strings.Join(r.Net.DNS, " ")},
+		{"KIRA_NET", r.Net.Mode},
+		{"KIRA_NET_MATCH", r.Net.Match},
+		{"KIRA_NET_ADDRESS", strings.Join(r.Net.Addresses, " ")},
+		{"KIRA_NET_GATEWAY", strings.Join(r.Net.Gateways, " ")},
+		{"KIRA_NET_DNS", strings.Join(r.Net.DNS, " ")},
 		// The DHCP client identifier, hex: udhcpc asks with it; without
 		// one, klibc's ipconfig asks with none.
-		{"TPM2_KIRA_NET_CLIENTID", hex.EncodeToString(id.ID)},
-		{"TPM2_KIRA_NET_ANNOUNCE", map[bool]string{true: "on", false: "off"}[r.Net.Announce]},
+		{"KIRA_NET_CLIENTID", hex.EncodeToString(id.ID)},
+		{"KIRA_NET_ANNOUNCE", map[bool]string{true: "on", false: "off"}[r.Net.Announce]},
 	} {
 		fmt.Fprintf(&b, "%s=\"%s\"\n", kv[0], kv[1])
 	}
 	if r.SSH.On {
-		fmt.Fprintf(&b, "TPM2_KIRA_REMOTE=\"--ssh --ssh-hold=%d\"\n", r.SSH.Hold)
+		fmt.Fprintf(&b, "KIRA_REMOTE=\"--ssh --ssh-hold=%d\"\n", r.SSH.Hold)
 	}
 	return b.String()
 }
@@ -114,8 +114,8 @@ func remoteConf(r RemoteConfig, id dhcpIdentity) string {
 // passes it in the environment): the address, the default route, the DNS
 // servers.
 const udhcpcScript = `#!/bin/sh
-# Written by 'tpm2-kira initramfs plan': udhcpc's events, for the image's
-# network (TPM2_KIRA_NET=dhcp with a client identifier).
+# Written by 'kira initramfs plan': udhcpc's events, for the image's
+# network (KIRA_NET=dhcp with a client identifier).
 case "$1" in
 deconfig)
     ip -4 address flush dev "$interface"
@@ -160,12 +160,12 @@ func writeImageFile(buildroot, path string, data []byte, mode os.FileMode) error
 // after the code screen, so that its close never comes before the codes,
 // the phone, the vault or the TPM salt have opened what they hold (a swap
 // on an encrypted volume comes after that anyway).
-const resumeDropIn = `# Written by 'tpm2-kira initramfs plan': the boot closed (PCR 15: the slots
+const resumeDropIn = `# Written by 'kira initramfs plan': the boot closed (PCR 15: the slots
 # and the SSH CA) before a resume from hibernation (the TPM starts afresh,
 # the resumed system runs no code screen). Anything but PCR 15 itself stops the
 # resume.
 [Unit]
-After=tpm2-kira.service
+After=kira.service
 [Service]
-ExecStartPre=/usr/bin/tpm2-kira-boot close --resume
+ExecStartPre=/usr/bin/kira-boot close --resume
 `

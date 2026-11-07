@@ -8,13 +8,13 @@ import (
 	"strings"
 
 	"github.com/tpm2-trust/go-tui-slim/secret"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/phonegate"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 
 	"github.com/google/go-tpm/tpm2/transport"
 	"github.com/tpm2-trust/assh/persist"
-	"github.com/tpm2-trust/tpm2-kira/internal/machineid"
+	"github.com/tpm2-trust/kira/internal/machineid"
 )
 
 // Deleting a slot is one act that removes everything the slot is made of:
@@ -43,7 +43,7 @@ type SlotContents struct {
 	Counter    bool // its record counter
 	Keyslots   []SlotKeyslot
 	// Foreign are its generation index and record counter where they have
-	// another shape than tpm2-kira defines there.
+	// another shape than kira defines there.
 	Foreign []nvslot.Foreign
 }
 
@@ -176,15 +176,15 @@ func (c SlotContents) Remedy() string {
 		if len(c.Foreign) > 0 {
 			force = " --force"
 		}
-		hand = append(hand, fmt.Sprintf("'tpm2-kira slot delete --nvram %d%s'", c.Slot, force))
+		hand = append(hand, fmt.Sprintf("'kira slot delete --nvram %d%s'", c.Slot, force))
 	}
 	for _, ks := range c.Keyslots {
-		hand = append(hand, fmt.Sprintf("'tpm2-kira luks remove %s --keyslot %d'", ks.Device, ks.Keyslot))
+		hand = append(hand, fmt.Sprintf("'kira luks remove %s --keyslot %d'", ks.Device, ks.Keyslot))
 	}
 	if len(c.Foreign) > 0 {
-		return "'tpm2-kira control' (the slot's line) shows the index of another shape, asks, and removes what is left, or by hand " + strings.Join(hand, " and ")
+		return "'kira control' (the slot's line) shows the index of another shape, asks, and removes what is left, or by hand " + strings.Join(hand, " and ")
 	}
-	return "'tpm2-kira control' (the slot's line) removes what is left, or by hand " + strings.Join(hand, " and ")
+	return "'kira control' (the slot's line) removes what is left, or by hand " + strings.Join(hand, " and ")
 }
 
 // dirtText is the dirty slots in one line.
@@ -312,7 +312,7 @@ func DeleteSlot(o DeleteSlotOptions) error {
 	}
 
 	if len(failures) > 0 {
-		next := "The slot is dirty until a deletion removes the rest: do what the lines above say, then pick the slot's line in 'tpm2-kira control' again."
+		next := "The slot is dirty until a deletion removes the rest: do what the lines above say, then pick the slot's line in 'kira control' again."
 		if foreignLeft {
 			next = foreignRemedy(c.Index) + "\n" + next
 		}
@@ -338,5 +338,5 @@ func slotKeyslotAdvice(tpmPath string) string {
 	if len(dirt) == 0 {
 		return ""
 	}
-	return dirtText(dirt) + "\n'tpm2-kira control' (the slot's line) deletes what is left; 'luks remove' takes a keyslot by hand.\n"
+	return dirtText(dirt) + "\n'kira control' (the slot's line) deletes what is left; 'luks remove' takes a keyslot by hand.\n"
 }

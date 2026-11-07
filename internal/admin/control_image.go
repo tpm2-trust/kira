@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/imageplan"
+	"github.com/tpm2-trust/kira/internal/imageplan"
 )
 
 // rebuildCommand is the build of the image the next boot starts.
@@ -98,7 +98,7 @@ func (f *machineFacts) imageLine() string {
 	return good(line)
 }
 
-// btImagePlan says what the sd-tpm2-kira hook puts into the image for the
+// btImagePlan says what the sd-kira hook puts into the image for the
 // adapter - the same resolution it runs (attest_initramfs.go) - so it can
 // be seen before the rebuild, and checked after it.
 func btImagePlan(adapter string) string {
@@ -108,11 +108,11 @@ func btImagePlan(adapter string) string {
 	}
 	deps, err := ResolveBTDeps("/sys", DefaultFirmwareDir, n, append(readKernelLog(""), journalBluetoothLines()...))
 	if err != nil {
-		return "The sd-tpm2-kira hook adds Bluetooth for " + adapter + ": " + err.Error()
+		return "The sd-kira hook adds Bluetooth for " + adapter + ": " + err.Error()
 	}
 	rememberedFirmware(deps, DefaultFirmwareDir)
 	var b strings.Builder
-	fmt.Fprintf(&b, "The sd-tpm2-kira hook adds for %s (no edit of mkinitcpio.conf):\n", adapter)
+	fmt.Fprintf(&b, "The sd-kira hook adds for %s (no edit of mkinitcpio.conf):\n", adapter)
 	fmt.Fprintf(&b, "  modules:   %s (with their dependencies)\n", strings.Join(deps.Modules, " "))
 	if len(deps.Firmware) > 0 {
 		fmt.Fprintf(&b, "  firmware:  %s\n", strings.Join(deps.Firmware, " "))

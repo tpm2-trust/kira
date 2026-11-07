@@ -19,7 +19,7 @@ import (
 // the PCR values of the image it approved, and PolicyPCR(15 == zero), which
 // the boot image's close ends. So the factor unwraps exactly where the
 // slot's TOTP key computes: in the boot the signing key approved, with the
-// tpm2-kira that image carries, before the close, and nowhere else. The
+// kira that image carries, before the close, and nowhere else. The
 // key never signs or decrypts anything; it exists for its name.
 
 // ReleaseKeyPolicy is the slot's policy (SlotPolicyDigest) extended by

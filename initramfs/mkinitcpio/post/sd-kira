@@ -1,5 +1,5 @@
 #!/bin/bash
-# tpm2-kira post-generation hook for mkinitcpio
+# kira post-generation hook for mkinitcpio
 #
 # This script is executed by mkinitcpio after a new initramfs image has been
 # successfully generated.  Because the initramfs content is measured into PCRs
@@ -11,14 +11,14 @@
 #   $1 — kernel version
 #   $2 — path to the generated initramfs image
 
-KIRA_KEYS_DIR="/etc/tpm2-kira/keys"
+KIRA_KEYS_DIR="/etc/kira/keys"
 
-# make install puts tpm2-kira in /usr/local/bin, which mkinitcpio's PATH
+# make install puts kira in /usr/local/bin, which mkinitcpio's PATH
 # (/usr/bin:/bin) leaves out.
 PATH=$PATH:/usr/local/bin
 
-# Only act when tpm2-kira is installed and has been set up.
-if ! command -v tpm2-kira &> /dev/null; then
+# Only act when kira is installed and has been set up.
+if ! command -v kira &> /dev/null; then
     exit 0
 fi
 
@@ -29,16 +29,16 @@ fi
 
 # Nothing sealed (a machine that unlocks by password and salt alone) and no
 # SSH CA (its EFI variable): no code to keep, nothing to approve.
-if ! tpm2-kira slot list 2>/dev/null | grep -q '^Slots:' && [[ ! -e /sys/firmware/efi/efivars/KIRAasshCA-24415b90-39be-45c0-a9a3-d547ebe28ea0 ]]; then
+if ! kira slot list 2>/dev/null | grep -q '^Slots:' && [[ ! -e /sys/firmware/efi/efivars/KIRAasshCA-24415b90-39be-45c0-a9a3-d547ebe28ea0 ]]; then
     exit 0
 fi
 
-echo "tpm2-kira: approving the boot state after the initramfs rebuild..."
+echo "kira: approving the boot state after the initramfs rebuild..."
 
 # The install hook inspected the image that was just built and recorded whether
 # systemd's pre-measure-point units are in it. That describes the NEXT boot,
 # which runtime probing cannot do on the boot where the units first appear.
-MEASURE_POINT_STATE=/run/tpm2-kira/measure-point.state
+MEASURE_POINT_STATE=/run/kira/measure-point.state
 measure_point=auto
 if [[ -r $MEASURE_POINT_STATE ]]; then
     read -r measure_point < "$MEASURE_POINT_STATE"
@@ -48,37 +48,37 @@ if [[ -r $MEASURE_POINT_STATE ]]; then
     esac
 fi
 
-# tpm2-kira exits 0 even on failure, by design, so that chained commands still
+# kira exits 0 even on failure, by design, so that chained commands still
 # run. Success must therefore be judged from the output, not the exit status.
 #
 # The approval never asks: setsid gives it no controlling terminal, so a PIN
-# it cannot read from /etc/tpm2-kira/pin ends it with the reason (SKIPPED)
+# it cannot read from /etc/kira/pin ends it with the reason (SKIPPED)
 # instead of a prompt that would hold mkinitcpio -P. --unattended: a moved
 # phone channel stays as it is, a person decides that, and what it says about
 # it is passed on below. (The install hook has said what is wrong with Secure
 # Boot in this same build.)
-output=$(setsid -w tpm2-kira slot approve --unattended --measure-point="$measure_point" 2>&1 < /dev/null)
+output=$(setsid -w kira slot approve --unattended --measure-point="$measure_point" 2>&1 < /dev/null)
 sed -n "/^WARNING: slot .* phone channel/,/^\$/p" <<< "$output" >&2
 #
 #
 # SKIPPED means the signing key lives on a YubiKey that is not plugged in, or
 # its PIN was not available. Nothing was written, so the sealed secret is
 # intact; the next boot just shows a PCR mismatch until someone approves. For
-# unattended signing, /etc/tpm2-kira/pin holds the PIN, root's alone
-# ('tpm2-kira control' stores it); tpm2-kira reads it from the file itself.
+# unattended signing, /etc/kira/pin holds the PIN, root's alone
+# ('kira control' stores it); kira reads it from the file itself.
 # This block is all that is shown of the output: whatever explains a skip, an
-# ignored TPM2_KIRA_PIN too, is in its Reason.
+# ignored KIRA_PIN too, is in its Reason.
 if grep -q "SKIPPED:" <<< "$output"; then
     {
-        echo "tpm2-kira: ================================================================"
+        echo "kira: ================================================================"
         grep -A20 "SKIPPED:" <<< "$output"
-        echo "tpm2-kira: ================================================================"
+        echo "kira: ================================================================"
     } >&2
 elif grep -q "Successfully approved\|Successfully approved the SSH CA" <<< "$output"; then
-    echo "tpm2-kira: approval completed successfully (measure-point=$measure_point)"
+    echo "kira: approval completed successfully (measure-point=$measure_point)"
 else
-    echo "tpm2-kira: WARNING — the approval did NOT succeed:" >&2
+    echo "kira: WARNING — the approval did NOT succeed:" >&2
     echo "$output" >&2
-    echo "tpm2-kira: the next boot will not be able to unseal; run 'tpm2-kira slot approve' manually" >&2
+    echo "kira: the next boot will not be able to unseal; run 'kira slot approve' manually" >&2
     # Do not fail the overall mkinitcpio run; the image was already written.
 fi

@@ -103,7 +103,7 @@ func TestDHCPIdentity(t *testing.T) {
 		t.Fatal("an identifier networkd cannot send, taken")
 	}
 	for _, bad := range []string{"x", "ff", "zz:zz"} {
-		if _, err := ParseControlConfig([]byte("TPM2_KIRA_NET_DHCP_ID=" + bad)); err == nil {
+		if _, err := ParseControlConfig([]byte("KIRA_NET_DHCP_ID=" + bad)); err == nil {
 			t.Errorf("%q taken", bad)
 		}
 	}
@@ -113,10 +113,10 @@ func TestDHCPIdentity(t *testing.T) {
 // one ipconfig asks, and no script is needed.
 func TestRemoteConfClientID(t *testing.T) {
 	r := RemoteConfig{Net: NetConfig{Mode: "dhcp"}}
-	if c := remoteConf(r, dhcpIdentity{ID: mustHex("ff0033")}); !strings.Contains(c, `TPM2_KIRA_NET_CLIENTID="ff0033"`) {
+	if c := remoteConf(r, dhcpIdentity{ID: mustHex("ff0033")}); !strings.Contains(c, `KIRA_NET_CLIENTID="ff0033"`) {
 		t.Fatalf("%s", c)
 	}
-	if c := remoteConf(r, dhcpIdentity{}); !strings.Contains(c, `TPM2_KIRA_NET_CLIENTID=""`) {
+	if c := remoteConf(r, dhcpIdentity{}); !strings.Contains(c, `KIRA_NET_CLIENTID=""`) {
 		t.Fatalf("%s", c)
 	}
 }

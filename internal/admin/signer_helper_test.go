@@ -4,7 +4,7 @@ import (
 	"crypto"
 	"os"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
+	"github.com/tpm2-trust/kira/internal/signing"
 )
 
 // loadSigner reads a signing key file without the checks of LoadCheckedSigningPrivateKey (its

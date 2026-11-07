@@ -18,7 +18,7 @@ gives PCR 11 its own value.
 Today slot 0's PCR 11 is computed from **one** image: `11u` stands for
 `/boot/EFI/Linux/arch-linux.efi` (or the path after `11u:`), and that path is
 stored in the slot. The post hook runs once per built image and calls
-`tpm2-kira slot approve`, which ignores the image it was called for and recomputes
+`kira slot approve`, which ignores the image it was called for and recomputes
 PCR 11 from the stored path each time. The outcome:
 
 - booting the image at the stored path: slot 0 matches, the code appears;
@@ -141,7 +141,7 @@ later improvement, not part of this plan.
 
 ## 7. Limits
 
-- **PCR 11 only.** Profiles differ in PCR 11, which tpm2-kira computes from
+- **PCR 11 only.** Profiles differ in PCR 11, which kira computes from
   the image (`11u`). A selection that also contains a register an image
   changes in another way (PCR 4, the image as the firmware loaded it; PCR 9)
   is limited to one profile, and `control` says so where it offers the
@@ -175,7 +175,7 @@ same way. The blob version is raised; existing slots are sealed again
 ## 9. Steps
 
 1. **Blob cleanup and an active size check** (done): fields nothing reads
-   are removed from the blob, the signing key paths are tpm2-kira's
+   are removed from the blob, the signing key paths are kira's
    defaults instead of a record in every blob, and every write is checked
    against the TPM's NV index limit before the old index is touched. A
    phone is refused only when the blob with *that* phone would not fit.

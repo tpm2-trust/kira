@@ -10,10 +10,10 @@ import (
 
 	"github.com/google/go-tpm/tpm2/transport"
 
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
+	"github.com/tpm2-trust/kira/core/attest"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/phonegate"
+	"github.com/tpm2-trust/kira/internal/signing"
 )
 
 // writeAttestBlob stores b as the slot's phone enrolment, or removes the
@@ -32,7 +32,7 @@ func writeAttestBlob(tpmDev transport.TPM, idx uint32, b *nvslot.Attestation, pr
 	raw, sb, err := phonegate.ReadSlot(tpmDev, idx)
 	if err != nil {
 		return fmt.Errorf("slot %d holds no sealed TOTP key (%v). A phone enrolment is stored with the slot's key: "+
-			"run 'tpm2-kira slot add --nvram %d' first", slot, err, slot)
+			"run 'kira slot add --nvram %d' first", slot, err, slot)
 	}
 	if err := nvslot.VerifyBlobSignature(raw, sb, priv.Public()); err != nil {
 		return foreignSlotError(slot, err)
@@ -82,10 +82,10 @@ func writeAttestBlob(tpmDev transport.TPM, idx uint32, b *nvslot.Attestation, pr
 	}
 	if retired {
 		fmt.Printf("Slot %d's TOTP code is retired: the phone checks its boots from now on. Remove its\n", slot)
-		fmt.Printf("entry from your authenticator app (\"TPM2-KIRA: ... (#%d)\"); it shows no valid code any more.\n", slot)
+		fmt.Printf("entry from your authenticator app (\"KIRA: ... (#%d)\"); it shows no valid code any more.\n", slot)
 	}
 	if hadPhones && !sb.PhoneAttested() {
-		fmt.Printf("Slot %d has no phone any more, and no TOTP code: 'tpm2-kira slot add --nvram %d --totp' seals one.\n", slot, slot)
+		fmt.Printf("Slot %d has no phone any more, and no TOTP code: 'kira slot add --nvram %d --totp' seals one.\n", slot, slot)
 	}
 	return nil
 }
@@ -199,14 +199,14 @@ func blobFull(slot uint32, size, limit int, att *nvslot.Attestation) error {
 	if att != nil {
 		if n := len(att.Phone.Verifiers); n > 0 {
 			holds = append(holds, phonesText(n))
-			advice = fmt.Sprintf("its phones share the blob with the TOTP key: remove them with 'tpm2-kira phone unenrol --nvram %d' and enrol the ones you need, or %s", slot, advice)
+			advice = fmt.Sprintf("its phones share the blob with the TOTP key: remove them with 'kira phone unenrol --nvram %d' and enrol the ones you need, or %s", slot, advice)
 		}
 		if att.Vault.Enabled() {
 			holds = append(holds, "the vault method")
 		}
 		if len(att.TPMSalt.Credential) > 0 {
 			holds = append(holds, "a TPM salt")
-			advice += ", or take out what no keyslot needs any more (the TPM salt goes with its last keyslot: tpm2-kira luks remove)"
+			advice += ", or take out what no keyslot needs any more (the TPM salt goes with its last keyslot: kira luks remove)"
 		}
 	}
 	what := ""
@@ -231,9 +231,9 @@ func imagePCRs(sel []uint8) string {
 
 // foreignSlotError: the slot's blob was not written by this signing key.
 func foreignSlotError(slot uint32, cause error) error {
-	return fmt.Errorf("slot %d is not signed by your signing key (%v): it was replaced outside tpm2-kira, "+
-		"or is left over from an installation with another signing key. Inspect it with 'tpm2-kira slot info --nvram %d'; "+
-		"to start over, run 'tpm2-kira slot delete --nvram %d' and add it again", slot, cause, slot, slot)
+	return fmt.Errorf("slot %d is not signed by your signing key (%v): it was replaced outside kira, "+
+		"or is left over from an installation with another signing key. Inspect it with 'kira slot info --nvram %d'; "+
+		"to start over, run 'kira slot delete --nvram %d' and add it again", slot, cause, slot, slot)
 }
 
 // checkSamePCRs refuses a --pcrs that differs from an existing blob's
@@ -256,7 +256,7 @@ func checkSamePCRs(blob *nvslot.Attestation, pcrs string, slot uint32) error {
 	}
 	return fmt.Errorf("slot %d is already enrolled with PCRs %s; --pcrs %s would be ignored.\n"+
 		"Every phone enrolled on this machine checks the same PCRs. To change them, run\n"+
-		"'tpm2-kira phone unenrol' (enrolled phones must then be enrolled again), or\n"+
+		"'kira phone unenrol' (enrolled phones must then be enrolled again), or\n"+
 		"enrol without --pcrs to keep %s", slot, have, pcrs, have)
 }
 

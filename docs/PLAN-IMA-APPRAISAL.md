@@ -1,11 +1,11 @@
 # PLAN — IMA appraisal of the initrd (later)
 
 > **Status:** not started; written down on 2026-10-07 so the option is not
-> lost. Nothing in tpm2-kira depends on it, and nothing here is scheduled.
+> lost. Nothing in kira depends on it, and nothing here is scheduled.
 
 ## 1. What it would add
 
-Today the binding between "the tpm2-kira that approved the slot" and the
+Today the binding between "the kira that approved the slot" and the
 TPM is the measured image: `systemd-stub` extends PCR 11 with the initrd,
 `slot add`/`slot approve` sign a policy over that value, and the TPM admits the
 policy only if the signature verifies for the PCRs it recorded
@@ -23,7 +23,7 @@ half:
   the thing being measured.
 - **Appraisal** (`ima_appraise=enforce`): a file without a valid signature
   in its `security.ima` extended attribute, verified against a key on the
-  `.ima` kernel keyring, is not executed at all. A replaced tpm2-kira is
+  `.ima` kernel keyring, is not executed at all. A replaced kira is
   refused before it runs, not only refused a secret afterwards.
 
 Together they turn "the TPM will not unseal for a modified binary" into
@@ -44,8 +44,8 @@ TPM would not unseal for it".
    image-building step - the same place and the same discipline as the
    slot's signing key.
 3. **Signing the files in the initrd** at image build: `evmctl ima_sign`
-   on every executable and library in the image (not only tpm2-kira: a
-   policy that appraises `tpm2-kira` and nothing else is a policy an
+   on every executable and library in the image (not only kira: a
+   policy that appraises `kira` and nothing else is a policy an
    attacker renames around). mkinitcpio has no hook for this; it would be a
    post-processing step over `$BUILDROOT` before the image is packed, in
    our install hook or a separate one, and the extended attributes have to
@@ -71,12 +71,12 @@ TPM would not unseal for it".
 - It does not cover what the binary does with its inputs; a signed binary
   with a flaw is still signed.
 
-## 4. Where it would show in tpm2-kira
+## 4. Where it would show in kira
 
-- `tpm2-kira slot info` / `phone status`: report whether IMA appraisal is
+- `kira slot info` / `phone status`: report whether IMA appraisal is
   enforcing (`/sys/kernel/security/ima/policy` readable and
   `ima_appraise=enforce` on `/proc/cmdline`), as a line of the platform
   report, the way the measure point is reported today.
 - The install hook: sign the image's files when a signing certificate is
   configured; refuse to build an enforcing image with unsigned files.
-- Nothing in the boot path: the kernel does the work before tpm2-kira runs.
+- Nothing in the boot path: the kernel does the work before kira runs.

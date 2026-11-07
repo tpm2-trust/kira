@@ -5,7 +5,7 @@ import (
 	"slices"
 
 	"github.com/tpm2-trust/go-uefi-slim/efivar"
-	"github.com/tpm2-trust/tpm2-kira/internal/sbstate"
+	"github.com/tpm2-trust/kira/internal/sbstate"
 )
 
 // AdvisoryWarnings switches the advisory warnings of seal and reseal (a
@@ -18,7 +18,7 @@ var AdvisoryWarnings = true
 var secureBootWarned bool
 
 // WarnSecureBoot says what is wrong with Secure Boot, whatever the selection, once
-// in a command however many slots it goes through. Never a stop: tpm2-kira has no
+// in a command however many slots it goes through. Never a stop: kira has no
 // enforced mode.
 func WarnSecureBoot() {
 	if !AdvisoryWarnings || secureBootWarned {
@@ -94,7 +94,7 @@ func WarnAboutPCRSelection(specs []PCRSpec) {
 		fmt.Println("  unsealed and copied.")
 		if BootedViaSystemdStub() {
 			fmt.Println("  This boot used a unified kernel image. Seal its measurements with PCR 11:")
-			fmt.Printf("      tpm2-kira slot add --pcrs \"%s\"\n", suggestWith(specs, "11u"))
+			fmt.Printf("      kira slot add --pcrs \"%s\"\n", suggestWith(specs, "11u"))
 		} else {
 			fmt.Println("  With a unified kernel image, add PCR 11 (\"11u\"). With GRUB, add PCRs 8 and 9")
 			fmt.Println("  (\"8e,9e\"); they change on every kernel or initrd update, so approve after the")

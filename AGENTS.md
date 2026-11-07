@@ -1,4 +1,4 @@
-# Notes for agents working on tpm2-kira
+# Notes for agents working on kira
 
 ## No backwards compatibility
 
@@ -13,10 +13,10 @@ spend code, tests or documentation on older versions of anything.
   "also accept the old name", no cleanup code for what earlier versions left
   behind, no deprecation periods. One removal is not a migration: by place,
   not by format - `slot delete --yes --sweep` (and control's "Delete
-  everything") takes whatever is in tpm2-kira's NV range, at aSSH's SSH CA
-  handles and under tpm2-kira's EFI GUID, shown first, reading nothing of what
+  everything") takes whatever is in kira's NV range, at aSSH's SSH CA
+  handles and under kira's EFI GUID, shown first, reading nothing of what
   it finds (the owner, 2026-11-07).
-- **No compatibility with older or newer builds of tpm2-kira itself.** Do not
+- **No compatibility with older or newer builds of kira itself.** Do not
   design a change so that a previous build keeps working with new data, or
   the other way round.
 - **Say what it is, not what it was.** Code comments, help texts and
@@ -32,19 +32,19 @@ It may not carry what came before.
 ## Other standing decisions
 
 - **Two binaries: one for the installed system, one for the boot image.**
-  `tpm2-kira` (the module root's `main`) is everything on the installed
-  system; `tpm2-kira-boot` (`cmd/tpm2-kira-boot`) is what the boot image
+  `kira` (the module root's `main`) is everything on the installed
+  system; `kira-boot` (`cmd/kira-boot`) is what the boot image
   carries, and the hooks put nothing else in. It must not import
-  `internal/admin` or its prompts and screen, go-tui-slim's `prompt` and `tui` (`boot_binary_test.go`). Processes that must
+  `internal/admin` or its prompts and screen, go-tui-slim's `prompt`, `tui` and `panel` (`boot_binary_test.go`). Processes that must
   be separated at boot (the confined radio worker, the SSH server's
-  unprivileged half) are `tpm2-kira-boot` run with other arguments, never a
+  unprivileged half) are `kira-boot` run with other arguments, never a
   third executable. Code lives in `internal/`, by layer; a package knows
   only those below it.
 - **The SSH server and the TPM host keys are aSSH's**
   (`assh/`, a git submodule; `github.com/tpm2-trust/assh`, a project of its
   own that other projects use too): the privilege-separated server
   (`assh/server`), the SSH CA in the TPM and the per-boot host keys it
-  certifies (`assh/hostkey`). tpm2-kira uses it as a library (`replace`
+  certifies (`assh/hostkey`). kira uses it as a library (`replace`
   in go.mod to the submodule; clone with `--recurse-submodules`; in the
   tpm2-trust workspace, `go.work` builds against `../assh` and `../pin
   assh` moves the submodule - never edit inside `assh/` here) and
@@ -88,7 +88,7 @@ It may not carry what came before.
   what the code calls into; a record the database has wrong goes into
   `tools/vulncheck-ignore` with its proof, never silenced elsewhere.
 - **No enforced mode; the passphrase can always be entered by hand.**
-  tpm2-kira adds ways to unlock (its prompt, later a phone-released
+  kira adds ways to unlock (its prompt, later a phone-released
   factor) and informs; it never withholds systemd's own prompt, which is
   the fallback after a wrong or missing answer (docs/DISK-KEY.md, "When the answer is wrong").
   The single exception: the close, when a TPM answers and refuses every way of it
@@ -121,17 +121,17 @@ It may not carry what came before.
   The machine never stops on it; the vault does: it releases nothing unless the quote
   establishes `on`, with no per-device exception, and `control` and `luks enrol` say so before
   a vault's keyslot on a machine not `on` (docs/SECURITY-BACKGROUND.md §13.5).
-- **Two configuration files, tpm2-kira's and aSSH's, and only `control`
-  writes them.** `/etc/tpm2-kira/control.conf` is tpm2-kira's; beside it
-  `/etc/tpm2-kira/assh.conf` is aSSH's own format (`ASSH_*`, parsed by
+- **Two configuration files, kira's and aSSH's, and only `control`
+  writes them.** `/etc/kira/control.conf` is kira's; beside it
+  `/etc/kira/assh.conf` is aSSH's own format (`ASSH_*`, parsed by
   `assh/config`): the SSH CA and its slots and their PCRs, the port, the
   keys that may log in, the host certificate's name. Keep them apart: a
   setting of what aSSH does goes into assh.conf (and into aSSH, if it has
-  no key for it), one of tpm2-kira's - the network, whether the server
+  no key for it), one of kira's - the network, whether the server
   runs, the hold - into control.conf. control.conf holds what the boot
   image is built with, and
   nothing else: the radio settings and the boot image's network and SSH
-  server (TPM2_KIRA_NET_*, TPM2_KIRA_SSH_*: the one part the image build
+  server (KIRA_NET_*, KIRA_SSH_*: the one part the image build
   turns into files of the image - a networkd file, a unit drop-in -
   through the boot plan; the file itself never goes in, docs/SSH.md)
   (nothing else of it reaches the boot image: the gate there takes the
@@ -139,25 +139,25 @@ It may not carry what came before.
   logs every step when "Debug at boot" is on - a switch in the TPM, NV
   index 0x01803000, written by `control` with the signing key).
   Beside it, also written by `control` alone: the YubiKey's PIN
-  (`/etc/tpm2-kira/pin`, root's alone, never in the image; the signer takes it
+  (`/etc/kira/pin`, root's alone, never in the image; the signer takes it
   from `--pin-fd N` first, then this file, then the terminal: bytes in a locked
   buffer, never argv or the environment, `internal/signing/pin.go`) and the keys
-  that may log in at boot (`/etc/tpm2-kira/authorized_keys`, part of the
+  that may log in at boot (`/etc/kira/authorized_keys`, part of the
   SSH server's settings in the boot plan). assh.conf goes into the image
   as a copy (the SSH part's digest names it); the slots in it are made
   the CA's by slot approve and control before they approve.
   How the
   disk's key is made is not configured anywhere: the boot reads it from
-  each volume's own LUKS2 header - the tpm2-kira token of a keyslot names
+  each volume's own LUKS2 header - the kira token of a keyslot names
   the recipe (internal/diskkey/header.go), so an enrolment needs no mode set and
   no rebuild for one. `setup`, `slot add`, `luks enrol` and the rest do their
-  one thing; `tpm2-kira control` checks the prerequisites of a working
+  one thing; `kira control` checks the prerequisites of a working
   setup. Every other file on the system - the kernel command line,
   crypttab - is advised by `control`, never edited, with three exceptions,
   each asked for every time, all in control's step 1 (the boot chain):
   `/etc/kernel/uki.conf` (the PCR key's lines, which ukify reads),
   the HOOKS of `/etc/mkinitcpio.conf` (its mkinitcpio step writes
-  sd-tpm2-kira in when the person says so), and the key's route (the route step writes the shown line into
+  sd-kira in when the person says so), and the key's route (the route step writes the shown line into
   the cmdline file, a boot entry's options or crypttab when the person
   says so). Step 2 is submenus whose options are greyed with the reason
   while the machine cannot have them; what changes the image there only
@@ -172,7 +172,7 @@ It may not carry what came before.
   proof: the phone's and the vault's own check on the live PCR 7 and the log
   (`control_proof.go`); systemd's log is read there for a person, never as proof.
 - **The boot image carries what the machine uses, by the boot plan**
-  (internal/admin/bootplan.go, `tpm2-kira initramfs plan`). The disk unlock is always
+  (internal/admin/bootplan.go, `kira initramfs plan`). The disk unlock is always
   in it; every other part - the TOTP codes, the phone's Bluetooth gate, the
   vault, the network, the SSH server - only while something uses it (a
   sealed slot, an enrolled phone, a setting of control.conf), and what
@@ -180,7 +180,7 @@ It may not carry what came before.
   build, from the machine: the hooks add the units and drivers of the parts
   the plan names, and `run` and the boot scripts start only those
   (`run --plan`), so the boot touches no TPM and loads no radio it was not
-  built for. The image names its parts in `/etc/tpm2-kira/plan/<part>/<digest
+  built for. The image names its parts in `/etc/kira/plan/<part>/<digest
   of its settings>`; `control` reads that from the image's listing. A part
   in use and not in the image, or in it with other settings, is a reason
   to rebuild, and so is the SSH server or the network switched off while
@@ -189,9 +189,9 @@ It may not carry what came before.
   not - the next build leaves it out. Do not decide what the image carries in a hook's shell
   or at boot: add the rule to the plan.
 - **The shared core is a module of its own: `core/`**
-  (`github.com/tpm2-trust/tpm2-kira/core`: `attest/`, `transport/`,
+  (`github.com/tpm2-trust/kira/core`: `attest/`, `transport/`,
   `vaultproto/`, `mobile/`). The phone (Marify, through gomobile) and the
-  vault require it alone; tpm2-kira requires it through `replace ./core`.
+  vault require it alone; kira requires it through `replace ./core`.
   It requires go-tpm, x/crypto and tpm2-verifier (the EK root store, its
   `ekroots`: the submodule `tpm2-verifier/`) and nothing of `internal/`,
   `cmd/` or aSSH - the module boundary enforces that - and its tests run in `core/`
@@ -202,18 +202,18 @@ It may not carry what came before.
   extended, which every slot object's policy and the SSH CA's read: no
   code, no slot's part, no certificate until the next boot) when the
   code screen is over - `run` itself before READY, then Arch's
-  `tpm2-kira-close.service`, required by `initrd.target`, Debian's
+  `kira-close.service`, required by `initrd.target`, Debian's
   local-top script before cryptroot, and its init-bottom - and right before a resume from hibernation (a resume
   starts the TPM afresh and runs no code screen); a failed close stops
   the boot only when the TPM answers and refuses every way of it, or does not answer
   for the first time (`internal/bootclose`; docs/SSH.md, "The close: what it can come
   to"), and the resume on anything but PCR 15 itself. Whatever opens a slot object at boot (the
   codes, the machine-id, the phone, the vault, the TPM salt) does so
-  before the close - and `run` starts everything else of tpm2-kira's at
+  before the close - and `run` starts everything else of kira's at
   boot itself: the parts of the plan, the TPM wait,
   and the processes that parse outside input - `ssh-child` (as a uid no
   one else has, assh's `sandbox.ClaimUID`) and the phone's `gate-child`
-  (as nobody) - confined in code by assh's `sandbox` on every thread. A unit or script of tpm2-kira's does only what the distribution
+  (as nobody) - confined in code by assh's `sandbox` on every thread. A unit or script of kira's does only what the distribution
   needs around `run`: start and stop it, hand the disk's key to
   cryptsetup, bring up the image's network, keep the log
   (docs/BOOT-INTEGRATION.md, "Arch and Debian"). Do not add a second
@@ -242,30 +242,30 @@ It may not carry what came before.
   go-tpm, branch `fix/policy-init-leak`, not used here). The policy runs right before
   the one command that uses the session.
 - **NV indices are written and removed one way: aSSH's `persist`.** EFI
-  variables are tpm2-kira's own:
+  variables are kira's own:
   - It has its own code for them (the machine-id, the slots' records, and
     Secure Boot's PK, KEK, db and dbx), not aSSH's `persist`.
   - aSSH's own variable (the SSH CA's file) is written by aSSH.
   - If code shared with aSSH grows large, it becomes one package neither
     owns (the workspace's AGENTS.md), never aSSH's.
 
-  For NV indices: no NVUndefineSpace of tpm2-kira's own.
+  For NV indices: no NVUndefineSpace of kira's own.
   `nvslot.RemoveIndex` / `RemoveSlot` take an index when it has the public
-  area tpm2-kira defines at that place, or, at one of its own places
+  area kira defines at that place, or, at one of its own places
   (`OwnPlace`), when a person saw another one and said so (`TakeForeign`:
   `control` and a terminal ask, `slot delete --force` says it; `--yes` alone
   does not; `persist.Any`). Anything else at a handle of its range is left and
   named, absent is no error, and a write at one of its own handles replaces
-  what is there (`replaceAt`). Whatever tpm2-kira
+  what is there (`replaceAt`). Whatever kira
   creates it can remove: `slot delete` without `--nvram` takes every slot,
   the leftovers, the boot settings, the sealed machine-id and the SSH CA
   (the machine-id goes with slot 0 too); `control` asks before it
   removes the SSH CA when SSH is switched off (No unless said).
-- **tpm2-kira reads and judges Secure Boot; it does not manage it on this
+- **kira reads and judges Secure Boot; it does not manage it on this
   branch.**
   - The state is read (`measure.ReadSecureBootState`) and judged in `control`
     and `status`. A UKI's db signature comes from outside: from sbctl, or
-    whatever the owner runs. tpm2-kira neither makes nor checks it.
+    whatever the owner runs. kira neither makes nor checks it.
   - The workspace's `go-uefi-slim` module (the submodule `go-uefi-slim/`) serves
     its EFI variables and PCR 4's Authenticode hashes.
   - Key creation, enrolment, db signing and `control` naming foreign certificates
@@ -281,8 +281,8 @@ It may not carry what came before.
     rule for every slot: PCR 7 and the image's PCRs, slot 0 with the platform
     (0, 2, 4) added; PCR 4 is predicted for the next boot (`4u`), in by decision,
     and goes again if it makes trouble in the real world. On a UKI the image is
-    PCR 11 signed by tpm2-kira's PCR key for `enter-initrd` alone (`11s`,
-    `/etc/tpm2-kira/pcr.key`, written into `/etc/kernel/uki.conf` by `control`, a
+    PCR 11 signed by kira's PCR key for `enter-initrd` alone (`11s`,
+    `/etc/kira/pcr.key`, written into `/etc/kernel/uki.conf` by `control`, a
     third exception to its not editing, asked every time). `control` advises a GRUB
     superuser password (never writes grub.cfg) and judges its absence red.
   - aSSH only warns about Secure Boot.
@@ -304,5 +304,5 @@ It may not carry what came before.
   `gate-child` have none (docs/DISK-KEY.md, "Memory").
 - **Root for everything but the help.** Every command refuses to run as a
   user (`main.go` `requireRoot`); `control` says so on its own screen. The
-  test suite's exception is `TPM2_KIRA_UNPRIVILEGED=1` for the binary
+  test suite's exception is `KIRA_UNPRIVILEGED=1` for the binary
   against a software TPM.

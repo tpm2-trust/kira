@@ -14,7 +14,7 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/signing"
+	"github.com/tpm2-trust/kira/internal/signing"
 	"golang.org/x/sys/unix"
 )
 
@@ -34,7 +34,7 @@ var secretCommands = []struct {
 	{[]string{"slot", "approve"}, "ResealCommand"},
 	{[]string{"slot", "approve", "--unattended"}, "ResealCommand"},
 	{[]string{"slot", "approve", "--if-moved"}, "ResealIfMoved"},
-	{[]string{"luks", "derive", "--out", "/dev/shm/tpm2-kira-test-key"}, "DeriveCommand"},
+	{[]string{"luks", "derive", "--out", "/dev/shm/kira-test-key"}, "DeriveCommand"},
 	{[]string{"luks", "enrol", "/dev/null", "--salt", "typed"}, "LuksEnrol"},
 	{[]string{"luks", "enroll", "/dev/null", "--salt", "typed"}, "LuksEnrol"},
 	{[]string{"luks", "remove", "/dev/null", "--keyslot", "1"}, "LuksRemove"},
@@ -96,8 +96,9 @@ func TestSecretCommandsAreAll(t *testing.T) {
 	}
 	// Not a command of their own: control's way to delete a slot, with its keyslots;
 	// what the commands above call. Or reached by a name alone: the search has no types,
-	// and these only say Status or Seal of something else.
-	parts := []string{"DeleteSlot", "PrintResealSkipped", "Reseal", "LuksMark", "LuksRoute", "LuksStatus", "RouteAdvice", "RouteFindings", "NVRAMDeleteCommand"}
+	// and these only say Status or Seal of something else. Or control's panel
+	// (controlPanel's Sections and Collect), which go-tui-slim's loop calls inside Control.
+	parts := []string{"DeleteSlot", "PrintResealSkipped", "Reseal", "LuksMark", "LuksRoute", "LuksStatus", "RouteAdvice", "RouteFindings", "NVRAMDeleteCommand", "Sections", "Collect"}
 	var missing []string
 	for fn := range reach {
 		if ast.IsExported(fn) && uses[fn] != nil && !listed[fn] && !slices.Contains(parts, fn) {
@@ -202,7 +203,7 @@ func TestRefusedLockStopsBeforeThePrompt(t *testing.T) {
 	script := `ulimit -l 64 && exec "$@"`
 	var env []string
 	for _, e := range os.Environ() {
-		if !strings.HasPrefix(e, "TPM2_KIRA_UNPRIVILEGED=") {
+		if !strings.HasPrefix(e, "KIRA_UNPRIVILEGED=") {
 			env = append(env, e)
 		}
 	}
@@ -241,7 +242,7 @@ func TestRefusedLockStopsBeforeThePrompt(t *testing.T) {
 
 func buildAdminBinary(t *testing.T) string {
 	t.Helper()
-	bin := filepath.Join(t.TempDir(), "tpm2-kira")
+	bin := filepath.Join(t.TempDir(), "kira")
 	if out, err := exec.Command("go", "build", "-o", bin, ".").CombinedOutput(); err != nil {
 		t.Fatalf("%v: %s", err, out)
 	}
@@ -275,7 +276,7 @@ func TestPINFDIsOnWhatSigns(t *testing.T) {
 // runBinary runs the real binary as the suite's user, with descriptor 3 as given.
 func runBinary(bin string, env []string, extra *os.File, args ...string) (string, error) {
 	c := exec.Command(bin, args...)
-	c.Env = append(append(os.Environ(), "TPM2_KIRA_UNPRIVILEGED=1"), env...)
+	c.Env = append(append(os.Environ(), "KIRA_UNPRIVILEGED=1"), env...)
 	if extra != nil {
 		c.ExtraFiles = []*os.File{extra}
 	}
@@ -385,27 +386,27 @@ func TestPINFDOfTheRealBinary(t *testing.T) {
 func TestThePINVariableIsSaidOnce(t *testing.T) {
 	bin := buildAdminBinary(t)
 	for _, args := range [][]string{{"version"}, {"status", "--tpm", filepath.Join(t.TempDir(), "absent")}, {"slot", "approve", "--unattended", "--privkey", filepath.Join(t.TempDir(), "absent")}} {
-		out, _ := runBinary(bin, []string{"TPM2_KIRA_PIN=secret-1234"}, nil, args...)
-		if strings.Count(out, "TPM2_KIRA_PIN is set and ignored") != 1 || strings.Contains(out, "secret-1234") {
+		out, _ := runBinary(bin, []string{"KIRA_PIN=secret-1234"}, nil, args...)
+		if strings.Count(out, "KIRA_PIN is set and ignored") != 1 || strings.Contains(out, "secret-1234") {
 			t.Errorf("%v with it set:\n%s", args, out)
 		}
 		out, _ = runBinary(bin, nil, nil, args...)
-		if strings.Contains(out, "TPM2_KIRA_PIN") {
+		if strings.Contains(out, "KIRA_PIN") {
 			t.Errorf("%v without it:\n%s", args, out)
 		}
 	}
 
-	t.Setenv("TPM2_KIRA_PIN", "secret-1234")
+	t.Setenv("KIRA_PIN", "secret-1234")
 	var said strings.Builder
 	signing.IgnorePINEnv(&said)
 	signing.IgnorePINEnv(&said)
 	if strings.Count(said.String(), "WARNING") != 1 {
 		t.Errorf("twice in a process:\n%s", said.String())
 	}
-	if _, set := os.LookupEnv("TPM2_KIRA_PIN"); set {
+	if _, set := os.LookupEnv("KIRA_PIN"); set {
 		t.Error("it stays in the environment of what the command starts")
 	}
-	if out, _ := exec.Command("/bin/sh", "-c", "echo \"[$TPM2_KIRA_PIN]\"").CombinedOutput(); string(out) != "[]\n" {
+	if out, _ := exec.Command("/bin/sh", "-c", "echo \"[$KIRA_PIN]\"").CombinedOutput(); string(out) != "[]\n" {
 		t.Errorf("a child has it: %s", out)
 	}
 }

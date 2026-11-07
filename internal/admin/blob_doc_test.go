@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/core/attest"
+	"github.com/tpm2-trust/kira/internal/nvslot"
 )
 
 // The format reference in docs/SECURITY-BACKGROUND.md §10 states numbers
@@ -23,14 +23,14 @@ func TestBlobFormatReferenceMatchesTheCode(t *testing.T) {
 		"the blob version (field)":   fmt.Sprintf("Version                 uint32      Must be %d", nvslot.CurrentBlobVersion),
 		"the attestation size limit": fmt.Sprintf("Attestation length    uint32      ≤ %d", nvslot.MaxAttestationLen),
 		"the phone method's number":  fmt.Sprintf("Method type         uint8       %d = phones over Bluetooth LE", nvslot.AttestMethodPhone),
-		"the vault method's number":  fmt.Sprintf("%d = tpm2-kira-vault over HTTPS", nvslot.AttestMethodVault),
+		"the vault method's number":  fmt.Sprintf("%d = kira-vault over HTTPS", nvslot.AttestMethodVault),
 		"the number of phones":       fmt.Sprintf("Phone count         uint8       ≤ %d", nvslot.MaxVerifiers),
 		"the PCR selection limit":    fmt.Sprintf("PCRSelection length   uint16      ≤ %d", attest.MaxPCRIndex),
 		"the device id size":         fmt.Sprintf("DeviceID              [%d]byte", attest.DeviceIDSize),
 		"the vault's pin":            "Pin                 [32]byte",
 		"the pepper check's size":    fmt.Sprintf("PepperCheck         uint16 + []byte   0 or %d", nvslot.PepperCheckSize),
 		"the slot's blob index":      fmt.Sprintf("`0x%08X`", nvslot.NVRAMSlotStart),
-		"the record's variable":      "the EFI variable `KIRAslotN` under tpm2-kira's vendor GUID\n(`" + nvslot.VarGUID + "`)",
+		"the record's variable":      "the EFI variable `KIRAslotN` under kira's vendor GUID\n(`" + nvslot.VarGUID + "`)",
 		"the record's size limit":    fmt.Sprintf("at most %d KiB", nvslot.MaxRecordSize/1024),
 		"the generation index":       fmt.Sprintf("`0x%08X` for slot", nvslot.GenerationIndex(nvslot.NVRAMSlotStart)),
 		"the record counter index":   fmt.Sprintf("`0x%08X` + *n*: an", nvslot.AttestCounterIndex(nvslot.NVRAMSlotStart)),

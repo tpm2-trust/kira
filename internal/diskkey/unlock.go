@@ -19,9 +19,9 @@ import (
 	"time"
 
 	"github.com/tpm2-trust/go-tui-slim/secret"
-	"github.com/tpm2-trust/tpm2-kira/internal/journal"
-	"github.com/tpm2-trust/tpm2-kira/internal/screen"
-	"github.com/tpm2-trust/tpm2-kira/internal/unixsock"
+	"github.com/tpm2-trust/kira/internal/journal"
+	"github.com/tpm2-trust/kira/internal/screen"
+	"github.com/tpm2-trust/kira/internal/unixsock"
 
 	"golang.org/x/sys/unix"
 )
@@ -31,8 +31,8 @@ import (
 // system, systemd-cryptsetup connects to it at the moment it activates the
 // volume and reads the key from the connection; the peer name of its
 // abstract socket says which volume (and whether it wants the key itself or
-// a saved token key). tpm2-kira listens there in the initrd, so the unlock
-// of the disk is a question to tpm2-kira and not a prompt of its own:
+// a saved token key). kira listens there in the initrd, so the unlock
+// of the disk is a question to kira and not a prompt of its own:
 // today it answers with what the person types at its own prompt, later
 // with a key derived from that and a factor the phone released
 // (PLAN-PHONESALT.md). systemd-cryptsetup waits for the answer for as
@@ -41,7 +41,7 @@ import (
 // always be entered by hand, which is why there is no enforced mode.
 
 // DefaultUnlockSocket is where the initrd units put the key socket.
-const DefaultUnlockSocket = "/run/tpm2-kira/unlock.sock"
+const DefaultUnlockSocket = "/run/kira/unlock.sock"
 
 // unlockRequest is one connection from systemd-cryptsetup.
 type unlockRequest struct {
@@ -211,7 +211,7 @@ func noCoreDump() {
 }
 
 // ListenUnlock is the key socket: the one systemd passed with the socket
-// unit (LISTEN_FDS, tpm2-kira-unlock.socket) when it did, else a new one at
+// unit (LISTEN_FDS, kira-unlock.socket) when it did, else a new one at
 // path. Nil with no error when neither is wanted.
 func ListenUnlock(path string) (net.Listener, error) {
 	if l := listenFromSystemd(); l != nil {
@@ -253,9 +253,9 @@ func listenerFromFD(fd int) net.Listener {
 }
 
 // consolePath is where the passphrase is asked: the console, or for tests
-// the path in TPM2_KIRA_CONSOLE (a file, a pipe or a listening socket).
+// the path in KIRA_CONSOLE (a file, a pipe or a listening socket).
 func consolePath() string {
-	if p := os.Getenv("TPM2_KIRA_CONSOLE"); p != "" {
+	if p := os.Getenv("KIRA_CONSOLE"); p != "" {
 		return p
 	}
 	return "/dev/console"
@@ -275,16 +275,16 @@ func openConsole() (io.ReadWriteCloser, int, error) {
 	return f, int(f.Fd()), nil
 }
 
-// ErrUnlockSkipped: no keyslot of tpm2-kira's on the volume, or its
-// header not readable: tpm2-kira gives no key, and cryptsetup's own
+// ErrUnlockSkipped: no keyslot of kira's on the volume, or its
+// header not readable: kira gives no key, and cryptsetup's own
 // prompt follows.
-var ErrUnlockSkipped = errors.New("not tpm2-kira's to answer; cryptsetup's own prompt follows")
+var ErrUnlockSkipped = errors.New("not kira's to answer; cryptsetup's own prompt follows")
 
 // DiskKey is the key provider's answer, as the volume's own LUKS2 header
-// says (unlockRecipe reads its tpm2-kira tokens the moment it asks), its
+// says (unlockRecipe reads its kira tokens the moment it asks), its
 // recipes tried in their order (Recipes):
 //
-//	no token                  no answer: cryptsetup's own prompt, tpm2-kira untouched
+//	no token                  no answer: cryptsetup's own prompt, kira untouched
 //	0x2400, 0x2401 unattended nothing typed: the key run made in this boot from the TPM's
 //	                          part and the vault's (internal/vaultkey/vault.go); without one,
 //	                          the volume's next recipe
@@ -382,7 +382,7 @@ func noKeyboard(r Recipe, vaultErr error) error {
 // with the person's pepper, HMAC-SHA256(salt, label ‖ pepper). The caller wipes it.
 func KeyboardSalt(salt, pepper []byte) []byte {
 	m := hmac.New(sha256.New, salt)
-	m.Write([]byte("tpm2-kira/keyboard-pepper/v1"))
+	m.Write([]byte("kira/keyboard-pepper/v1"))
 	m.Write(pepper)
 	return m.Sum(nil)
 }
@@ -666,7 +666,7 @@ var errPassphraseTooLong = fmt.Errorf("a passphrase of more than %d bytes", MaxP
 var passphraseBuffer = func() []byte {
 	pw, err := secret.LockedBuffer(MaxPassphrase)
 	if err != nil && !bufferLockSaid.Swap(true) {
-		journal.NarrateAt(journal.PrioWarning, "tpm2-kira: the passphrase's buffer: %v", err)
+		journal.NarrateAt(journal.PrioWarning, "kira: the passphrase's buffer: %v", err)
 	}
 	return pw
 }
@@ -682,6 +682,6 @@ func PassphraseBuffer() []byte { return passphraseBuffer() }
 // initramfs log (Debian) is read after the boot.
 func UnlockLogger(debug bool) func(string) {
 	return func(msg string) {
-		journal.Narrate("tpm2-kira: %s %s", time.Now().UTC().Format("15:04:05.000"), msg)
+		journal.Narrate("kira: %s %s", time.Now().UTC().Format("15:04:05.000"), msg)
 	}
 }

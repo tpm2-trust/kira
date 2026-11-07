@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/diskkey"
 )
 
 const routeUUID = "099267cb-957a-4c7f-91cf-c25c450767bb"
@@ -15,7 +15,7 @@ const routeUUID = "099267cb-957a-4c7f-91cf-c25c450767bb"
 // (seen on the T450s), the socket as the name, another key file, the
 // default key, another volume.
 func TestAdviseCmdline(t *testing.T) {
-	good := "rd.luks.name=" + routeUUID + "=cryptroot rd.luks.key=" + routeUUID + "=/run/tpm2-kira/unlock.sock root=/dev/mapper/cryptroot rw"
+	good := "rd.luks.name=" + routeUUID + "=cryptroot rd.luks.key=" + routeUUID + "=/run/kira/unlock.sock root=/dev/mapper/cryptroot rw"
 	cases := []struct {
 		name, line string
 		named      bool
@@ -25,11 +25,11 @@ func TestAdviseCmdline(t *testing.T) {
 	}{
 		{"right", good, true, true, "", ""},
 		{"missing", "rd.luks.name=" + routeUUID + "=cryptroot root=/dev/mapper/cryptroot rw", true, false, "is missing", good},
-		{"twice", "rd.luks.name=" + routeUUID + "=cryptroot rd.luks.name=" + routeUUID + "=/run/tpm2-kira/unlock.sock root=/dev/mapper/cryptroot rw", true, false, "appears 2 times", good},
-		{"socket as name", "rd.luks.name=" + routeUUID + "=/run/tpm2-kira/unlock.sock root=/dev/mapper/cryptroot rw", true, false, "a path", good},
-		{"other key", "rd.luks.name=" + routeUUID + "=cryptroot rd.luks.key=" + routeUUID + "=/etc/key root=/dev/mapper/cryptroot rw", true, false, "not tpm2-kira's socket", good},
-		{"default key", "rd.luks.name=" + routeUUID + "=cryptroot rd.luks.key=/run/tpm2-kira/unlock.sock rw", true, true, "", ""},
-		{"no rd. prefix", "luks.name=" + routeUUID + "=cryptroot luks.key=" + routeUUID + "=/run/tpm2-kira/unlock.sock rw", true, true, "", ""},
+		{"twice", "rd.luks.name=" + routeUUID + "=cryptroot rd.luks.name=" + routeUUID + "=/run/kira/unlock.sock root=/dev/mapper/cryptroot rw", true, false, "appears 2 times", good},
+		{"socket as name", "rd.luks.name=" + routeUUID + "=/run/kira/unlock.sock root=/dev/mapper/cryptroot rw", true, false, "a path", good},
+		{"other key", "rd.luks.name=" + routeUUID + "=cryptroot rd.luks.key=" + routeUUID + "=/etc/key root=/dev/mapper/cryptroot rw", true, false, "not kira's socket", good},
+		{"default key", "rd.luks.name=" + routeUUID + "=cryptroot rd.luks.key=/run/kira/unlock.sock rw", true, true, "", ""},
+		{"no rd. prefix", "luks.name=" + routeUUID + "=cryptroot luks.key=" + routeUUID + "=/run/kira/unlock.sock rw", true, true, "", ""},
 		{"another volume", "rd.luks.name=11111111-2222-3333-4444-555555555555=other rw", false, false, "", ""},
 	}
 	for _, c := range cases {
@@ -49,19 +49,19 @@ func TestAdviseCmdline(t *testing.T) {
 func TestAdviseCrypttab(t *testing.T) {
 	// Debian: the keyscript.
 	f, ok := AdviseCrypttab("/etc/crypttab", []byte("# c\ncryptroot UUID="+routeUUID+" none luks,discard\n"), routeUUID, "/dev/vda3", true)
-	if !ok || f.Routed || !strings.Contains(f.Problem, "keyscript") || f.Should != "cryptroot UUID="+routeUUID+" none luks,discard,keyscript=/lib/cryptsetup/scripts/tpm2-kira" {
+	if !ok || f.Routed || !strings.Contains(f.Problem, "keyscript") || f.Should != "cryptroot UUID="+routeUUID+" none luks,discard,keyscript=/lib/cryptsetup/scripts/kira" {
 		t.Errorf("debian without keyscript: %+v", f)
 	}
-	f, ok = AdviseCrypttab("/etc/crypttab", []byte("cryptroot UUID="+routeUUID+" none luks,keyscript=/lib/cryptsetup/scripts/tpm2-kira\n"), routeUUID, "/dev/vda3", true)
+	f, ok = AdviseCrypttab("/etc/crypttab", []byte("cryptroot UUID="+routeUUID+" none luks,keyscript=/lib/cryptsetup/scripts/kira\n"), routeUUID, "/dev/vda3", true)
 	if !ok || !f.Routed {
 		t.Errorf("debian with keyscript: %+v", f)
 	}
 	// systemd: the socket as the key file, x-initrd.attach.
 	f, ok = AdviseCrypttab("/etc/crypttab", []byte("cryptroot UUID="+routeUUID+" none luks\n"), routeUUID, "/dev/vda2", false)
-	if !ok || f.Routed || f.Should != "cryptroot UUID="+routeUUID+" /run/tpm2-kira/unlock.sock luks,x-initrd.attach" {
+	if !ok || f.Routed || f.Should != "cryptroot UUID="+routeUUID+" /run/kira/unlock.sock luks,x-initrd.attach" {
 		t.Errorf("systemd without the socket: %+v", f)
 	}
-	f, ok = AdviseCrypttab("/etc/crypttab", []byte("cryptroot UUID="+routeUUID+" /run/tpm2-kira/unlock.sock luks,x-initrd.attach\n"), routeUUID, "/dev/vda2", false)
+	f, ok = AdviseCrypttab("/etc/crypttab", []byte("cryptroot UUID="+routeUUID+" /run/kira/unlock.sock luks,x-initrd.attach\n"), routeUUID, "/dev/vda2", false)
 	if !ok || !f.Routed {
 		t.Errorf("systemd with the socket: %+v", f)
 	}

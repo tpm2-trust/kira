@@ -12,9 +12,9 @@ package admin
 // start of the code screen. When the code screen is over run closes the
 // boot - PCR 15 extended, which the CA's own policy reads, and every slot
 // object's, until the next boot - so nothing later in this boot gets a
-// certificate. The image closes it again (tpm2-kira-close.service,
+// certificate. The image closes it again (kira-close.service,
 // initramfs-tools' local-top and init-bottom), and before a resume from hibernation,
-// which starts the TPM afresh (tpm2-kira-boot close --resume). What a close
+// which starts the TPM afresh (kira-boot close --resume). What a close
 // that fails means is internal/bootclose's. The clients trust the CA (a known_hosts line
 // '@cert-authority'), not a key, so a new key at every boot asks them
 // nothing.
@@ -31,7 +31,7 @@ package admin
 // in the image: an approval of PCR 11 carried inside the image it measures
 // would change that measurement. reseal - which the initramfs hooks run
 // after every rebuild - and control approve the next boot's values in both
-// slots with the signing key: those of tpm2-kira's measure point, replayed
+// slots with the signing key: those of kira's measure point, replayed
 // from the firmware event log and predicted from the image (measurepoint.go,
 // ukipredict.go, grub_predict.go). A boot whose
 // approvals no longer fit serves assh's temporary key, made in the TPM too
@@ -47,8 +47,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
 
 	"github.com/google/go-tpm/tpm2/transport"
 	"github.com/tpm2-trust/assh/config"
@@ -61,9 +61,9 @@ const (
 	// DefaultSSHCA is the SSH CA: an EFI variable, assh's GUID.
 	DefaultSSHCA = persist.VarPrefix + "KIRAasshCA"
 	// DefaultSSHCAPub is the CA's public key, what clients trust.
-	DefaultSSHCAPub = "/etc/tpm2-kira/ssh_ca.pub"
+	DefaultSSHCAPub = "/etc/kira/ssh_ca.pub"
 	// sshCARef binds the signing key's approvals to this CA's use.
-	sshCARef = "tpm2-kira ssh ca"
+	sshCARef = "kira ssh ca"
 )
 
 // sshCAUnapproved is why the next boot serves a temporary key: no slot is
@@ -369,7 +369,7 @@ func (f *machineFacts) caWaitsForImage() bool {
 func loadSSHCA(conf config.Config) sshCAState {
 	ca, err := hostkey.LoadCA(conf.CA)
 	if os.IsNotExist(err) {
-		return sshCAState{Err: "no SSH CA: tpm2-kira control creates it in the TPM"}
+		return sshCAState{Err: "no SSH CA: kira control creates it in the TPM"}
 	}
 	if err != nil {
 		return sshCAState{Err: err.Error()}

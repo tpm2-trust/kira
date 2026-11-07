@@ -34,7 +34,7 @@ func TestStatusSaysTheChannel(t *testing.T) {
 	r := StatusReport{TPM: "tpm", Version: "v", Slots: []StatusSlot{{Slot: 4, Signed: true, ChannelMoved: true}}}
 	r.Notes = statusNotes(r)
 	out := captureStdout(t, func() { printStatus(r) })
-	if !strings.Contains(out, "WARNING: slot 4's phone channel is sealed to another PCR 7") || !strings.Contains(out, "sudo tpm2-kira slot approve --nvram 4") {
+	if !strings.Contains(out, "WARNING: slot 4's phone channel is sealed to another PCR 7") || !strings.Contains(out, "sudo kira slot approve --nvram 4") {
 		t.Errorf("the channel's note:\n%s", out)
 	}
 	if strings.Contains(out, "\033[") {

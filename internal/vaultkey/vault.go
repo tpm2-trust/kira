@@ -3,7 +3,7 @@
 package vaultkey
 
 // The disk's key from two TPMs: the local part in this machine's TPM, the
-// remote part kept by tpm2-kira-vault (docs/VAULT.md, package vaultproto).
+// remote part kept by kira-vault (docs/VAULT.md, package vaultproto).
 //
 // Both parts are 32 random bytes, wrapped (TPM2_MakeCredential) for this
 // TPM's EK and the slot's release key: they open only through the release
@@ -40,22 +40,22 @@ import (
 	"golang.org/x/crypto/hkdf"
 
 	"github.com/tpm2-trust/go-tui-slim/secret"
-	"github.com/tpm2-trust/tpm2-kira/core/attest"
-	"github.com/tpm2-trust/tpm2-kira/core/vaultproto"
-	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
-	"github.com/tpm2-trust/tpm2-kira/internal/measure"
-	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
-	"github.com/tpm2-trust/tpm2-kira/internal/screen"
-	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
-	"github.com/tpm2-trust/tpm2-kira/internal/untrusted"
+	"github.com/tpm2-trust/kira/core/attest"
+	"github.com/tpm2-trust/kira/core/vaultproto"
+	"github.com/tpm2-trust/kira/internal/diskkey"
+	"github.com/tpm2-trust/kira/internal/measure"
+	"github.com/tpm2-trust/kira/internal/nvslot"
+	"github.com/tpm2-trust/kira/internal/phonegate"
+	"github.com/tpm2-trust/kira/internal/screen"
+	"github.com/tpm2-trust/kira/internal/tpmdev"
+	"github.com/tpm2-trust/kira/internal/untrusted"
 )
 
 // The derivation strings of the vault's parts as the combiner's inputs:
 // part of the contract between an enrolled keyslot and this code.
 const (
-	vaultSaltInfo     = "tpm2-kira/vault/salt/v1"
-	vaultPasswordInfo = "tpm2-kira/vault/password/v1"
+	vaultSaltInfo     = "kira/vault/salt/v1"
+	vaultPasswordInfo = "kira/vault/password/v1"
 )
 
 // Salt makes the vault's part R the combiner's salt: 64 lowercase
@@ -106,7 +106,7 @@ func hkdfHex(ikm, salt []byte, what, label string) []byte {
 // each vault, in the slot's signed blob, is the key of a certificate of
 // its chain - so a root put here by somebody else gets no other vault
 // accepted.
-var RootsPath = "/etc/tpm2-kira/vault-ca.pem"
+var RootsPath = "/etc/kira/vault-ca.pem"
 
 // vaultClient speaks to the vault over HTTPS (vaultproto.ClientConfig):
 // TLS 1.3, the vault's chain to a root of RootsPath for the URL's host,
@@ -129,7 +129,7 @@ func CheckURL(rawURL string) (*url.URL, error) {
 // CheckPin says whether pin is a vault's pin.
 func CheckPin(pin string) error {
 	if d, err := hex.DecodeString(strings.TrimPrefix(pin, "sha256:")); !strings.HasPrefix(pin, "sha256:") || err != nil || len(d) != sha256.Size {
-		return fmt.Errorf("the vault's pin must be sha256: and 64 hexadecimal characters, as 'tpm2-kira-vault token create' prints it")
+		return fmt.Errorf("the vault's pin must be sha256: and 64 hexadecimal characters, as 'kira-vault token create' prints it")
 	}
 	return nil
 }
@@ -159,7 +159,7 @@ func NewClient(rawURL, pin string) (*vaultClient, error) {
 func loadRoots() (*x509.CertPool, error) {
 	b, err := os.ReadFile(RootsPath)
 	if errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("no root certificate of a vault in %s: place it there ('tpm2-kira-vault tls root' prints it), or enrol with --ca FILE", RootsPath)
+		return nil, fmt.Errorf("no root certificate of a vault in %s: place it there ('kira-vault tls root' prints it), or enrol with --ca FILE", RootsPath)
 	}
 	if err != nil {
 		return nil, err
@@ -540,13 +540,13 @@ func fetchRemoteRetrying(ctx context.Context, tpmDev transport.TPM, vs vaultSlot
 }
 
 // PepperCheck is what the slot keeps to recognise the key made with the
-// right pepper: HMAC-SHA256(key, "tpm2-kira/vault/pepper-check/v1"),
+// right pepper: HMAC-SHA256(key, "kira/vault/pepper-check/v1"),
 // its first 16 bytes - enough to tell a mistyped pepper, and less to go on.
 // It is no help in guessing the pepper without L and R, which only the
 // TPM opens.
 func PepperCheck(key []byte) []byte {
 	m := hmac.New(sha256.New, key)
-	m.Write([]byte("tpm2-kira/vault/pepper-check/v1"))
+	m.Write([]byte("kira/vault/pepper-check/v1"))
 	return m.Sum(nil)[:nvslot.PepperCheckSize]
 }
 

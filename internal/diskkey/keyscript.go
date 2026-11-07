@@ -17,14 +17,14 @@ import (
 // The Debian side of the key provider (initramfs-tools, cryptsetup's
 // local-top/cryptroot). There systemd-cryptsetup does not run; a
 // keyscript= in crypttab does, and its stdout is the key. The keyscript
-// /lib/cryptsetup/scripts/tpm2-kira runs 'tpm2-kira-boot unlock-key <volume>',
+// /lib/cryptsetup/scripts/kira runs 'kira-boot unlock-key <volume>',
 // which asks the same socket the same way systemd-cryptsetup would - from
 // an abstract address named /cryptsetup/<volume> - and writes the answer
-// to stdout. Without the socket ('run' failed), or when tpm2-kira has no
-// key to give (no tpm2-kira token on the volume, the phone salt or the
+// to stdout. Without the socket ('run' failed), or when kira has no
+// key to give (no kira token on the volume, the phone salt or the
 // vault's part not released, Ctrl-C), it becomes cryptsetup's own prompt, /lib/cryptsetup/askpass, so the boot
-// is never worse than without tpm2-kira. cryptroot's tries= re-runs the
-// keyscript after a wrong key, which asks at tpm2-kira's prompt again.
+// is never worse than without kira. cryptroot's tries= re-runs the
+// keyscript after a wrong key, which asks at kira's prompt again.
 
 // askpass is cryptsetup-initramfs's prompt, in every Debian initramfs.
 const askpass = "/lib/cryptsetup/askpass"
@@ -37,7 +37,7 @@ func UnlockKeyCommand(socket, volume string, wait time.Duration) error {
 	}
 	key, err := askUnlockSocket(socket, volume, wait)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "tpm2-kira: %v; asking at cryptsetup's prompt\n", err)
+		fmt.Fprintf(os.Stderr, "kira: %v; asking at cryptsetup's prompt\n", err)
 		return execAskpass(volume)
 	}
 	defer secret.Wipe(key)
