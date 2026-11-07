@@ -96,8 +96,9 @@ func TestSecretCommandsAreAll(t *testing.T) {
 	}
 	// Not a command of their own: control's way to delete a slot, with its keyslots;
 	// what the commands above call. Or reached by a name alone: the search has no types,
-	// and these only say Status or Seal of something else.
-	parts := []string{"DeleteSlot", "PrintResealSkipped", "Reseal", "LuksMark", "LuksRoute", "LuksStatus", "RouteAdvice", "RouteFindings", "NVRAMDeleteCommand"}
+	// and these only say Status or Seal of something else. Or control's panel
+	// (controlPanel's Sections and Collect), which go-tui-slim's loop calls inside Control.
+	parts := []string{"DeleteSlot", "PrintResealSkipped", "Reseal", "LuksMark", "LuksRoute", "LuksStatus", "RouteAdvice", "RouteFindings", "NVRAMDeleteCommand", "Sections", "Collect"}
 	var missing []string
 	for fn := range reach {
 		if ast.IsExported(fn) && uses[fn] != nil && !listed[fn] && !slices.Contains(parts, fn) {

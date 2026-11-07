@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/tpm2-trust/go-tui-slim/panel"
 	"github.com/tpm2-trust/tpm2-kira/internal/measure"
 	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
 	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
@@ -23,9 +24,9 @@ import (
 // there (a slot, a keyslot, a phone, the SSH CA). A destroying step says what goes,
 // and asks for it to be typed.
 const (
-	dangerChange = iota
-	dangerView
-	dangerDestroy
+	dangerChange  = panel.Changes
+	dangerView    = panel.Reads
+	dangerDestroy = panel.Destroys
 )
 
 // controlSection is one part of control: a section of the full screen, a submenu of the

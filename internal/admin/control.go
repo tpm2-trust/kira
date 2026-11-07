@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/tpm2-trust/go-tui-slim/panel"
 	"github.com/tpm2-trust/go-tui-slim/prompt"
 	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
 	"github.com/tpm2-trust/tpm2-kira/internal/measure"
@@ -73,7 +74,7 @@ type controlStep struct {
 	// Danger is how much it can break (dangerChange, dangerView, dangerDestroy);
 	// Destroys says what a destroying step removes. Command is what the step equals
 	// on the command line (annotate).
-	Danger   int
+	Danger   panel.Danger
 	Destroys string
 	Command  string
 }

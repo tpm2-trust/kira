@@ -22,8 +22,8 @@ Where things are in the repository, and how the tests are run.
 ├── assh/                    # aSSH, a git submodule: the SSH server, the SSH CA and host keys in the TPM
 ├── tpm2-verifier/           # tpm2-verifier, a git submodule: the EK root store (ekroots) the core checks EK certificates with
 ├── go-uefi-slim/            # go-uefi-slim, a git submodule: EFI variables, Secure Boot, unified kernel images
-├── go-tui-slim/             # go-tui-slim, a git submodule: control's full screen (tui), the questions (prompt),
-│                            #   the terminal given back (termguard), wipe and the process lock (secret)
+├── go-tui-slim/             # go-tui-slim, a git submodule: control's full screen (panel, on tui), the questions
+│                            #   (prompt), the terminal given back (termguard), wipe and the process lock (secret)
 ├── internal/                # The packages, by layer; each knows only those below it
 │   ├── tpmdev/              # Opening the TPM, the storage primary, flushing, NV reads
 │   ├── measure/             # PCR specs and banks, the event log, the measure point,

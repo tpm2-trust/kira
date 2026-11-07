@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tpm2-trust/go-tui-slim/panel"
 	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
 )
 
@@ -28,7 +29,7 @@ func TestControlAnnotate(t *testing.T) {
 	for _, s := range []struct {
 		step    controlStep
 		command string
-		danger  int
+		danger  panel.Danger
 	}{
 		{controlStep{Key: "slot:0"}, "tpm2-kira slot delete --nvram 0", dangerDestroy},
 		{controlStep{Key: "seal"}, "tpm2-kira slot add --nvram 0 --pcrs 0e,2e,7e,11u", dangerChange},
