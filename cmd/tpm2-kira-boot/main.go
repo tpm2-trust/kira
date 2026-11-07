@@ -22,7 +22,7 @@ import (
 	"github.com/tpm2-trust/tpm2-kira/internal/sshscreen"
 	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
 
-	"github.com/tpm2-trust/assh/sandbox"
+	"github.com/tpm2-trust/go-tui-slim/secret"
 )
 
 // Version is set at build time (-X main.Version=...).
@@ -113,7 +113,7 @@ func main() {
 	case "unlock-key":
 		// It holds the disk's key on its way to cryptsetup. Its stdout is that key: the
 		// word on a lock it could not take goes to stderr, and no further.
-		if err := sandbox.LockMemory(); err != nil {
+		if err := secret.LockProcess(); err != nil {
 			fmt.Fprintf(os.Stderr, "tpm2-kira: %v\n", err)
 		}
 		fs := flag.NewFlagSet("unlock-key", flag.ExitOnError)

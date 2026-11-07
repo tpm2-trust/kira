@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/go-tpm/tpm2"
+	"github.com/tpm2-trust/go-tui-slim/secret"
 	"github.com/tpm2-trust/tpm2-kira/core/attest"
 	"github.com/tpm2-trust/tpm2-kira/core/vaultproto"
 	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
@@ -21,7 +22,6 @@ import (
 	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
 	"github.com/tpm2-trust/tpm2-kira/internal/untrusted"
 	"github.com/tpm2-trust/tpm2-kira/internal/vaultkey"
-	"github.com/tpm2-trust/tpm2-kira/internal/wipe"
 )
 
 // VaultEnrolOptions is what 'vault enrol' and 'luks enrol --salt vault'
@@ -70,7 +70,7 @@ func VaultEnrol(o VaultEnrolOptions) error {
 	if err != nil {
 		return err
 	}
-	defer wipe.Bytes(key)
+	defer secret.Wipe(key)
 	if err := writeKeyOut(o.Out, key); err != nil {
 		return err
 	}
@@ -230,7 +230,7 @@ func vaultEnrolKey(o VaultEnrolOptions) ([]byte, uint32, error) {
 		if pepper, err = askPepper(); err != nil {
 			return nil, 0, err
 		}
-		defer wipe.Bytes(pepper)
+		defer secret.Wipe(pepper)
 	}
 
 	var pw []byte
@@ -238,7 +238,7 @@ func vaultEnrolKey(o VaultEnrolOptions) ([]byte, uint32, error) {
 		if pw, err = askNewPassword(); err != nil {
 			return nil, 0, err
 		}
-		defer wipe.Bytes(pw)
+		defer secret.Wipe(pw)
 	}
 	if o.Keyboard && (!o.TypedPassword || o.Pepper) {
 		return nil, 0, errors.New("a pepper typed through the keyboard needs somebody at the machine, --password typed, and no operator's pepper")
@@ -248,23 +248,23 @@ func vaultEnrolKey(o VaultEnrolOptions) ([]byte, uint32, error) {
 		if keyboardPepper, err = askKeyboardPepper(); err != nil {
 			return nil, 0, err
 		}
-		defer wipe.Bytes(keyboardPepper)
+		defer secret.Wipe(keyboardPepper)
 	}
 	remote, wRemote, err := phonegate.WrapFactor(tpmDev, att, nil)
 	if err != nil {
 		return nil, 0, err
 	}
-	defer wipe.Bytes(remote)
+	defer secret.Wipe(remote)
 	att.Vault = nvslot.VaultAttestation{Keyboard: o.Keyboard, URL: strings.TrimSuffix(o.URL, "/"), Pin: strings.ToLower(o.Pin), Label: label, Pepper: pepper != nil}
 	fmt.Fprintln(os.Stderr, "Deriving the key (Argon2id, 1 GiB, a few seconds) ...")
 	var key []byte
 	if o.TypedPassword {
 		salt := vaultkey.Salt(remote, label, pepper)
-		defer wipe.Bytes(salt)
+		defer secret.Wipe(salt)
 		if o.Keyboard {
 			plain := salt
 			salt = diskkey.KeyboardSalt(plain, keyboardPepper)
-			defer wipe.Bytes(salt)
+			defer secret.Wipe(salt)
 		}
 		if key, err = diskkey.Combine(pw, salt); err != nil {
 			return nil, 0, err
@@ -274,7 +274,7 @@ func vaultEnrolKey(o VaultEnrolOptions) ([]byte, uint32, error) {
 		if err != nil {
 			return nil, 0, err
 		}
-		defer wipe.Bytes(local)
+		defer secret.Wipe(local)
 		att.Vault.Local = *wLocal
 		if key, err = vaultkey.Key(local, remote, label, pepper); err != nil {
 			return nil, 0, err
@@ -319,13 +319,13 @@ func vaultEnrolKey(o VaultEnrolOptions) ([]byte, uint32, error) {
 		return nil, 0, err
 	}
 	be := &phonegate.TPMBackend{TPM: tpmDev, Blob: att, EKAlgorithm: att.EKAlg}
-	secret, err := be.ActivateCredential(ch.Challenge.Credential, ch.Challenge.EncryptedSecret)
+	credential, err := be.ActivateCredential(ch.Challenge.Credential, ch.Challenge.EncryptedSecret)
 	if err != nil {
 		return nil, 0, fmt.Errorf("proving the attestation key to the vault: %w", err)
 	}
-	defer wipe.Bytes(secret)
+	defer secret.Wipe(credential)
 	var res vaultproto.EnrolResult
-	if err := client.Post(ctx, vaultproto.PathEnrolConfirm, vaultproto.EnrolConfirm{EnrolID: ch.EnrolID, Secret: secret}, &res); err != nil {
+	if err := client.Post(ctx, vaultproto.PathEnrolConfirm, vaultproto.EnrolConfirm{EnrolID: ch.EnrolID, Secret: credential}, &res); err != nil {
 		return nil, 0, err
 	}
 	if err := writeAttestBlob(tpmDev, idx, att, priv); err != nil {
@@ -360,16 +360,16 @@ func askPepper() ([]byte, error) {
 	}
 	again, err := terminalAsk("The same pepper again: ")
 	if err != nil {
-		wipe.Bytes(p)
+		secret.Wipe(p)
 		return nil, err
 	}
-	defer wipe.Bytes(again)
+	defer secret.Wipe(again)
 	if !bytes.Equal(p, again) {
-		wipe.Bytes(p)
+		secret.Wipe(p)
 		return nil, errors.New("the peppers differ; nothing was enrolled")
 	}
 	if len(p) > vaultproto.MaxPepper {
-		wipe.Bytes(p)
+		secret.Wipe(p)
 		return nil, fmt.Errorf("a pepper is at most %d bytes", vaultproto.MaxPepper)
 	}
 	return p, nil

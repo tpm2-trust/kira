@@ -9,8 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/prompt"
-	"github.com/tpm2-trust/tpm2-kira/internal/tui"
+	"github.com/tpm2-trust/go-tui-slim/tui"
 	"golang.org/x/sys/unix"
 )
 
@@ -200,7 +199,7 @@ func TestControlScreenOnAPty(t *testing.T) {
 	c := sealedMachine()
 	facts := c.facts
 	c.in, c.out = pts, pts
-	c.p = prompt.New(pts, pts)
+	c.p = newPrompter(pts, pts)
 	c.fast = func(string, bool) machineFacts { f := facts; f.Checking = true; return f }
 	c.slow = func(f *machineFacts) {
 		<-slowDone

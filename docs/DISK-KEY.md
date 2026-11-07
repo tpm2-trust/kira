@@ -98,7 +98,7 @@ Argon2id under a memory hog on Debian (nothing of it in swap, 126555 other pages
 ### Out of swap and core files
 
 Whatever holds a passphrase, a salt, a derived key, a TOTP key, a signing key's file or a
-YubiKey's PIN takes `sandbox.LockMemory` (aSSH) first: `mlockall(MCL_CURRENT | MCL_FUTURE |
+YubiKey's PIN takes `secret.LockProcess` (go-tui-slim) first: `mlockall(MCL_CURRENT | MCL_FUTURE |
 MCL_ONFAULT)` and `PR_SET_DUMPABLE=0`, both the whole address space's, every thread in one
 call.
 

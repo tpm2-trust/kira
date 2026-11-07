@@ -21,6 +21,9 @@ Where things are in the repository, and how the tests are run.
 │       └── kiratest/        # gomobile binding: a simulated machine for app tests
 ├── assh/                    # aSSH, a git submodule: the SSH server, the SSH CA and host keys in the TPM
 ├── tpm2-verifier/           # tpm2-verifier, a git submodule: the EK root store (ekroots) the core checks EK certificates with
+├── go-uefi-slim/            # go-uefi-slim, a git submodule: EFI variables, Secure Boot, unified kernel images
+├── go-tui-slim/             # go-tui-slim, a git submodule: control's full screen (tui), the questions (prompt),
+│                            #   the terminal given back (termguard), wipe and the process lock (secret)
 ├── internal/                # The packages, by layer; each knows only those below it
 │   ├── tpmdev/              # Opening the TPM, the storage primary, flushing, NV reads
 │   ├── measure/             # PCR specs and banks, the event log, the measure point,
@@ -43,7 +46,7 @@ Where things are in the repository, and how the tests are run.
 │   │                        #   (parts.go: the network, phone, SSH, vault, the disk's key, the console),
 │   │                        #   which share what they offer on a board, not by calling each other
 │   ├── journal/, screen/    # The boot's narration; the [ KIRA ] tag
-│   ├── untrusted/, wipe/    # Quoting unverified strings; overwriting secrets
+│   ├── untrusted/           # Quoting unverified strings
 │   ├── unixsock/            # The boot's private sockets (the gate's, the disk key's)
 │   ├── piv/, pcsc/          # The YubiKey's PIV applet over PC/SC
 │   └── admin/               # Everything on the installed system: control (the guided

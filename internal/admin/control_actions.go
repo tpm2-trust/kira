@@ -8,14 +8,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tpm2-trust/go-tui-slim/prompt"
+	"github.com/tpm2-trust/go-tui-slim/secret"
 	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
 	"github.com/tpm2-trust/tpm2-kira/internal/measure"
 	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
 	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
-	"github.com/tpm2-trust/tpm2-kira/internal/prompt"
 	"github.com/tpm2-trust/tpm2-kira/internal/signing"
 	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
-	"github.com/tpm2-trust/tpm2-kira/internal/wipe"
 )
 
 func (c *controller) runSetup() error {
@@ -69,7 +69,7 @@ func (c *controller) storePINOf(key crypto.Signer) error {
 	if err != nil {
 		return err
 	}
-	defer wipe.Bytes(pin)
+	defer secret.Wipe(pin)
 	if err := signing.VerifyYubiKeyPIN(key, pin); err != nil {
 		return err
 	}

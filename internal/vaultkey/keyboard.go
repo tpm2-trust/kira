@@ -7,11 +7,11 @@ import (
 
 	"github.com/google/go-tpm/tpm2/transport"
 
+	"github.com/tpm2-trust/go-tui-slim/secret"
 	"github.com/tpm2-trust/tpm2-kira/core/attest"
 	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
 	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
 	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
-	"github.com/tpm2-trust/tpm2-kira/internal/wipe"
 )
 
 // KeyboardSession is the vault's one-time keyboard in this boot: the layout of the seed the vault
@@ -64,7 +64,7 @@ func OpenKeyboard(ctx context.Context, tpmDev transport.TPM, vs vaultSlot, say f
 		return nil, nil, fmt.Errorf("the keyboard: %w", err)
 	}
 	layout, err := attest.KeyboardLayoutOf(seed)
-	wipe.Bytes(seed)
+	secret.Wipe(seed)
 	if err != nil {
 		return nil, nil, fmt.Errorf("the keyboard: %w", err)
 	}

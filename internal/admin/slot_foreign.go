@@ -11,7 +11,6 @@ import (
 
 	"github.com/google/go-tpm/tpm2"
 	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/prompt"
 )
 
 // nvAttributeWords is an NV index's attributes in words, the TPM's own names.
@@ -101,7 +100,7 @@ func slotDeleteForeign(out io.Writer, yes, force bool) nvslot.TakeForeign {
 	if tty == nil {
 		return foreignAsk(out, answer(false))
 	}
-	p := prompt.New(tty, out)
+	p := newPrompter(tty, out)
 	return foreignAsk(out, func(title, description string) (bool, error) { return p.Confirm(title, description, false) })
 }
 

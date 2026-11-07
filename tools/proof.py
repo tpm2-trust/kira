@@ -87,6 +87,7 @@ def parts_table(run_dir, everything=False):
         Part("vault", go_test, project("tpm2-kira-vault"), check=no_cached, memory=500),
         Part("safearch-run", ["tests/run.sh"], project("safearch"), memory=500),
         Part("go-uefi-slim", go_test, project("go-uefi-slim"), check=no_cached, memory=1000),
+        Part("go-tui-slim", go_test, project("go-tui-slim"), check=no_cached, memory=500),
         Part("tpm2-verifier", go_test, project("tpm2-verifier"), check=no_cached, memory=1000),
         Part("safearch-vm", ["tests/vm.sh"], project("safearch"), memory=3500),
         Part("marify", ["android/scripts/test-emulator.sh"], project("marify"), memory=6600),

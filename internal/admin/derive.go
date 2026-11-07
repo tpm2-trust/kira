@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/tpm2-trust/go-tui-slim/secret"
 	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
-	"github.com/tpm2-trust/tpm2-kira/internal/wipe"
 )
 
 // DeriveCommand is the recovery recipe's key by hand: the password and the
@@ -26,12 +26,12 @@ func DeriveCommand(out string) error {
 	if err != nil {
 		return err
 	}
-	defer wipe.Bytes(pw)
+	defer secret.Wipe(pw)
 	again, err := terminalPassword("The same password again: ")
 	if err != nil {
 		return err
 	}
-	defer wipe.Bytes(again)
+	defer secret.Wipe(again)
 	if !bytes.Equal(pw, again) {
 		return errors.New("the passwords differ; nothing was written")
 	}
@@ -39,13 +39,13 @@ func DeriveCommand(out string) error {
 	if err != nil {
 		return err
 	}
-	defer wipe.Bytes(salt)
+	defer secret.Wipe(salt)
 	fmt.Fprintln(os.Stderr, "Deriving the key (Argon2id, 1 GiB, a few seconds) ...")
 	key, err := diskkey.Combine(pw, salt)
 	if err != nil {
 		return err
 	}
-	defer wipe.Bytes(key)
+	defer secret.Wipe(key)
 	if err := writeKeyOut(out, key); err != nil {
 		return err
 	}

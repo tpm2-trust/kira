@@ -12,10 +12,10 @@ import (
 	"github.com/google/go-tpm/tpm2/transport"
 	"golang.org/x/crypto/hkdf"
 
+	"github.com/tpm2-trust/go-tui-slim/secret"
 	"github.com/tpm2-trust/tpm2-kira/core/attest"
 	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
 	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
-	"github.com/tpm2-trust/tpm2-kira/internal/wipe"
 )
 
 // The factor: one half of the disk's key, held by the phone, opened by this
@@ -118,7 +118,7 @@ func WrapFactor(tpmDev transport.TPM, att *nvslot.Attestation, rng io.Reader) (f
 	}
 	cred, enc, err := attest.MakeCredential(rng, ekPub, rk.Name.Buffer, f)
 	if err != nil {
-		wipe.Bytes(f)
+		secret.Wipe(f)
 		return nil, nil, err
 	}
 	return f, &nvslot.WrappedFactor{Credential: cred, EncryptedSecret: enc}, nil
@@ -170,7 +170,7 @@ func UnwrapFactor(tpmDev transport.TPM, sealed *nvslot.SealedBlob, blobIndex uin
 		return nil, fmt.Errorf("%w: %v", ErrFactorRefused, err)
 	}
 	if len(rsp.CertInfo.Buffer) != FactorSize {
-		wipe.Bytes(rsp.CertInfo.Buffer)
+		secret.Wipe(rsp.CertInfo.Buffer)
 		return nil, fmt.Errorf("the credential opened to %d bytes, not a factor", len(rsp.CertInfo.Buffer))
 	}
 	return rsp.CertInfo.Buffer, nil
@@ -190,7 +190,7 @@ func FactorSalt(f []byte, label string) []byte {
 	if _, err := io.ReadFull(hkdf.New(sha256.New, f, nil, info), out); err != nil {
 		panic(err) // HKDF with a fixed length cannot fail
 	}
-	defer wipe.Bytes(out)
+	defer secret.Wipe(out)
 	return []byte(hex.EncodeToString(out))
 }
 

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tpm2-trust/go-tui-slim/tui"
 	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
-	"github.com/tpm2-trust/tpm2-kira/internal/tui"
 )
 
 // control's full screen: the sections on the left, the selected section's steps and

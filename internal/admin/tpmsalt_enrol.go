@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/tpm2-trust/go-tui-slim/secret"
 	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
 	"github.com/tpm2-trust/tpm2-kira/internal/nvslot"
 	"github.com/tpm2-trust/tpm2-kira/internal/phonegate"
 	"github.com/tpm2-trust/tpm2-kira/internal/signing"
 	"github.com/tpm2-trust/tpm2-kira/internal/tpmdev"
-	"github.com/tpm2-trust/tpm2-kira/internal/wipe"
 )
 
 // The salt in this TPM (recipe 0x1200): a part T drawn here, wrapped for
@@ -74,15 +74,15 @@ func tpmSaltKey(o FactorEnrolOptions) ([]byte, uint32, error) {
 	if err != nil {
 		return nil, 0, err
 	}
-	defer wipe.Bytes(pw)
+	defer secret.Wipe(pw)
 
 	t, w, err := phonegate.WrapFactor(tpmDev, att, nil)
 	if err != nil {
 		return nil, 0, err
 	}
-	defer wipe.Bytes(t)
+	defer secret.Wipe(t)
 	salt := phonegate.FactorSalt(t, label)
-	defer wipe.Bytes(salt)
+	defer secret.Wipe(salt)
 	att.TPMSalt = *w
 	if err := checkEnrolmentFitsWithKey(sealed, att, slot); err != nil {
 		return nil, 0, err
@@ -109,12 +109,12 @@ func askNewPassword() ([]byte, error) {
 	}
 	again, err := terminalAsk("The same password again: ")
 	if err != nil {
-		wipe.Bytes(pw)
+		secret.Wipe(pw)
 		return nil, err
 	}
-	defer wipe.Bytes(again)
+	defer secret.Wipe(again)
 	if !bytes.Equal(pw, again) {
-		wipe.Bytes(pw)
+		secret.Wipe(pw)
 		return nil, errors.New("the passwords differ; nothing was written")
 	}
 	return pw, nil

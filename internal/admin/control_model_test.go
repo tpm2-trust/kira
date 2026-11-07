@@ -8,14 +8,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/prompt"
+	"github.com/tpm2-trust/tpm2-kira/internal/diskkey"
 )
 
 // answering is a controller whose questions read the lines given.
 func answering(c *controller, lines string) *bytes.Buffer {
 	var out bytes.Buffer
 	c.out = &out
-	c.p = prompt.New(strings.NewReader(lines), &out)
+	c.p = newPrompter(strings.NewReader(lines), &out)
 	return &out
 }
 
@@ -151,5 +151,16 @@ func TestControlSections(t *testing.T) {
 		if s.Menu == "hub" {
 			t.Error("the boot chain's section has the way on to the overview")
 		}
+	}
+}
+
+// Every prompter of tpm2-kira's reads a secret into diskkey's locked buffer.
+func TestPrompterTakesTheLockedBuffer(t *testing.T) {
+	p := newPrompter(strings.NewReader(""), &bytes.Buffer{})
+	if p.SecretBuffer == nil {
+		t.Fatal("no secret buffer: go-tui-slim's plain default")
+	}
+	if b := p.SecretBuffer(); cap(b) != diskkey.MaxPassphrase {
+		t.Fatalf("a buffer of %d, not diskkey's", cap(b))
 	}
 }

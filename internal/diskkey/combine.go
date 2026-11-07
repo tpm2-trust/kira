@@ -6,7 +6,7 @@ import (
 	"runtime/debug"
 	"sync"
 
-	"github.com/tpm2-trust/tpm2-kira/internal/wipe"
+	"github.com/tpm2-trust/go-tui-slim/secret"
 
 	"golang.org/x/crypto/argon2"
 )
@@ -46,7 +46,7 @@ var combining sync.Mutex
 //
 // Argon2id's memory goes back to the kernel before Combine returns: the Go runtime
 // would keep it, the keyslot's own Argon2id comes on top, and an initrd has no swap
-// (docs/DISK-KEY.md, "Memory"). In a locked process too: sandbox.LockMemory locks on
+// (docs/DISK-KEY.md, "Memory"). In a locked process too: secret.LockProcess (go-tui-slim) locks on
 // fault, which is what lets the runtime give locked memory back. x/crypto does not wipe that memory and gives no way
 // to; whether it is the runtime's or the kernel's free page changes nothing for
 // whoever reads the machine's RAM, and the kernel hands it out zeroed.
@@ -57,7 +57,7 @@ func Combine(password, salt []byte) ([]byte, error) {
 	combining.Lock()
 	defer combining.Unlock()
 	hash := idKey(password, salt, combineIterations, combineMemoryKiB, combineParallelism, combineKeyLength)
-	defer wipe.Bytes(hash)
+	defer secret.Wipe(hash)
 	debug.FreeOSMemory()
 	out := make([]byte, base64.RawStdEncoding.EncodedLen(len(hash))+1)
 	base64.RawStdEncoding.Encode(out, hash)

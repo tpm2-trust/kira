@@ -362,7 +362,7 @@ func startPINPrompt(t *testing.T, pts *os.File) *exec.Cmd {
 }
 
 // Every signal that ends the process, sent or typed, gives the terminal back as it was
-// and ends the process. That the input goes too: internal/termguard's tests.
+// and ends the process. That the input goes too: go-tui-slim's termguard tests.
 func TestSignalAtThePINPromptGivesTheTerminalBack(t *testing.T) {
 	check := func(t *testing.T, sig unix.Signal, pts *os.File, before *unix.Termios, err error) {
 		t.Helper()
