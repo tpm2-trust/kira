@@ -85,6 +85,12 @@ func drive(t *testing.T, d *DemoMachine, s *kiracore.Session, key **ecdsa.Privat
 					queue = append(queue, s.Decide(dec, "Thinkpad-X1"))
 				case "keyboard_layout":
 					lastLayout = e
+				case "record_updated":
+					// The app stores the record, then says so: the phone salt
+					// is released only after that.
+					if e["confirm"] == true {
+						queue = append(queue, s.RecordStored(true))
+					}
 				case "error":
 					t.Fatalf("error event: %s", st.Event(i))
 				}

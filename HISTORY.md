@@ -8,6 +8,31 @@ formats and CLI flags may change without migration paths.
 
 ---
 
+## The phone approved what nobody proved; a phone salt was handed over before it was stored (fixed 2026-11-11)
+
+Two faults of the core, `core/attest`, found by the workspace's review (`TODO-SEC.md` #3, #5):
+
+- **A failed verdict could be approved although the pinned attestation key had not signed
+  it.** After a bad signature, a foreign key or a wrong binding, `Verify` still set the
+  values that reproduced the unverified quote's digest, and `Decide` took them as authentic.
+  One typed approval on a forged session rewrote the phone's record: its reset count, the
+  kept phone salt and, through the API, a known-good profile. Now `Verdict.Authentic`:
+  values and Secure Boot's state come only with it, approvals need it, a failed attestation
+  is approved once and never remembered.
+- **The phone salt was released in the step that told the app to store the record.** A
+  phone that could not store it (locked, a failed write) had handed the salt over all the
+  same; the machine took that as "the phone keeps it" and made the disk's key. Now the
+  core waits for `RecordStored` and releases only then.
+
+## The vault locked a device for garbage sent under its ID (fixed 2026-11-11)
+
+Any release that failed verification counted against the device, also one whose quote the
+device's attestation key had not signed: five such requests locked it, and a device ID is
+no secret. Only a verified quote counts now. With it: a limit of challenges per address,
+audit lines before authentication in bounded number (a full log stops every release), a
+rule for a machine's name and a keyslot's label. `TODO-SEC.md` #2, #12, #26; the vault's
+part is in kira-vault.
+
 ## Slot secrets crossed the TPM's bus in clear (fixed 2026-11-11)
 
 The slot's policy session had no salt and no parameter encryption. Everything opened

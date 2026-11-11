@@ -127,14 +127,17 @@ type Event struct {
 	FactorOffered bool           `json:"factor_offered,omitempty"`
 	EventlogAvail bool           `json:"eventlog_available,omitempty"`
 	Record        *MachineRecord `json:"record,omitempty"`
-	DeviceID      HexStr         `json:"device_id,omitempty"`
-	FriendlyName  string         `json:"friendly_name,omitempty"`
-	Received      uint32         `json:"received,omitempty"`
-	Total         uint32         `json:"total,omitempty"`
-	Complete      bool           `json:"complete,omitempty"`
-	Code          uint16         `json:"code,omitempty"`
-	Result        uint8          `json:"result,omitempty"`
-	Message       string         `json:"message,omitempty"`
+	// record_updated: the session waits for RecordStored. The phone salt goes to
+	// the machine only once the record that holds it is on the phone's storage.
+	Confirm      bool   `json:"confirm,omitempty"`
+	DeviceID     HexStr `json:"device_id,omitempty"`
+	FriendlyName string `json:"friendly_name,omitempty"`
+	Received     uint32 `json:"received,omitempty"`
+	Total        uint32 `json:"total,omitempty"`
+	Complete     bool   `json:"complete,omitempty"`
+	Code         uint16 `json:"code,omitempty"`
+	Result       uint8  `json:"result,omitempty"`
+	Message      string `json:"message,omitempty"`
 	// EvKeyboardLayout: on the key KeyboardKeys[i] the character Layout[i], for this boot alone.
 	KeyboardKeys string   `json:"keyboard_keys,omitempty"`
 	Layout       string   `json:"layout,omitempty"`
@@ -169,7 +172,7 @@ const (
 	EvVerdict        = "verdict"         // show Verdict; if NeedsDecision call Decide
 	EvEventlog       = "eventlog"        // event log transfer progress
 	EvReceiptAck     = "receipt_ack"     // what the machine made of the receipt
-	EvRecordUpdated  = "record_updated"  // persist Record (replaces the stored one)
+	EvRecordUpdated  = "record_updated"  // persist Record (replaces the stored one); with Confirm, then call RecordStored
 	EvReleaseAck     = "release_ack"     // what the machine made of the released factor
 	EvKeyboardLayout = "keyboard_layout" // the layout to type the pepper through, for this boot alone
 	EvDone           = "done"            // session finished normally; disconnect
@@ -231,6 +234,7 @@ const (
 	vsWaitDecision
 	vsWaitReceiptSig
 	vsWaitReceiptAck
+	vsWaitRecordStored
 	vsWaitReleaseAck
 	// terminal
 	vsDone
@@ -844,7 +848,7 @@ func (v *Verifier) handleAttest(out *Output, d *Decoder) (*Output, error) {
 		out.Events = append(out.Events, Event{Type: EvVerdict, Verdict: v.verdict, EventlogAvail: v.evlogSum != nil, NeedsDecision: true, FactorOffered: ev.FactorKeep != nil})
 		return out, nil
 
-	case vsWaitDecision, vsWaitReceiptSig, vsWaitReceiptAck, vsWaitReleaseAck:
+	case vsWaitDecision, vsWaitReceiptSig, vsWaitReceiptAck, vsWaitRecordStored, vsWaitReleaseAck:
 		if d.Type == MsgEventlogChunk {
 			return v.handleEventlogChunk(out, d)
 		}
@@ -856,12 +860,18 @@ func (v *Verifier) handleAttest(out *Output, d *Decoder) (*Output, error) {
 			out.Events = append(out.Events, Event{Type: EvReceiptAck, Result: ack.Result, Message: ack.Message})
 			if v.receipt.Verdict.Trusted() {
 				v.updateRecord()
-				out.Events = append(out.Events, Event{Type: EvRecordUpdated, Record: v.record})
 				// The factor goes out only after a trusted receipt the
-				// machine accepted: the TPM decides whether it opens.
+				// machine accepted: the TPM decides whether it opens. And only
+				// after the app said the record is stored (RecordStored): the
+				// machine takes the release as "the phone keeps the phone salt"
+				// and makes the disk's key with it, so a record that exists in
+				// memory alone would be a keyslot whose salt is nowhere.
 				if ack.Result == AckAccepted && v.record.HasFactor() {
-					return v.sendRelease(out)
+					out.Events = append(out.Events, Event{Type: EvRecordUpdated, Record: v.record, Confirm: true})
+					v.state = vsWaitRecordStored
+					return out, nil
 				}
+				out.Events = append(out.Events, Event{Type: EvRecordUpdated, Record: v.record})
 			}
 			return v.bye(out)
 		}
@@ -886,6 +896,22 @@ func (v *Verifier) handleAttest(out *Output, d *Decoder) (*Output, error) {
 
 // sendRelease hands the machine its kept factor and, with a keyboard, this boot's seed, wrapped for
 // its TPM and the slot's release key; the layout is kept to show.
+// RecordStored answers a record_updated event that asked for it (Confirm): stored
+// says the record is on the phone's storage, written through. Then the phone salt
+// is released to the machine; if not, the session fails and nothing is released -
+// at an enrolment the machine then enrols no keyslot, at a boot it goes on without
+// the phone salt.
+func (v *Verifier) RecordStored(stored bool) (*Output, error) {
+	out := &Output{}
+	if v.state != vsWaitRecordStored {
+		return out, errors.New("attest: no record waits to be stored")
+	}
+	if !stored {
+		return v.fail(out, ErrCodeStorage, "the phone could not store the machine's record: the phone salt is not handed over")
+	}
+	return v.sendRelease(out)
+}
+
 func (v *Verifier) sendRelease(out *Output) (*Output, error) {
 	f := v.record.Factor
 	r := &Release{
