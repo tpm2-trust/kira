@@ -8,6 +8,29 @@ formats and CLI flags may change without migration paths.
 
 ---
 
+## Slot secrets crossed the TPM's bus in clear (fixed 2026-11-11)
+
+The slot's policy session had no salt and no parameter encryption. Everything opened
+through it came back in clear: the phone salt's factor, the keyboard seed, the TPM salt,
+the vault's local and remote part and its pepper key (`TPM2_ActivateCredential`), the
+machine-id (`TPM2_Unseal`) and the boot key's shared point (`TPM2_ECDH_ZGen`). A passive
+probe on the bus of a stolen machine read the TPM salt at every approved boot (recipe
+0x1200), and both parts of the disk's key with 0x2400. The docs said the opposite.
+
+Now `nvslot.ApprovedSecretSession`: salted to a key the caller holds loaded (the EK, the
+storage primary), the answer encrypted. `TPM2_Sign` and the TOTP code's `TPM2_HMAC` keep
+the plain session: a signature and a code on the screen are no secrets, and a TPM refuses
+the encrypting session for `TPM2_Sign`. Nothing stored changed. Found by the workspace's
+review (`TODO-SEC.md` #1).
+
+## The coordinator opened a phone salt without a receipt (fixed 2026-11-11)
+
+`GateService.TakeRelease` opened whatever credential the radio worker handed it, in any
+approved boot. The worker sees the phone's credential in clear after Noise, and it is
+static: seen once, it could be fed in at a later boot with no phone there. A release is
+now opened only after an authentic receipt of an enrolled phone for a quote of this boot,
+in the session that receipt came in. Found by the workspace's review (`TODO-SEC.md` #4).
+
 
 ## What the README said until it was cut down (2026-11-04)
 

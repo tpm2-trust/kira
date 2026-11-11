@@ -227,3 +227,26 @@ func testSigner(t *testing.T) *ecdsa.PrivateKey {
 	}
 	return k
 }
+
+// busTap is a TPM whose answers are kept as they cross the bus: what a probe on
+// the bus would read.
+type busTap struct {
+	transport.TPM
+	answers [][]byte
+}
+
+func (b *busTap) Send(in []byte) ([]byte, error) {
+	out, err := b.TPM.Send(in)
+	b.answers = append(b.answers, bytes.Clone(out))
+	return out, err
+}
+
+// carries says whether secret is in an answer, in clear.
+func (b *busTap) carries(secret []byte) bool {
+	for _, a := range b.answers {
+		if bytes.Contains(a, secret) {
+			return true
+		}
+	}
+	return false
+}

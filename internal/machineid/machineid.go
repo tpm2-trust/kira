@@ -168,7 +168,9 @@ func (s *Sealed) Unseal(t transport.TPM, sb *nvslot.SealedBlob) (string, error) 
 		return "", fmt.Errorf("loading the sealed machine-id (was the TPM cleared?): %w", err)
 	}
 	defer tpmdev.FlushHandle(t, obj.ObjectHandle)
-	session, done, err := nvslot.ApprovedSession(t, sb, s.Slot)
+	// Salted to the object's parent, the answer encrypted: the machine-id is not
+	// read from the TPM's bus.
+	session, done, err := nvslot.ApprovedSecretSession(t, sb, s.Slot, nvslot.SaltKey{Handle: primary.ObjectHandle, Public: primary.Public}, nil)
 	if err != nil {
 		return "", fmt.Errorf("slot 0's policy does not hold: %w", err)
 	}

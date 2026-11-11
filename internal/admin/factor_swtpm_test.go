@@ -59,12 +59,21 @@ func TestFactorOpensOnlyInTheApprovedBootState(t *testing.T) {
 	if len(f) != phonegate.FactorSize || len(w.Credential) == 0 || len(w.EncryptedSecret) == 0 {
 		t.Fatalf("wrapped: %d bytes, %d, %d", len(f), len(w.Credential), len(w.EncryptedSecret))
 	}
-	got, err := phonegate.UnwrapFactor(tpm, sb, slot, att, w)
+	bus := &busTap{TPM: tpm}
+	got, err := phonegate.UnwrapFactor(bus, sb, slot, att, w)
 	if err != nil {
 		t.Fatalf("unwrap in the approved state: %v", err)
 	}
 	if !bytes.Equal(got, f) {
 		t.Fatal("the TPM opened the credential to something else")
+	}
+	// The factor is a part of the disk's key: no answer of the TPM carries it
+	// in clear, whoever listens on the bus.
+	if len(bus.answers) == 0 {
+		t.Fatal("the tap saw no command")
+	}
+	if bus.carries(f) {
+		t.Fatal("the factor crossed the TPM's bus in clear")
 	}
 	salt := phonegate.FactorSalt(f, "")
 	if len(salt) != 64 || strings.Trim(string(salt), "0123456789abcdef") != "" {

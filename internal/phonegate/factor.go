@@ -127,7 +127,7 @@ func WrapFactor(tpmDev transport.TPM, att *nvslot.Attestation, rng io.Reader) (f
 // UnwrapFactor opens a credential the phone returned: the release key is
 // loaded and authorised through the slot's approved policy for this boot
 // state plus PolicyCommandCode, the EK through the endorsement hierarchy.
-// The result is F; the caller wipes it.
+// The result is F; the caller wipes it. It crosses the TPM's bus encrypted.
 func UnwrapFactor(tpmDev transport.TPM, sealed *nvslot.SealedBlob, blobIndex uint32, att *nvslot.Attestation, w *nvslot.WrappedFactor) ([]byte, error) {
 	if w == nil || len(w.Credential) == 0 || len(w.EncryptedSecret) == 0 {
 		return nil, errors.New("no credential to open")
@@ -137,13 +137,19 @@ func UnwrapFactor(tpmDev transport.TPM, sealed *nvslot.SealedBlob, blobIndex uin
 		return nil, err
 	}
 	defer tpmdev.FlushHandle(tpmDev, rk.Handle)
-	ek, _, err := CreateEK(tpmDev, att.EKAlg)
+	ek, ekPub, err := CreateEK(tpmDev, att.EKAlg)
 	if err != nil {
 		return nil, err
 	}
 	defer tpmdev.FlushHandle(tpmDev, ek.Handle)
+	ekPublic, err := tpm2.Unmarshal[tpm2.TPMTPublic](ekPub)
+	if err != nil {
+		return nil, fmt.Errorf("the endorsement key's public area: %w", err)
+	}
 
-	session, done, err := nvslot.ApprovedSessionThen(tpmDev, sealed, blobIndex, func(tpm transport.TPM, handle tpm2.TPMISHPolicy) error {
+	// What the credential opens to is a part of the disk's key: it comes back
+	// encrypted, in a session salted to the EK, which is loaded here anyway.
+	session, done, err := nvslot.ApprovedSecretSession(tpmDev, sealed, blobIndex, nvslot.SaltKey{Handle: ek.Handle, Public: *ekPublic}, func(tpm transport.TPM, handle tpm2.TPMISHPolicy) error {
 		_, err := tpm2.PolicyCommandCode{PolicySession: handle, Code: tpm2.TPMCCActivateCredential}.Execute(tpm)
 		return err
 	})
