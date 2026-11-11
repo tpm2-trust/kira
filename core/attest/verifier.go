@@ -1027,13 +1027,20 @@ func (v *Verifier) Decide(d Decision, confirmName string) (*Output, error) {
 		}
 		return v.prepareReceipt(out, VerdictOK)
 	case DecisionApproveOnce, DecisionApproveRemember:
+		if !v.verdict.Authentic || v.verdict.Values == nil {
+			// The enrolled machine's attestation key did not sign this for this
+			// session, or the values do not reproduce what it signed: there is
+			// no boot state of that machine to approve or remember, whatever is
+			// typed.
+			return out, errors.New("attest: the machine did not prove it is the enrolled one; there is nothing to approve")
+		}
 		if v.verdict.State == StateFailed && confirmName != v.record.FriendlyName {
 			return out, errors.New("attest: approving a failed attestation requires typing the machine's name")
 		}
-		if v.verdict.Values == nil {
-			// The evidence did not even reproduce its own digest; there is
-			// nothing authentic to approve or remember.
-			return out, errors.New("attest: these PCR values are not authentic and cannot be approved")
+		if v.verdict.State == StateFailed && d == DecisionApproveRemember {
+			// A boot that failed a hard check can be let through once, by name;
+			// its values do not become a known-good profile.
+			return out, errors.New("attest: a failed attestation can be approved once, not remembered")
 		}
 		v.remember = d == DecisionApproveRemember
 		return v.prepareReceipt(out, VerdictApproved)
@@ -1078,6 +1085,9 @@ func (v *Verifier) sendReceipt(out *Output) (*Output, error) {
 
 // updateRecord folds what a trusted attestation taught into the record.
 func (v *Verifier) updateRecord() {
+	if v.verdict == nil || !v.verdict.Authentic {
+		return // nothing the enrolled machine proved: nothing to learn
+	}
 	now := v.cfg.now()
 	r := v.record
 	if v.verdict.ResetCount > r.ResetCount {

@@ -127,11 +127,18 @@ func Verify(ev *Evidence, pol *Policy, pin *PinnedIdentity, expectedQD []byte, n
 		v.hard(ReasonPCRDigestMismatch, "PCR values do not reproduce the quoted digest")
 		return v.finish()
 	}
-	v.Values = values
-
-	// From the verified quote's PCR 7, never from what the machine says: a state
-	// not established, the default above, is red like off.
-	v.SecureBoot = EstablishSecureBoot(sel.Alg, values[7], ev.BootContext.PCR7Chain)
+	// The values are the enrolled machine's only when its pinned attestation key
+	// signed them for this session. Values that merely reproduce the digest of a
+	// quote nobody proved are whoever sent them's: they are compared and reported
+	// below, and they are nothing to approve, to remember or to read Secure Boot
+	// from.
+	v.Authentic = !v.hasIdentityFailure()
+	if v.Authentic {
+		v.Values = values
+		// From the verified quote's PCR 7, never from what the machine says: a state
+		// not established, the default above, is red like off.
+		v.SecureBoot = EstablishSecureBoot(sel.Alg, values[7], ev.BootContext.PCR7Chain)
+	}
 
 	if pr, err := pol.MatchProfile(values, now); err == nil {
 		v.Profile = pr.Name
@@ -208,14 +215,18 @@ type Verdict struct {
 	OK bool `json:"ok"`
 	// State is "match", "changed" (authentic but unknown state: a human
 	// may approve) or "failed" (a hard check failed).
-	State       string           `json:"state"`
-	Profile     string           `json:"profile,omitempty"`
-	Reasons     []Reason         `json:"reasons,omitempty"`
-	Warnings    []Warning        `json:"warnings,omitempty"`
-	PCRDiff     []PCRDiff        `json:"pcr_diff,omitempty"`
-	DiffAgainst string           `json:"diff_against,omitempty"`
-	Explanation string           `json:"explanation,omitempty"`
-	Values      map[uint8][]byte `json:"-"`
+	State       string    `json:"state"`
+	Profile     string    `json:"profile,omitempty"`
+	Reasons     []Reason  `json:"reasons,omitempty"`
+	Warnings    []Warning `json:"warnings,omitempty"`
+	PCRDiff     []PCRDiff `json:"pcr_diff,omitempty"`
+	DiffAgainst string    `json:"diff_against,omitempty"`
+	Explanation string    `json:"explanation,omitempty"`
+	// Authentic: the pinned attestation key signed this quote, for this device
+	// and this session, and the values reproduce its digest. Only then is there a
+	// boot state of the enrolled machine to approve; Values is set with it.
+	Authentic bool             `json:"authentic"`
+	Values    map[uint8][]byte `json:"-"`
 	// SecureBoot is what the quote and the event log establish (secureboot.go);
 	// anything but on is shown red, whatever State is. It decides nothing.
 	SecureBoot SecureBootFinding `json:"secure_boot"`
@@ -267,6 +278,22 @@ func (v *Verdict) soft(code, detail string) {
 
 func (v *Verdict) warn(code, detail string) {
 	v.Warnings = append(v.Warnings, Warning{Code: code, Detail: detail})
+}
+
+// identityReasons are the failures after which the evidence is not the enrolled
+// machine's: its key did not sign it, or not for this device and session.
+var identityReasons = map[string]bool{
+	ReasonMalformed: true, ReasonDeviceMismatch: true, ReasonAKMismatch: true, ReasonBadSignature: true,
+	ReasonBadMagic: true, ReasonBadType: true, ReasonQDMismatch: true, ReasonSelectionMismatch: true,
+}
+
+func (v *Verdict) hasIdentityFailure() bool {
+	for _, r := range v.Reasons {
+		if identityReasons[r.Code] {
+			return true
+		}
+	}
+	return false
 }
 
 // HasHardFailure reports whether any hard check failed.
