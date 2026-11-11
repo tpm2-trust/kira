@@ -335,8 +335,10 @@ enrolment).
 | challenge | 32 random bytes, valid 120 s, for one request; a terminal answer (released, denied) consumes it |
 | pending | a request in approve mode stays pending 15 min, then is denied; the machine re-sends the same request every 5 s and is answered by its ID; an approved request is verified again when answered, and answered for 120 s after the approval |
 | pepper | a device enrolled with a pepper is always in approve mode (`device mode … auto` is refused); its approval must carry a pepper (1-256 bytes), a plain device's must not; the pepper is held in memory with the approved request, sent once with the release, then wiped - also when the approval expires or the device is revoked; never written, never logged ("approved by alice, with a pepper") |
-| failures | 5 failed verifications in a row lock the device until `device unlock`; a success resets the count |
-| rate | at most 10 challenges per device per minute |
+| failures | 5 verified quotes in a row that the release refuses (a revoked generation, no approval of the quoted state) lock the device until `device unlock`; a success resets the count. A request whose quote the device's attestation key did not sign is denied and changes nothing of the device: a device ID is no secret, and a lock for what is sent under it would be anyone's to set |
+| rate | at most 3 challenges per address per minute (`challenge_rate` in the configuration: `config set challenge-rate N`, `init --challenge-rate N`) and 10 per device; what an address asks beyond its own limit counts against no device. A boot asks for one challenge per keyslot of the vault's, and machines behind one address share its limit: raise it where several boot together. The machine takes a 429 as "not yet" and asks again |
+| names | a machine's name and a keyslot's label: 1 to 64 letters, digits, `.`, `_`, `-`, the first a letter or a digit; anything else is refused at enrolment (`--name`, `--label` on the machine) |
+| audit before authentication | what is refused before anyone is authenticated (an unknown device, an unknown token, a name not taken, a rate limit) is written at most 20 times per minute, each kind once per address; the rest is counted and written as one line. Whoever can reach the vault cannot fill its log - a release needs its line written. The log is never cut or rotated by the vault: its past is not a flood's to erase |
 | generation | the highest verified generation is kept; a lower one is refused |
 | revoked | denied, "the device is revoked" |
 | the vault's own boot state is not approved | denied, "the vault's own boot state is not approved: an operator approves it (kira-vault approve)"; not counted against the device; no enrolment either |
@@ -439,7 +441,7 @@ running serve.
 | Command | |
 |---|---|
 | `control [--dir] [--socket] [--lines] [--debug]` | the control panel (§6.7) |
-| `init [--dir] [--listen :8443] [--url] [--pcrs 7,15] [--tpm /dev/tpmrm0] [--admin-socket] [--operator-listen]` | create the vault: its keys in this TPM, the backup shown once |
+| `init [--dir] [--listen :8443] [--url] [--pcrs 7,15] [--tpm /dev/tpmrm0] [--admin-socket] [--operator-listen] [--challenge-rate 3]` | create the vault: its keys in this TPM, the backup shown once |
 | `init --restore [--dir]` | the master from its backup into this TPM, in a restored state directory |
 | `approve [--dir]` | approve the vault's boot state as it is (the PIN) |
 | `approvals [--dir]` | the approvals, and which is in use |
@@ -456,6 +458,7 @@ running serve.
 | `request approve\|deny ID` | decide one; a pepper device's approval asks the pepper |
 | `audit [--follow]` | the audit log |
 | `config set operator-listen ADDR\|"" [--dir]` | turn the operator interface on (an address, e.g. `:8444`) or off; serve stopped |
+| `config set challenge-rate N [--dir]` | the challenges one address gets per minute (0: the default, 3); serve stopped |
 | `operator add NAME` | an operator: prints the bearer token once, the URL and a curl line (`--cacert`) |
 | `tls root [--dir]` | the vault's root certificate (PEM), for machines and operators; also while serve runs |
 | `operators`, `operator remove NAME` | list, remove |
@@ -549,7 +552,8 @@ functions kira seals with (`internal/nvslot/policy.go` calls them).
 | a root of their own in the boot image's bundle | still not the pin: the pin is in the slot's signed blob |
 | the machine's clock set back or ahead | a certificate outside its dates refuses the vault; the fallbacks stay |
 | the machine and root on the vault, a keyslot with a pepper | still no key: the pepper is with the operators, the vault never keeps it (a pepper given to a compromised running vault is seen, though) |
-| an operator's token | can approve releases and read requests and devices, nothing else; cannot revoke, enrol or read the audit |
+| an operator's token | can approve releases and read requests and devices, nothing else; cannot revoke, lock, enrol or read the audit |
+| a device's ID and the vault's address, nothing else | can ask for that device's challenges up to the limits and so delay its release (the machine asks again); cannot lock the device, and cannot fill the audit log |
 | root on the running machine | the disk is open already; after the close no part opens again |
 
 Availability is the dominant risk: no vault, no unattended boot. The
