@@ -85,13 +85,20 @@ func TestFactorOpensOnlyInTheApprovedBootState(t *testing.T) {
 
 	// The coordinator does the same at boot, from a Release, and keeps
 	// only the salt.
-	s.blob.Phone.Verifiers = []attest.EnrolledVerifier{{ID: "my-phone", AnchorPub: []byte{1}, NoisePub: make([]byte, 32)}}
+	phone := enrolTestPhone(t, s.blob)
 	s.sealChannel(t, tpm, slot)
 	if err := writeAttestBlob(tpm, slot, s.blob, signer); err != nil {
 		t.Fatal(err)
 	}
 	svc := phonegate.NewGateService(tpm, slot, pubPath, false)
-	status, msg := svc.TakeRelease(&attest.Release{Kind: attest.ReleaseKindFactor, CredentialBlob: w.Credential, EncryptedSecret: w.EncryptedSecret})
+	// Not on the radio worker's word: without an enrolled phone's receipt for
+	// this boot nothing is opened, although the TPM would.
+	rel := &attest.Release{Kind: attest.ReleaseKindFactor, CredentialBlob: w.Credential, EncryptedSecret: w.EncryptedSecret}
+	if status, msg := svc.TakeRelease(rel); status != attest.ReleaseTPMRefused || svc.Salt() != nil {
+		t.Fatalf("a release without a receipt was opened: %d %s", status, msg)
+	}
+	phone.attests(t, svc)
+	status, msg := svc.TakeRelease(rel)
 	if status != attest.ReleaseOK {
 		t.Fatalf("the coordinator did not open the factor: %d %s", status, msg)
 	}
@@ -101,6 +108,16 @@ func TestFactorOpensOnlyInTheApprovedBootState(t *testing.T) {
 	svc.Forget()
 	if svc.Salt() != nil {
 		t.Fatal("the salt survived Forget")
+	}
+	// One receipt, one release: the same credential again opens nothing.
+	if status, _ := svc.TakeRelease(rel); status != attest.ReleaseTPMRefused || svc.Salt() != nil {
+		t.Fatalf("a second release on one receipt was opened: %d", status)
+	}
+	// And a receipt whose session ended opens nothing either.
+	phone.attests(t, svc)
+	svc.Report(phonegate.GateSessionOver)
+	if status, _ := svc.TakeRelease(rel); status != attest.ReleaseTPMRefused || svc.Salt() != nil {
+		t.Fatalf("a release after its session was opened: %d", status)
 	}
 	if status, _ := svc.TakeRelease(&attest.Release{Kind: attest.ReleaseKindPassphrase}); status != attest.ReleaseUnsupported {
 		t.Fatalf("a passphrase release was taken: %d", status)
@@ -168,8 +185,9 @@ func TestFactorOpensOnlyInTheApprovedBootState(t *testing.T) {
 	if _, err := phonegate.UnwrapFactor(tpm, sb, slot, att, w); !errors.Is(err, phonegate.ErrFactorRefused) {
 		t.Fatalf("after a PCR change: %v", err)
 	}
-	if status, _ := svc.TakeRelease(&attest.Release{Kind: attest.ReleaseKindFactor, CredentialBlob: w.Credential, EncryptedSecret: w.EncryptedSecret}); status != attest.ReleaseTPMRefused || svc.Salt() != nil {
-		t.Fatalf("the coordinator took a factor after a PCR change: %d", status)
+	phone.attests(t, svc)
+	if status, msg := svc.TakeRelease(rel); status != attest.ReleaseTPMRefused || !strings.Contains(msg, "TPM did not open") || svc.Salt() != nil {
+		t.Fatalf("the coordinator took a factor after a PCR change: %d %s", status, msg)
 	}
 }
 

@@ -11,7 +11,9 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/pem"
 	"fmt"
 	"os"
@@ -249,4 +251,47 @@ func (b *busTap) carries(secret []byte) bool {
 		}
 	}
 	return false
+}
+
+// testPhone is an enrolled phone's anchor key, for receipts a test signs.
+type testPhone struct{ key *ecdsa.PrivateKey }
+
+// enrolTestPhone gives the blob one enrolled phone, "my-phone", whose anchor
+// the test holds. Before the blob is written.
+func enrolTestPhone(t *testing.T, blob *nvslot.Attestation) *testPhone {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	anchor, err := x509.MarshalPKIXPublicKey(&key.PublicKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	blob.Phone.Verifiers = []attest.EnrolledVerifier{{ID: "my-phone", AnchorPub: anchor, NoisePub: make([]byte, 32)}}
+	return &testPhone{key: key}
+}
+
+// attests has the phone say "attested" to the coordinator, as after a session:
+// a quote of this boot is registered by hand, and the receipt for it is the
+// phone's. A release is opened only after it.
+func (p *testPhone) attests(t *testing.T, svc *phonegate.GateService) {
+	t.Helper()
+	<-svc.Ready
+	if svc.Blob == nil {
+		t.Fatal("the coordinator serves no slot")
+	}
+	qd := bytes.Repeat([]byte{7}, 32)
+	digest := sha256.Sum256([]byte("a quote of this boot"))
+	svc.Issued[hex.EncodeToString(digest[:])] = qd
+	r := &attest.Receipt{Verdict: attest.VerdictOK, DeviceID: svc.Blob.DeviceID, AKName: svc.Blob.AKName, QD: qd, QuoteDigest: digest[:], VerifierID: "my-phone"}
+	d := sha256.Sum256(attest.ReceiptTBS(r))
+	sig, err := ecdsa.SignASN1(rand.Reader, p.key, d[:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.Signature = sig
+	if c := svc.JudgeReceipt(r, "my-phone"); !c.Authentic {
+		t.Fatalf("the coordinator did not take the phone's receipt: %+v", c)
+	}
 }
