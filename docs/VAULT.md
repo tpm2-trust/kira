@@ -140,9 +140,9 @@ Boot from PCR 7's events, the state directory's volume measured into PCR 15:
 keep it offline, §6.5), and makes in the TPM the approval key behind the PIN, the
 counter and the master; it approves the vault's boot state as it is. It creates
 `/var/lib/kira-vault` (0700): the vault's TLS root (ECDSA P-256, valid 20
-years) and a leaf it signs for the vault's host or address (valid a year, made
-again from the root with fewer than 30 days left, at start and while serving),
-the configuration. It prints the **pin** (`sha256:` over the root's
+years; its key in the TPM, §6.2) and the configuration. `serve` makes a leaf for
+the vault's host or address at every start (valid 90 days, made again with fewer
+than 30 days left while serving). It prints the **pin** (`sha256:` over the root's
 SubjectPublicKeyInfo). `kira-vault tls root` prints the root, for the machines
 and the operators: each verifies the vault's chain against it. `init` takes the
 TPM at `/dev/tpmrm0` (or `/dev/tpm0`) and an admin socket in `/run/kira-vault/`
@@ -360,6 +360,16 @@ device ID as AAD. K_dev lives in locked memory for one enrolment or release, the
 is wiped. A **revoke** deletes r_dev: the device's key cannot be made again by
 anyone, with or without the backup.
 
+The **TLS root key** (ECDSA P-256), whose public key is the machines' pin, follows
+from the master (HKDF, a label of its own) and is imported into the TPM beside it,
+wrapped the same way: no TLS private key is a file. `serve` has the TPM sign a
+**leaf** at its start and again 30 days before the leaf ends (90 days); the leaf's
+key (Ed25519) is made in memory each time and never written. A restore of the
+master's backup makes the same root key again, so the pin holds. It is ECDSA because
+it has to follow from the master: no RSA key is made from a seed with the standard
+library. It is used by its empty authValue, not under the approval: serve signs a
+leaf with nobody there, and takes an approval's requests before anything is approved.
+
 The master is used only under an **approval** of the vault's own boot state:
 
     master's policy = PolicyAuthorize(approval key, ref) ; PolicyCommandCode(TPM2_HMAC)
@@ -405,10 +415,10 @@ auto and approve.
 ```
 /var/lib/kira-vault/
   config.json           listen address, URL, the vault's PCRs, TPM path, admin socket
-  master.json           the master as the TPM holds it, the approval keys
+  master.json           the master and the TLS root key as the TPM holds them, the approval keys
   approvals/<time>.json the approvals of the vault's boot state
-  tls/ca.pem, ca-key.pem the root (20 years) and its key: the vault's identity, the pin's key
-  tls/cert.pem, key.pem the leaf it serves (1 year), made again from the root when due
+  tls/ca.pem            the root's certificate (20 years): the vault's identity; its key, the pin's, is in the TPM (master.json)
+  tls/cert.pem          the certificate of the leaf it serves (90 days); its key is in serve's memory alone
   devices/<id>.json     pinned device data, release state, r_dev, the encrypted wrapped R
   tokens/<sha256>.json  unused tokens, stored only as their hash
   operators/<name>.json operators' bearer tokens, stored only as their hash
@@ -429,7 +439,7 @@ running serve.
 - **The TPM is lost** (a new mainboard, a new host): restore the state directory
   from its backup, then `kira-vault init --restore` with the master's backup: a
   new PIN, approval key and counter in the new TPM, and every machine is released
-  to as before. `kira-vault backup check` checks a written-down backup.
+  to as before - under the pin it has: the TLS root key follows from the master. `kira-vault backup check` checks a written-down backup.
 - **The backup is lost and the TPM too:** the records cannot be opened. Each
   machine unlocks with its recovery passphrase and is enrolled again with a
   `--replace` token.
@@ -545,8 +555,8 @@ functions kira seals with (`internal/nvslot/policy.go` calls them).
 | the machine | L in its TPM; R withheld once the device is revoked, or unreachable away from the vault's network |
 | the machine, the vault reachable, not revoked | unlocks only in an approved boot state, as the owner's boot would; a tampered boot gets neither part. Approve mode - an operator's approval, with a pepper if enrolled so - closes the rest |
 | a tampered boot chain | the TPM refuses L; the vault refuses the quote on its own |
-| the vault's disk or a backup | records encrypted under keys sealed in the vault's TPM |
-| root on the running vault | the wrapped R of every device: useless without each machine's TPM in an approved state; can deny service |
+| the vault's disk or a backup | records encrypted under keys sealed in the vault's TPM; no TLS private key, so the vault cannot be impersonated with it (the root's key is in the TPM, the leaf's in memory) |
+| root on the running vault | the wrapped R of every device: useless without each machine's TPM in an approved state; can deny service; can have the TPM sign a leaf of their own while there, valid for as long as they date it - what an operator then sends a false vault (a token, a pepper) is theirs |
 | a relay or a recorded answer | opens only on the machine's TPM, under its policy |
 | a vault impersonated on the network | its chain does not end at the vault's root, or its key is not the pin; it could only withhold R, which the real one may too |
 | a root of their own in the boot image's bundle | still not the pin: the pin is in the slot's signed blob |

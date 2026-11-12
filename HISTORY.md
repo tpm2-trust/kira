@@ -8,6 +8,20 @@ formats and CLI flags may change without migration paths.
 
 ---
 
+## The vault's TLS root key left the state directory (2026-11-12)
+
+The vault's TLS root key and its leaf's key were PEM files in the state directory
+(`tls/ca-key.pem`, `tls/key.pem`), and so in every backup of it. The pin a machine
+keeps of the vault is the root's key: who held a backup and a place on the path
+could play the vault - not for a machine's R, which needs the TPM, but for what an
+operator sends it, a bearer token and a pepper (the workspace's security review,
+item 13). The root key is now derived from the master and imported into the TPM
+beside it (`keys.ImportTLSRoot`); the leaf's key is made in memory at each start.
+Derived, not made in the TPM, because the master's backup has to restore the vault
+whole: a key made in the TPM would have changed the pin at a restore, and no machine
+could have fetched its part. A vault is made again (`init`), its machines enrolled
+again.
+
 ## The phone approved what nobody proved; a phone salt was handed over before it was stored (fixed 2026-11-11)
 
 Two faults of the core, `core/attest`, found by the workspace's review (`TODO-SEC.md` #3, #5):
