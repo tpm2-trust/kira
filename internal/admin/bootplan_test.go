@@ -56,7 +56,7 @@ func testSSHCA(t *testing.T, approved bool) sshCAState {
 	}
 	ca := &hostkey.CA{Version: 4, Type: hostkey.P256, Bank: hostkey.SHA256,
 		Slots:  []hostkey.Slot{{Number: 0, PCRs: []int{0, 2, 7, 11}}, {Number: 1, PCRs: []int{7}}},
-		Public: tpm2.Marshal(pub), Authority: authDER, PolicyRef: []byte(sshCARef)}
+		Public: tpm2.Marshal(pub), Authority: authDER, Use: sshCARef, Nonce: bytes.Repeat([]byte{0x5A}, hostkey.NonceSize)}
 	values := map[int][]byte{0: bytes.Repeat([]byte{0xA1}, 32), 2: bytes.Repeat([]byte{0xB2}, 32), 7: bytes.Repeat([]byte{0xC3}, 32), 11: bytes.Repeat([]byte{0xD4}, 32)}
 	st := sshCAState{CA: ca, Values: values}
 	if approved {
@@ -314,7 +314,7 @@ func TestWriteImageMkinitcpio(t *testing.T) {
 	}
 	// The CA is not in the image: run reads its EFI variable.
 	filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-		if b, _ := os.ReadFile(path); err == nil && !d.IsDir() && bytes.Contains(b, []byte(`"policy_ref"`)) {
+		if b, _ := os.ReadFile(path); err == nil && !d.IsDir() && bytes.Contains(b, []byte(`"open_value"`)) {
 			t.Errorf("the CA in the image: %s", path)
 		}
 		return nil
