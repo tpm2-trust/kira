@@ -305,3 +305,26 @@ func TestReleaseEstablishesPastTheOSSeparator(t *testing.T) {
 		})
 	}
 }
+
+// A name or a label reaches the vault's audit log and its operators' terminals:
+// only what cannot steer either is one.
+func TestValidName(t *testing.T) {
+	for _, ok := range []string{"a", "db-03", "web_1.example", "LUKS", "0x7e", strings.Repeat("a", MaxNameSize)} {
+		if !ValidName(ok) {
+			t.Errorf("%q is refused", ok)
+		}
+	}
+	for _, bad := range []string{"", " ", "a b", ".hidden", "-rf", "_x", "../x", "a/b", "a\x1b[31m", "a\n", "büro", "a\x00", strings.Repeat("a", MaxNameSize+1)} {
+		if ValidName(bad) {
+			t.Errorf("%q is taken", bad)
+		}
+	}
+	r := &EnrolRequest{Name: "box", Label: "a\x1b[2J"}
+	if err := r.CheckNames(); err == nil || !strings.Contains(err.Error(), "label") {
+		t.Errorf("a label with an escape: %v", err)
+	}
+	r = &EnrolRequest{Name: strings.Repeat("n", 1<<20), Label: "luks"}
+	if err := r.Check(); err == nil || !strings.Contains(err.Error(), "name") {
+		t.Errorf("a megabyte of name: %v", err)
+	}
+}

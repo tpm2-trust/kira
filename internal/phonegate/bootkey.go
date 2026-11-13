@@ -51,20 +51,31 @@ func CreateBootKey(tpmDev transport.TPM, sealed *nvslot.SealedBlob) (public, pri
 
 // loadBootKey loads the slot's boot key; the caller flushes the handle.
 func loadBootKey(tpmDev transport.TPM, att *nvslot.Attestation) (*loadedKey, error) {
-	primary, err := tpmdev.CreatePrimaryKey(tpmDev)
+	boot, primary, err := loadBootKeyWithParent(tpmDev, att)
 	if err != nil {
 		return nil, err
 	}
-	defer tpmdev.FlushHandle(tpmDev, primary.ObjectHandle)
+	tpmdev.FlushHandle(tpmDev, primary.ObjectHandle)
+	return boot, nil
+}
+
+// loadBootKeyWithParent is loadBootKey that leaves the storage primary loaded
+// too, for a session salted to it. The caller flushes both.
+func loadBootKeyWithParent(tpmDev transport.TPM, att *nvslot.Attestation) (*loadedKey, *tpmdev.PrimaryKeyResponse, error) {
+	primary, err := tpmdev.CreatePrimaryKey(tpmDev)
+	if err != nil {
+		return nil, nil, err
+	}
 	rsp, err := tpm2.Load{
 		ParentHandle: tpm2.AuthHandle{Handle: primary.ObjectHandle, Name: primary.Name, Auth: tpm2.PasswordAuth(nil)},
 		InPublic:     tpm2.BytesAs2B[tpm2.TPMTPublic](att.BootKeyPublic),
 		InPrivate:    tpm2.TPM2BPrivate{Buffer: att.BootKeyPrivate},
 	}.Execute(tpmDev)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load the boot key (was the TPM cleared?): %w", err)
+		tpmdev.FlushHandle(tpmDev, primary.ObjectHandle)
+		return nil, nil, fmt.Errorf("failed to load the boot key (was the TPM cleared?): %w", err)
 	}
-	return &loadedKey{Handle: rsp.ObjectHandle, Name: rsp.Name}, nil
+	return &loadedKey{Handle: rsp.ObjectHandle, Name: rsp.Name}, primary, nil
 }
 
 // certifyBootKey has the attestation key state, for qd, that the boot key
@@ -153,12 +164,15 @@ func OpenBootChallenge(tpmDev transport.TPM, sealed *nvslot.SealedBlob, blobInde
 	if err != nil {
 		return "", nil, err
 	}
-	boot, err := loadBootKey(tpmDev, att)
+	boot, primary, err := loadBootKeyWithParent(tpmDev, att)
 	if err != nil {
 		return "", nil, err
 	}
 	defer tpmdev.FlushHandle(tpmDev, boot.Handle)
-	session, done, err := nvslot.ApprovedSession(tpmDev, sealed, blobIndex)
+	defer tpmdev.FlushHandle(tpmDev, primary.ObjectHandle)
+	// The shared point is the secret the code and the proof come from: it comes
+	// back encrypted, in a session salted to the boot key's parent.
+	session, done, err := nvslot.ApprovedSecretSession(tpmDev, sealed, blobIndex, nvslot.SaltKey{Handle: primary.ObjectHandle, Public: primary.Public}, nil)
 	if err != nil {
 		return "", nil, fmt.Errorf("%w (%w)", ErrBootKeyRefused, err)
 	}

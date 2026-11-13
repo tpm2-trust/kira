@@ -1097,7 +1097,7 @@ approve and boot.
 | Threat                                       | Why                                        |
 |----------------------------------------------|--------------------------------------------|
 | A shell with the approved PCRs intact, before the close | Another OS, or a shell in the genuine initrd, while the PCRs still match: the TPM computes codes on request, including for future times. §15 is what keeps such a shell out of an approved state; docs/SLOT.md, "Hardening the boot path" |
-| Physical attacker on the TPM bus             | An active interposer can fake replies, the close's read-back included, and substitute the salt key's public area at seal time, which is not authenticated. Out of scope (§19). Passive sniffing sees only HMAC results |
+| Physical attacker on the TPM bus             | An active interposer can fake replies, the close's read-back included, and substitute the salt key's public area at seal time, which is not authenticated. Out of scope (§19). Passive sniffing sees HMAC results and TOTP codes, which the screen shows too: what a slot object answers with a secret (a credential opened, the machine-id unsealed, the boot key's shared point) comes back in a session salted to a key of the TPM and encrypted (AES-128-CFB) |
 | Compromise of the signing private key         | Its holder can approve any state |
 | TPM reset attacks (if PCRs can be replayed)   | Platform-specific; DRTM/measured launch can mitigate |
 | Pre-recorded codes (clock set forward)        | The code is `HOTP(secret, time/30)` and the time comes from the RTC, which is neither measured nor protected. An attacker boots the untouched machine with the clock set to when the owner will next boot, notes the codes shown, then tampers with the boot chain and shows the recorded codes at that time; they match the authenticator. Inherent to time-based codes: only a counter- or challenge-based scheme removes it. A firmware setup password, a locked boot order and Secure Boot (so no other OS can be booted to set the clock) raise the cost; unexpected RTC drift is a sign |
@@ -1742,6 +1742,16 @@ resume from S3 (`TPM2_Startup(STATE)`) keeps `shEnable` and `ehEnable` clear and
 as it was, and sets `phEnable` again; the random platform authorization is what keeps
 root from then setting `shEnable` back with an empty one.
 
+That holds while the kernel has the TPM save its state before the suspend
+(`TPM2_Shutdown(STATE)`), which root can prevent. The firmware's `TPM2_Startup(STATE)`
+then fails at the resume: firmware that reboots, or caps PCRs 0-7, keeps the close;
+firmware that starts the TPM anew (`TPM2_Startup(CLEAR)`) and resumes all the same leaves
+every PCR at zero with nothing measured (CVE-2018-6622), and root replays the boot's log
+into them. kira cannot close that in the TPM - whatever it locks at the close, a
+`Startup(CLEAR)` clears - and cannot see which firmware a machine has. `control` warns
+where the kernel offers S3 (`deep` in `/sys/power/mem_sleep`); the measure is S3 switched
+off in the firmware's setup, behind its password (§19).
+
 **Before a resume from hibernation only 1 or 5 lets the resume go on**: a resumed
 system expects its own state, also after a degraded close. Anything else is no resume
 (Arch: the drop-in's `ExecStartPre` fails; Debian: an empty `resume=` in
@@ -1921,7 +1931,7 @@ Both machines unless it says otherwise; step names (V2, V4, ...) are hibernatete
 | A normal boot | code screen over SSH with slot 0's and slot 1's codes equal to the authenticator's; host key certified by the CA (strict `known_hosts`); password and salt asked in the session; the key answered; the system up. Twice, and again after the hibernation steps | Arch, Debian |
 | After the code screen | every slot reports closed, slot 0's TOTP key refuses, PCR 15 extended in the running system; `run` logged its close; no late closer, no reboot counted. The image's `kira-close.service` ran (Arch) | Arch, Debian |
 | PCR 4 | the value predicted before each boot is the register in that boot | Arch, Debian |
-| `ssh-child` confined | each boot's log: uid 2147352576 of aSSH's range, namespaces of its own, no new privileges, not dumpable, no executable memory, Landlock (ABI 10 on Arch, ABI 6 on Debian), 70 system calls refused | Arch, Debian |
+| `ssh-child` confined | each boot's log: uid 2147352576 of aSSH's range, namespaces of its own, no new privileges, not dumpable, no executable memory, Landlock (ABI 10 on Arch, ABI 6 on Debian), 79 system calls allowed (an allowlist) | Arch, Debian |
 | The image's contents | `kira-boot`, not `kira`; no control.conf; the plan names `unlock`, `codes`, `net`, `ssh`, `tpm`; no unit or script starts a gate | Arch, Debian |
 | Signed PCR 11 | ukify signs through `uki.conf` (`enter-initrd`), the PCR key mode 0400, slot 0's PCR 11 is signed; the CA's slots 0,2,4,7 and 7, each with 11 signed | Arch |
 | A kernel not approved | image built without the hook: slot 0 no code (PCR 4 moved), slot 1's code right, host key certified through slot 1, system up; `slot approve` brings slot 0 back | Arch |
@@ -2057,6 +2067,7 @@ Each is taken knowingly: why the design still works, and how far.
 | A hook's approval needs the memory lock | An approval that cannot lock stops before it reads the key, and the build goes on and says so | An image built in a container or a unit without `CAP_IPC_LOCK` under a limit is not approved: the next boot's slots are down until a `slot approve` where the lock holds |
 | An approved image with a root shell before the close | PCR 15 is zero there, and every other PCR as approved. Keep such images unapproved and unsigned | Codes and a certificate in that boot, not the keys. On a UKI with Secure Boot on the shell cannot come from an edited command line; a signed addon could add to it, so keep those unsigned |
 | An image without kira under the same keys | The close is software in the approved image; the TPM cannot tell. It needs the PCR key's signature (or an approval) too | That one boot, with PCR 15 at zero |
+| Root on the running system undoes the close by a suspend to RAM whose resume restarts the TPM (§14.2) | It needs root first, S3 on the machine, and firmware with the fault; correct firmware reboots or caps the PCRs. `control` warns where S3 is offered | On such firmware: the slots and the SSH CA open again in the running system, and a quote of the replayed state passes. Switch S3 off in the firmware's setup |
 | An early extend of PCR 15 (`tpm2-measure-pcr=` before the code screen) | It closes early | A denial of service only: a temporary key and no codes, never an open CA |
 | A TPM silent in the initrd, answering later in the same boot (step 6) | The late closer closes the moment it answers; `control` is red meanwhile | Root can kill the closer. Whoever can silence the TPM for the initrd alone and has root afterwards gets that one boot, if the PCRs hold an approved state. `KIRAcloseReboot` is plain: writing it spares a boot the reboot, not a close |
 | What boots under the same Secure Boot state reads the channel's secrets before the close | The gate must start in a boot nobody approved, or the phone could not show it as changed. So the object's first branch reads PCR 7 and PCR 15, no approval. A Microsoft-signed live USB and Secure Boot off are out (PCR 7). What stays: an image signed by the owner's db key, and on Debian an edited GRUB entry (`break=`, `rdinit=`): GRUB's command line is PCR 8, PCR 7 does not move | That machine can recognise the advertisements and imitate the Bluetooth endpoint, and keeps that ability once it has read them: an enrolment again makes new ones. It cannot produce a quote of a good state: quotes come from the TPM's registers as they are, the phone says changed. On Debian a GRUB superuser password closes the edited entry (`control` judges its absence red) |

@@ -63,3 +63,29 @@ func TestPlainSwaps(t *testing.T) {
 		t.Fatalf("without hibernation: %v", got)
 	}
 }
+
+// A suspend to RAM is offered when "deep" is among the kernel's modes,
+// selected or not; with s2idle alone, or without the file, it is not.
+func TestDeepSleepOffered(t *testing.T) {
+	old := swapPaths
+	t.Cleanup(func() { swapPaths = old })
+	swapPaths.memSleep = filepath.Join(t.TempDir(), "mem_sleep")
+	if deepSleepOffered() {
+		t.Fatal("offered without the kernel's file")
+	}
+	for content, want := range map[string]bool{
+		"s2idle [deep]\n":         true,
+		"[s2idle] deep\n":         true,
+		"[s2idle] shallow deep\n": true,
+		"[s2idle]\n":              false,
+		"[s2idle] shallow\n":      false,
+		"":                        false,
+	} {
+		if err := os.WriteFile(swapPaths.memSleep, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if got := deepSleepOffered(); got != want {
+			t.Errorf("%q: offered %v, want %v", content, got, want)
+		}
+	}
+}

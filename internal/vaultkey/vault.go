@@ -264,11 +264,15 @@ func (c *vaultClient) Post(ctx context.Context, path string, in, out any) error 
 		return err
 	}
 	if rsp.StatusCode/100 != 2 {
+		err := fmt.Errorf("the vault answered %s", rsp.Status)
 		var e vaultproto.ErrorResponse
 		if json.Unmarshal(data, &e) == nil && e.Error != "" {
-			return fmt.Errorf("the vault: %s", untrusted.Quote(e.Error))
+			err = fmt.Errorf("the vault: %s", untrusted.Quote(e.Error))
 		}
-		return fmt.Errorf("the vault answered %s", rsp.Status)
+		if rsp.StatusCode == http.StatusTooManyRequests {
+			return &busyError{err}
+		}
+		return err
 	}
 	if err := json.Unmarshal(data, out); err != nil {
 		return fmt.Errorf("the vault's answer does not parse: %w", err)
@@ -527,14 +531,23 @@ func fetchRemoteRetrying(ctx context.Context, tpmDev transport.TPM, vs vaultSlot
 		if err == nil || !Retryable(err) {
 			return rsp, err
 		}
+		wait := time.Second
+		var busy *busyError
+		if errors.As(err, &busy) {
+			wait = busyWait
+		}
 		if !told {
-			say(fmt.Sprintf("the vault at %s is not reachable yet (%v); trying until it is", vs.Att.Vault.URL, err))
+			if busy != nil {
+				say(fmt.Sprintf("the vault at %s asks to wait (%v); asking again until it answers", vs.Att.Vault.URL, err))
+			} else {
+				say(fmt.Sprintf("the vault at %s is not reachable yet (%v); trying until it is", vs.Att.Vault.URL, err))
+			}
 			told = true
 		}
 		select {
 		case <-ctx.Done():
 			return nil, fmt.Errorf("the code screen ended before the vault at %s was reached: %v", vs.Att.Vault.URL, err)
-		case <-time.After(time.Second):
+		case <-time.After(wait):
 		}
 	}
 }
@@ -550,9 +563,26 @@ func PepperCheck(key []byte) []byte {
 	return m.Sum(nil)[:nvslot.PepperCheckSize]
 }
 
+// busyError is the vault's "not yet": it limits how often an address or a device
+// asks (429), and whoever else asks from here, or under this device's ID, uses the
+// limit up. Not an answer about the machine.
+type busyError struct{ err error }
+
+func (e *busyError) Error() string { return e.err.Error() }
+func (e *busyError) Unwrap() error { return e.err }
+
+// busyWait is how long the machine waits before it asks a vault again that said
+// "not yet": its limits are per minute.
+const busyWait = 5 * time.Second
+
 // retryableVaultError: the vault was not reached (no route, no address
-// yet, refused connection, a timeout), as opposed to an answer.
+// yet, refused connection, a timeout) or said "not yet" (its rate limit), as
+// opposed to an answer.
 func Retryable(err error) bool {
+	var busy *busyError
+	if errors.As(err, &busy) {
+		return true
+	}
 	var ue *url.Error
 	if !errors.As(err, &ue) {
 		return false

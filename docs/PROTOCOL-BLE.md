@@ -888,6 +888,7 @@ objects cross the boundary; structured data is JSON.
 | `PendingTBS() []byte` | bytes to sign for the current `need_signature` |
 | `ProvideSignature(der) Step` | signature made (after the user unlocked the key) |
 | `Decide(decision, confirmName) Step` | `verdict` event with `needs_decision` |
+| `RecordStored(stored) Step` | `record_updated` event with `confirm`: the record is on storage, or could not be stored |
 | `RequestEventlog() Step` | user wants to see what changed |
 | `Eventlog() []byte` | after `eventlog` with `complete` |
 | `Abort(reason) Step` | user cancels; send fragments, then disconnect |
@@ -897,7 +898,9 @@ objects cross the boundary; structured data is JSON.
 Decisions: `1` approve once · `2` approve and remember as a new profile · `3` reject ·
 `4` continue (a boot that matches; anything else needs `1` or `2`).
 Approving a verdict whose `state` is `failed` additionally requires
-`confirmName` equal to the machine's `friendly_name`, typed by the user.
+`confirmName` equal to the machine's `friendly_name`, typed by the user, and is
+`1` only: a failed attestation is never remembered. No approval at all is taken
+for a verdict whose `authentic` is false.
 
 **Step**: `FragmentCount()`, `Fragment(i)` — write these to RX, in order;
 `EventCount()`, `Event(i)` — JSON events; `Err()` — non-empty if the call
@@ -922,7 +925,7 @@ Every event is a JSON object with `type`. `tbs` is base64 (prefer `PendingTBS()`
 | `verdict` | `verdict`, `needs_decision` (always true), `eventlog_available` | show §10.4 with `verdict.boot_key` and `verdict.code`; offer the decisions |
 | `eventlog` | `received`, `total`, `complete` | progress |
 | `receipt_ack` | `result`, `message` | show what the machine made of the receipt |
-| `record_updated` | `record` | replace the stored record |
+| `record_updated` | `record`, `confirm` | replace the stored record, written through to storage. With `confirm`: then call `RecordStored(stored)` - the core releases the phone salt in that record to the machine only after it, and with `stored` false fails the session (error code 7) and releases nothing |
 | `done` | — | disconnect; session succeeded |
 | `error` | `code`, `message` | disconnect; show message |
 
@@ -954,7 +957,7 @@ for the baseline quote.
 |---|---|---|
 | `match` | ✅ "<name> — unchanged since <last_attested>." Signed after the user unlocks the key; no decision. | — |
 | `changed` | ⚠️ `explanation` plus the diff | approve once · approve and remember · reject |
-| `failed` | 🛑 "Attestation failed:" + every hard reason | reject; approving needs the typed machine name |
+| `failed` | 🛑 "Attestation failed:" + every hard reason | reject; approving needs the typed machine name, is once only (never remembered), and is offered only when the verdict's `authentic` is true: the enrolled machine's attestation key signed the quote for this session. Without it there is nothing to approve and the core refuses every approval |
 
 Reason codes (hard unless noted): `malformed`, `policy_invalid`,
 `device_mismatch`, `ak_mismatch`, `bad_signature`, `bad_magic`, `bad_type`,

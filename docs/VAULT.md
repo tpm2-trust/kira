@@ -140,9 +140,9 @@ Boot from PCR 7's events, the state directory's volume measured into PCR 15:
 keep it offline, §6.5), and makes in the TPM the approval key behind the PIN, the
 counter and the master; it approves the vault's boot state as it is. It creates
 `/var/lib/kira-vault` (0700): the vault's TLS root (ECDSA P-256, valid 20
-years) and a leaf it signs for the vault's host or address (valid a year, made
-again from the root with fewer than 30 days left, at start and while serving),
-the configuration. It prints the **pin** (`sha256:` over the root's
+years; its key in the TPM, §6.2) and the configuration. `serve` makes a leaf for
+the vault's host or address at every start (valid 90 days, made again with fewer
+than 30 days left while serving). It prints the **pin** (`sha256:` over the root's
 SubjectPublicKeyInfo). `kira-vault tls root` prints the root, for the machines
 and the operators: each verifies the vault's chain against it. `init` takes the
 TPM at `/dev/tpmrm0` (or `/dev/tpm0`) and an admin socket in `/run/kira-vault/`
@@ -335,8 +335,10 @@ enrolment).
 | challenge | 32 random bytes, valid 120 s, for one request; a terminal answer (released, denied) consumes it |
 | pending | a request in approve mode stays pending 15 min, then is denied; the machine re-sends the same request every 5 s and is answered by its ID; an approved request is verified again when answered, and answered for 120 s after the approval |
 | pepper | a device enrolled with a pepper is always in approve mode (`device mode … auto` is refused); its approval must carry a pepper (1-256 bytes), a plain device's must not; the pepper is held in memory with the approved request, sent once with the release, then wiped - also when the approval expires or the device is revoked; never written, never logged ("approved by alice, with a pepper") |
-| failures | 5 failed verifications in a row lock the device until `device unlock`; a success resets the count |
-| rate | at most 10 challenges per device per minute |
+| failures | 5 verified quotes in a row that the release refuses (a revoked generation, no approval of the quoted state) lock the device until `device unlock`; a success resets the count. A request whose quote the device's attestation key did not sign is denied and changes nothing of the device: a device ID is no secret, and a lock for what is sent under it would be anyone's to set |
+| rate | at most 3 challenges per address per minute (`challenge_rate` in the configuration: `config set challenge-rate N`, `init --challenge-rate N`) and 10 per device; what an address asks beyond its own limit counts against no device. A boot asks for one challenge per keyslot of the vault's, and machines behind one address share its limit: raise it where several boot together. The machine takes a 429 as "not yet" and asks again |
+| names | a machine's name and a keyslot's label: 1 to 64 letters, digits, `.`, `_`, `-`, the first a letter or a digit; anything else is refused at enrolment (`--name`, `--label` on the machine) |
+| audit before authentication | what is refused before anyone is authenticated (an unknown device, an unknown token, a name not taken, a rate limit) is written at most 20 times per minute, each kind once per address; the rest is counted and written as one line. Whoever can reach the vault cannot fill its log - a release needs its line written. The log is never cut or rotated by the vault: its past is not a flood's to erase |
 | generation | the highest verified generation is kept; a lower one is refused |
 | revoked | denied, "the device is revoked" |
 | the vault's own boot state is not approved | denied, "the vault's own boot state is not approved: an operator approves it (kira-vault approve)"; not counted against the device; no enrolment either |
@@ -357,6 +359,16 @@ session); its record's wrapped R is encrypted with AES-256-GCM under K_dev, the
 device ID as AAD. K_dev lives in locked memory for one enrolment or release, then
 is wiped. A **revoke** deletes r_dev: the device's key cannot be made again by
 anyone, with or without the backup.
+
+The **TLS root key** (ECDSA P-256), whose public key is the machines' pin, follows
+from the master (HKDF, a label of its own) and is imported into the TPM beside it,
+wrapped the same way: no TLS private key is a file. `serve` has the TPM sign a
+**leaf** at its start and again 30 days before the leaf ends (90 days); the leaf's
+key (Ed25519) is made in memory each time and never written. A restore of the
+master's backup makes the same root key again, so the pin holds. It is ECDSA because
+it has to follow from the master: no RSA key is made from a seed with the standard
+library. It is used by its empty authValue, not under the approval: serve signs a
+leaf with nobody there, and takes an approval's requests before anything is approved.
 
 The master is used only under an **approval** of the vault's own boot state:
 
@@ -403,10 +415,10 @@ auto and approve.
 ```
 /var/lib/kira-vault/
   config.json           listen address, URL, the vault's PCRs, TPM path, admin socket
-  master.json           the master as the TPM holds it, the approval keys
+  master.json           the master and the TLS root key as the TPM holds them, the approval keys
   approvals/<time>.json the approvals of the vault's boot state
-  tls/ca.pem, ca-key.pem the root (20 years) and its key: the vault's identity, the pin's key
-  tls/cert.pem, key.pem the leaf it serves (1 year), made again from the root when due
+  tls/ca.pem            the root's certificate (20 years): the vault's identity; its key, the pin's, is in the TPM (master.json)
+  tls/cert.pem          the certificate of the leaf it serves (90 days); its key is in serve's memory alone
   devices/<id>.json     pinned device data, release state, r_dev, the encrypted wrapped R
   tokens/<sha256>.json  unused tokens, stored only as their hash
   operators/<name>.json operators' bearer tokens, stored only as their hash
@@ -427,7 +439,7 @@ running serve.
 - **The TPM is lost** (a new mainboard, a new host): restore the state directory
   from its backup, then `kira-vault init --restore` with the master's backup: a
   new PIN, approval key and counter in the new TPM, and every machine is released
-  to as before. `kira-vault backup check` checks a written-down backup.
+  to as before - under the pin it has: the TLS root key follows from the master. `kira-vault backup check` checks a written-down backup.
 - **The backup is lost and the TPM too:** the records cannot be opened. Each
   machine unlocks with its recovery passphrase and is enrolled again with a
   `--replace` token.
@@ -439,7 +451,7 @@ running serve.
 | Command | |
 |---|---|
 | `control [--dir] [--socket] [--lines] [--debug]` | the control panel (§6.7) |
-| `init [--dir] [--listen :8443] [--url] [--pcrs 7,15] [--tpm /dev/tpmrm0] [--admin-socket] [--operator-listen]` | create the vault: its keys in this TPM, the backup shown once |
+| `init [--dir] [--listen :8443] [--url] [--pcrs 7,15] [--tpm /dev/tpmrm0] [--admin-socket] [--operator-listen] [--challenge-rate 3]` | create the vault: its keys in this TPM, the backup shown once |
 | `init --restore [--dir]` | the master from its backup into this TPM, in a restored state directory |
 | `approve [--dir]` | approve the vault's boot state as it is (the PIN) |
 | `approvals [--dir]` | the approvals, and which is in use |
@@ -456,6 +468,7 @@ running serve.
 | `request approve\|deny ID` | decide one; a pepper device's approval asks the pepper |
 | `audit [--follow]` | the audit log |
 | `config set operator-listen ADDR\|"" [--dir]` | turn the operator interface on (an address, e.g. `:8444`) or off; serve stopped |
+| `config set challenge-rate N [--dir]` | the challenges one address gets per minute (0: the default, 3); serve stopped |
 | `operator add NAME` | an operator: prints the bearer token once, the URL and a curl line (`--cacert`) |
 | `tls root [--dir]` | the vault's root certificate (PEM), for machines and operators; also while serve runs |
 | `operators`, `operator remove NAME` | list, remove |
@@ -542,14 +555,15 @@ functions kira seals with (`internal/nvslot/policy.go` calls them).
 | the machine | L in its TPM; R withheld once the device is revoked, or unreachable away from the vault's network |
 | the machine, the vault reachable, not revoked | unlocks only in an approved boot state, as the owner's boot would; a tampered boot gets neither part. Approve mode - an operator's approval, with a pepper if enrolled so - closes the rest |
 | a tampered boot chain | the TPM refuses L; the vault refuses the quote on its own |
-| the vault's disk or a backup | records encrypted under keys sealed in the vault's TPM |
-| root on the running vault | the wrapped R of every device: useless without each machine's TPM in an approved state; can deny service |
+| the vault's disk or a backup | records encrypted under keys sealed in the vault's TPM; no TLS private key, so the vault cannot be impersonated with it (the root's key is in the TPM, the leaf's in memory) |
+| root on the running vault | the wrapped R of every device: useless without each machine's TPM in an approved state; can deny service; can have the TPM sign a leaf of their own while there, valid for as long as they date it - what an operator then sends a false vault (a token, a pepper) is theirs |
 | a relay or a recorded answer | opens only on the machine's TPM, under its policy |
 | a vault impersonated on the network | its chain does not end at the vault's root, or its key is not the pin; it could only withhold R, which the real one may too |
 | a root of their own in the boot image's bundle | still not the pin: the pin is in the slot's signed blob |
 | the machine's clock set back or ahead | a certificate outside its dates refuses the vault; the fallbacks stay |
 | the machine and root on the vault, a keyslot with a pepper | still no key: the pepper is with the operators, the vault never keeps it (a pepper given to a compromised running vault is seen, though) |
-| an operator's token | can approve releases and read requests and devices, nothing else; cannot revoke, enrol or read the audit |
+| an operator's token | can approve releases and read requests and devices, nothing else; cannot revoke, lock, enrol or read the audit |
+| a device's ID and the vault's address, nothing else | can ask for that device's challenges up to the limits and so delay its release (the machine asks again); cannot lock the device, and cannot fill the audit log |
 | root on the running machine | the disk is open already; after the close no part opens again |
 
 Availability is the dominant risk: no vault, no unattended boot. The

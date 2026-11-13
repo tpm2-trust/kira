@@ -67,7 +67,7 @@ func (b *swtpmBoots) pcr15() []byte {
 func closeTestCA(t *testing.T, b *swtpmBoots, path string) *hostkey.CA {
 	t.Helper()
 	key := testSigner(t)
-	ca, err := hostkey.CreateCA(b.dev, key.Public(), hostkey.CAOptions{Type: hostkey.P256, Bank: hostkey.SHA256, PCRs: []int{7}, PolicyRef: []byte(sshCARef)})
+	ca, err := hostkey.CreateCA(b.dev, key.Public(), hostkey.CAOptions{Type: hostkey.P256, Bank: hostkey.SHA256, PCRs: []int{7}, Use: sshCARef})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -327,6 +327,32 @@ func ApprovedSession(tpmDev transport.TPM, blob *SealedBlob, blobIndex uint32) (
 // after the slot's policy, for an object whose policy extends it (the
 // release key: PolicyCommandCode, attest.ReleaseKeyPolicy).
 func ApprovedSessionThen(tpmDev transport.TPM, blob *SealedBlob, blobIndex uint32, then func(transport.TPM, tpm2.TPMISHPolicy) error) (tpm2.Session, func(), error) {
+	return approvedSession(tpmDev, blob, blobIndex, nil, then)
+}
+
+// SaltKey is a decryption key loaded in the TPM that a session is salted to: the
+// session's key is then a value only the TPM can open, and what the session
+// encrypts cannot be read from the bus.
+type SaltKey struct {
+	Handle tpm2.TPMHandle
+	Public tpm2.TPMTPublic
+}
+
+// ApprovedSecretSession is ApprovedSessionThen for a command whose answer is a
+// secret (TPM2_Unseal, TPM2_ActivateCredential, TPM2_ECDH_ZGen): the session is
+// salted to salt and the TPM encrypts the answer's first parameter with it
+// (AES-128-CFB). salt is a key the caller holds loaded anyway, so no object is
+// added to what the TPM has to hold; its public area is the one the TPM gave for
+// it, which keeps a listener on the bus out, not a device that answers in the
+// TPM's place.
+//
+// Only for a command whose answer starts with a sized buffer: a TPM refuses the
+// encrypting session elsewhere (TPM2_Sign: TPM_RC_ATTRIBUTES).
+func ApprovedSecretSession(tpmDev transport.TPM, blob *SealedBlob, blobIndex uint32, salt SaltKey, then func(transport.TPM, tpm2.TPMISHPolicy) error) (tpm2.Session, func(), error) {
+	return approvedSession(tpmDev, blob, blobIndex, &salt, then)
+}
+
+func approvedSession(tpmDev transport.TPM, blob *SealedBlob, blobIndex uint32, salt *SaltKey, then func(transport.TPM, tpm2.TPMISHPolicy) error) (tpm2.Session, func(), error) {
 	p := &blob.Payload
 	signingPublic, err := tpm2.Unmarshal[tpm2.TPMTPublic](p.SigningPublic)
 	if err != nil {
@@ -370,7 +396,11 @@ func ApprovedSessionThen(tpmDev transport.TPM, blob *SealedBlob, blobIndex uint3
 	}
 	defer tpmdev.FlushHandle(tpmDev, signKey.ObjectHandle)
 
-	session, flush, err := tpm2.PolicySession(tpmDev, tpm2.TPMAlgSHA256, 16)
+	var secrecy []tpm2.AuthOption
+	if salt != nil {
+		secrecy = []tpm2.AuthOption{tpm2.Salted(salt.Handle, salt.Public), tpm2.AESEncryption(128, tpm2.EncryptOut)}
+	}
+	session, flush, err := tpm2.PolicySession(tpmDev, tpm2.TPMAlgSHA256, 16, secrecy...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("a policy session for the slot: %w", err)
 	}

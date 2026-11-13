@@ -1062,7 +1062,7 @@ class Machine:
         # aSSH gives the unprivileged half a uid of its own from its range
         # (sandbox.DefaultUIDs, 0x7FFE0000-0x7FFEFFFF); nobody would mean
         # none was free, which a boot with one ssh-child never is.
-        confined = re.search(r"ssh-child \(pid \d+\) runs with uid (\d+), namespaces of its own, no new privileges, not dumpable, no executable memory, Landlock ABI \d+: no file access, \d+ system calls refused", out)
+        confined = re.search(r"ssh-child \(pid \d+\) runs with uid (\d+), namespaces of its own, no new privileges, not dumpable, no executable memory, Landlock ABI \d+: no file access, \d+ system calls allowed(?!; WARNING)", out)
         own_uid = confined is not None and 0x7FFE0000 <= int(confined.group(1)) <= 0x7FFEFFFF
         self.check(f"boot {n}: ssh-child ran confined (a uid of its own, namespaces, no new privileges, not dumpable, no executable memory, Landlock, seccomp)", own_uid, out[-500:])
         bad = [l for l in out.split("\n") if re.search(r"ERROR|FAILED|does not answer|cannot", l)]
