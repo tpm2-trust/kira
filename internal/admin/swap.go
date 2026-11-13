@@ -16,8 +16,30 @@ import (
 // cover it.
 
 // swapPaths are where the swap check reads; a var, for the tests.
-var swapPaths = struct{ powerState, swaps, mountinfo, sysBlock string }{
-	"/sys/power/state", "/proc/swaps", "/proc/self/mountinfo", "/sys/class/block",
+var swapPaths = struct{ powerState, swaps, mountinfo, sysBlock, memSleep string }{
+	"/sys/power/state", "/proc/swaps", "/proc/self/mountinfo", "/sys/class/block", "/sys/power/mem_sleep",
+}
+
+// A suspend to RAM (S3) powers the TPM down. The kernel has it save its
+// state before (TPM2_Shutdown(STATE)) and the firmware restores it at the
+// resume, so the PCRs - and with PCR 15 the close - are kept. Root can keep
+// the kernel from saving; firmware that then starts the TPM anew and
+// resumes all the same leaves every PCR at zero with nothing measured
+// (CVE-2018-6622), and root replays the boot's log into them: the close is
+// undone, on the running system. Whether a machine's firmware does that is
+// not seen from here; that S3 is offered is. The measure is below the system: S3 switched off in the
+// firmware's setup, behind its password. control warns; kira does not cover
+// it.
+
+// deepSleepOffered is whether the kernel offers a suspend to RAM (S3):
+// "deep" among /sys/power/mem_sleep's modes, whichever is selected. With
+// s2idle alone the TPM is never powered down.
+func deepSleepOffered() bool {
+	b, err := os.ReadFile(swapPaths.memSleep)
+	if err != nil {
+		return false
+	}
+	return hasWord(strings.NewReplacer("[", "", "]", "").Replace(string(b)), "deep")
 }
 
 // plainSwaps are the active swaps a hibernation image would be written to
