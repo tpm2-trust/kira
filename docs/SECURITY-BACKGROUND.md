@@ -1931,7 +1931,7 @@ Both machines unless it says otherwise; step names (V2, V4, ...) are hibernatete
 | A normal boot | code screen over SSH with slot 0's and slot 1's codes equal to the authenticator's; host key certified by the CA (strict `known_hosts`); password and salt asked in the session; the key answered; the system up. Twice, and again after the hibernation steps | Arch, Debian |
 | After the code screen | every slot reports closed, slot 0's TOTP key refuses, PCR 15 extended in the running system; `run` logged its close; no late closer, no reboot counted. The image's `kira-close.service` ran (Arch) | Arch, Debian |
 | PCR 4 | the value predicted before each boot is the register in that boot | Arch, Debian |
-| `ssh-child` confined | each boot's log: uid 2147352576 of aSSH's range, namespaces of its own, no new privileges, not dumpable, no executable memory, Landlock (ABI 10 on Arch, ABI 6 on Debian), 87 system calls allowed (an allowlist) | Arch, Debian |
+| `ssh-child` confined | each boot's log: uid 2147352576 of aSSH's range, namespaces of its own, no new privileges, not dumpable, no executable memory, Landlock (ABI 10 on Arch, ABI 6 on Debian), 79 system calls allowed (an allowlist) | Arch, Debian |
 | The image's contents | `kira-boot`, not `kira`; no control.conf; the plan names `unlock`, `codes`, `net`, `ssh`, `tpm`; no unit or script starts a gate | Arch, Debian |
 | Signed PCR 11 | ukify signs through `uki.conf` (`enter-initrd`), the PCR key mode 0400, slot 0's PCR 11 is signed; the CA's slots 0,2,4,7 and 7, each with 11 signed | Arch |
 | A kernel not approved | image built without the hook: slot 0 no code (PCR 4 moved), slot 1's code right, host key certified through slot 1, system up; `slot approve` brings slot 0 back | Arch |
