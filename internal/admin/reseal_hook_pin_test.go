@@ -65,6 +65,14 @@ func runSkippedApproval() int {
 	return 0
 }
 
+// hookForTest is a hook's text with kira's places on the host replaced by the
+// test's: the keys, and the kernels' records (in dir), which a hook writes
+// whether kira is set up or not.
+func hookForTest(src, keys, dir string) string {
+	src = strings.ReplaceAll(src, "/etc/kira/keys", keys)
+	return strings.ReplaceAll(src, "/var/lib/kira/kernels", filepath.Join(dir, "kernels"))
+}
+
 // KIRA_PIN=... mkinitcpio -P: each hook captures the approval and shows what it
 // chooses. What it shows has the reason, the variable named and its value nowhere, in
 // Arch's SKIPPED block as well, which leaves the warning line out. Without the variable,
@@ -106,7 +114,7 @@ esac
 			}
 			copyPath := filepath.Join(dir, "hook")
 			os.Remove(copyPath)
-			if err := os.WriteFile(copyPath, []byte(strings.ReplaceAll(string(src), "/etc/kira/keys", keys)), 0o755); err != nil {
+			if err := os.WriteFile(copyPath, []byte(hookForTest(string(src), keys, dir)), 0o755); err != nil {
 				t.Fatal(err)
 			}
 			run := func(extra ...string) string {

@@ -8,6 +8,25 @@ formats and CLI flags may change without migration paths.
 
 ---
 
+## The hooks approved a kernel planted on /boot (fixed 2026-11-23, security)
+
+The GRUB prediction took the kernel of the next boot from a listing of `/boot`: the
+newest `vmlinuz-<version>` with an `initrd.img-<version>` beside it, whatever put
+them there. On Debian `/boot` is not encrypted, and the kernel and initramfs hooks
+approve with `slot approve --unattended`: a kernel and an initrd written to `/boot`
+offline under a version that sorts first were predicted, signed at the next kernel
+update and released the codes and the slots' parts at the boot after it. Now the
+prediction is for the newest kernel each file of which, as GRUB reads it under the
+version, has the bytes of a record on the encrypted root - the kernel hook's of the
+image it was given, the initramfs hook's of the initrd it wrote
+(`/var/lib/kira/kernels`, taken with the kernel at its removal), or dpkg's md5sums -
+else for the booted one; a kernel passed over is named in a warning
+(`internal/measure/grub_vouch.go`). What changes: a kernel or an initrd copied to
+`/boot` by hand, or an initrd last written before this, is not predicted, and its
+first boot shows no code until an approval after it. On a machine with a kernel
+installed and not yet booted, `update-initramfs -u -k all` records its initrd;
+every later install and rebuild is recorded by the hooks.
+
 ## The vault's TLS root key left the state directory (2026-11-12)
 
 The vault's TLS root key and its leaf's key were PEM files in the state directory

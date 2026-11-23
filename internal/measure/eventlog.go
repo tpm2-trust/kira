@@ -122,7 +122,12 @@ func (calc *EventlogPCRCalculator) CalculatePCRsFromEventlogPath(eventlogPath st
 	// boot's log with what changed on disk put in (grub_predict.go). On
 	// a system without GRUB's events nothing matches and nothing changes.
 	if calc.wantsPCR(8) || calc.wantsPCR(9) {
-		if p := predictGRUB(events, diskFiles{}, installedKernels("/boot")); len(p.Substituted) > 0 {
+		p := predictGRUB(events, diskFiles{}, installedKernels("/boot"))
+		for _, u := range p.Unvouched {
+			fmt.Printf("WARNING: PCR 8/9 are not predicted for kernel %s: %s is not what this system's kernel or initramfs hooks or a package installed (%s, %s). A boot of it shows no code; approve after it if it is yours.\n",
+				u.Version, u.Path, kernelRecordDir, dpkgInfoDir)
+		}
+		if len(p.Substituted) > 0 {
 			calc.Prediction = p
 			fmt.Printf("PCR 8/9 predicted for the next boot from the files on disk (%d of the log's entries changed", len(p.Substituted))
 			if p.NewKernel != "" {

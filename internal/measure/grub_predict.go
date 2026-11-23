@@ -38,11 +38,23 @@ import (
 // know is what a person does at the GRUB menu, or a grubenv the next boot
 // rewrites (GRUB_SAVEDEFAULT, recordfail); such a boot shows no code, and
 // a reseal after it puts things right, as before.
+//
+// A kernel other than the booted one is predicted only with files the
+// running system vouches for (grub_vouch.go): this boot did not read them,
+// so nothing in its log speaks for them, and /boot is open to whoever has
+// the disk.
 
 // grubPrediction says what was substituted in a replayed log.
 type grubPrediction struct {
-	Substituted []string // one line per changed event
-	NewKernel   string   // the kernel version the prediction is for, when it differs from the booted one
+	Substituted []string          // one line per changed event
+	NewKernel   string            // the kernel version the prediction is for, when it differs from the booted one
+	Unvouched   []unvouchedKernel // newer kernels it is not for, newest first
+}
+
+// unvouchedKernel is a kernel in /boot the prediction is not for: a file of
+// it the running system does not vouch for.
+type unvouchedKernel struct {
+	Version, Path string
 }
 
 var (
@@ -55,10 +67,13 @@ var (
 var grubMountPoints = []string{"/boot", "/boot/efi", "/"}
 
 // grubFiles is what the prediction reads: the digest of a file (nil, false
-// when it is not there) and, for grub.cfg, its contents.
+// when it is not there), for grub.cfg its contents, and for a file of a
+// kernel this boot did not start its digest, whether it is there, and
+// whether the running system vouches for it as that version's.
 type grubFiles interface {
 	Digest(path string) ([]byte, bool)
 	Read(path string) ([]byte, bool)
+	Vouched(version, path string) (digest []byte, found, vouched bool)
 }
 
 // diskFiles is grubFiles on the file system.
@@ -69,11 +84,15 @@ func (diskFiles) Read(path string) ([]byte, bool) {
 	b, err := os.ReadFile(path)
 	return b, err == nil
 }
+func (diskFiles) Vouched(version, path string) ([]byte, bool, bool) {
+	return vouchedFile(version, path)
+}
 
 // predictGRUB rewrites the digests of the PCR 8 and 9 events in place for
-// the next boot. kernels lists the installed kernel versions, newest last.
-// Only events whose data is understood are touched; the rest replay as
-// logged.
+// the next boot. kernels lists the installed kernel versions, newest last;
+// the next boot is predicted for the newest the running system vouches for
+// (kernelFiles), else for the booted one. Only events whose data is
+// understood are touched; the rest replay as logged.
 func predictGRUB(events []attest.Event, files grubFiles, kernels []string) *grubPrediction {
 	digestOf := files.Digest
 	p := &grubPrediction{}
@@ -84,17 +103,6 @@ func predictGRUB(events []attest.Event, files grubFiles, kernels []string) *grub
 				booted = m[2]
 			}
 		}
-	}
-	next := booted
-	if len(kernels) > 0 && kernels[len(kernels)-1] != booted && booted != "" {
-		next = kernels[len(kernels)-1]
-		p.NewKernel = next
-	}
-	swapVersion := func(s string) string {
-		if next == booted || booted == "" {
-			return s
-		}
-		return strings.ReplaceAll(s, booted, next)
 	}
 
 	// The devices: a file event whose logged digest is found under a
@@ -117,6 +125,36 @@ func predictGRUB(events []attest.Event, files grubFiles, kernels []string) *grub
 				break
 			}
 		}
+	}
+
+	// Where a file GRUB names is on this system: a bare path is on GRUB's
+	// root device, /boot on Debian; a device's, under its mount point.
+	resolve := func(device, rel string) (string, bool) {
+		if device == "" {
+			return filepath.Join("/boot", rel), true
+		}
+		mp, ok := devices[device]
+		return filepath.Join(mp, rel), ok
+	}
+
+	// The next kernel, and the digests of its files that were vouched for.
+	next := booted
+	var nextFiles map[string][]byte
+	for i := len(kernels) - 1; booted != "" && i >= 0 && kernels[i] != booted; i-- {
+		digests, refused := kernelFiles(events, files, resolve, booted, kernels[i])
+		if refused != "" {
+			p.Unvouched = append(p.Unvouched, unvouchedKernel{kernels[i], refused})
+			continue
+		}
+		next, nextFiles = kernels[i], digests
+		p.NewKernel = next
+		break
+	}
+	swapVersion := func(s string) string {
+		if next == booted || booted == "" {
+			return s
+		}
+		return strings.ReplaceAll(s, booted, next)
 	}
 
 	// The menu commands are measured with their whole body, the raw text
@@ -150,16 +188,17 @@ func predictGRUB(events []attest.Event, files grubFiles, kernels []string) *grub
 				continue
 			}
 			rel := swapVersion(m[2])
-			var path string
-			if m[1] == "" {
-				// A bare path is on GRUB's root device: /boot on Debian.
-				path = filepath.Join("/boot", rel)
-			} else if mp, ok := devices[m[1]]; ok {
-				path = filepath.Join(mp, rel)
-			} else {
+			path, ok := resolve(m[1], rel)
+			if !ok {
 				continue
 			}
-			d, ok := digestOf(path)
+			var d []byte
+			if rel != m[2] {
+				// A file of the next kernel: the digest vouched for.
+				d, ok = nextFiles[path]
+			} else {
+				d, ok = digestOf(path)
+			}
 			if !ok {
 				continue
 			}
@@ -210,6 +249,38 @@ func predictGRUB(events []attest.Event, files grubFiles, kernels []string) *grub
 		}
 	}
 	return p
+}
+
+// kernelFiles reads the files of kernel version in the place of those the
+// log's PCR 9 file events name with the booted version - its image, its
+// initrd, whatever else carries the version, under any mount point - and
+// gives their digests by path when the running system vouches for every one
+// that is there; otherwise the path of the first it does not vouch for. A
+// file that is not there is left out: its event replays as logged.
+func kernelFiles(events []attest.Event, files grubFiles, resolve func(device, rel string) (string, bool), booted, version string) (map[string][]byte, string) {
+	digests := map[string][]byte{}
+	for _, e := range events {
+		if e.Index != 9 || e.Type != attest.EventType(0x0d) {
+			continue
+		}
+		m := grubFileEvent.FindStringSubmatch(EventText(e))
+		if m == nil || !strings.Contains(m[2], booted) {
+			continue
+		}
+		path, ok := resolve(m[1], strings.ReplaceAll(m[2], booted, version))
+		if !ok {
+			continue
+		}
+		d, found, vouched := files.Vouched(version, path)
+		switch {
+		case !found:
+		case !vouched:
+			return nil, path
+		default:
+			digests[path] = d
+		}
+	}
+	return digests, ""
 }
 
 // menuID is the --id of a measured menuentry or submenu command.

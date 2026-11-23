@@ -12,6 +12,21 @@
 
 set -e
 
+# The initrd's record (internal/measure/grub_vouch.go): its SHA-256, on the
+# encrypted root, which no one writing /boot offline reaches; the prediction
+# takes a kernel other than the booted one only with an initrd so recorded.
+# Taken with the kernel (/etc/kernel/postrm.d/zzz-kira). Kept whether kira is
+# set up or not; a version that could name another place is passed over.
+records=/var/lib/kira/kernels
+case "$1" in
+''|.*|*/*) ;;
+*)
+    if [ -f "$2" ] && digest=$(sha256sum < "$2") && mkdir -p -m 700 "$records"; then
+        printf '%s\n' "${digest%% *}" > "$records/initrd.img-$1" || echo "kira: the initrd of $1 is not recorded in $records" >&2
+    fi
+    ;;
+esac
+
 # make install puts kira in /usr/local/bin, which the PATH this runs
 # with may leave out.
 PATH=$PATH:/usr/local/bin

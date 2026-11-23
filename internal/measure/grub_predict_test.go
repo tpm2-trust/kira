@@ -48,10 +48,12 @@ func replay89(events []attest.Event) (pcr8, pcr9 string) {
 }
 
 // mapFiles is grubFiles over digests, with grub.cfg's contents from the
-// machine's file (its digest is the file's).
+// machine's file (its digest is the file's), and the paths of the files of
+// a kernel not booted that the running system vouches for.
 type mapFiles struct {
 	digests map[string]string
 	grubCfg []byte
+	vouched map[string]bool
 }
 
 func (m mapFiles) Digest(path string) ([]byte, bool) {
@@ -74,10 +76,36 @@ func (m mapFiles) Read(path string) ([]byte, bool) {
 	return nil, false
 }
 
-func digestsFrom(files map[string]string) mapFiles {
-	cfg, _ := os.ReadFile("testdata/debian13-grub.cfg")
-	return mapFiles{digests: files, grubCfg: cfg}
+func (m mapFiles) Vouched(version, path string) ([]byte, bool, bool) {
+	d, ok := m.Digest(path)
+	return d, ok, ok && m.vouched[path]
 }
+
+func digestsFrom(files map[string]string, vouched ...string) mapFiles {
+	cfg, _ := os.ReadFile("testdata/debian13-grub.cfg")
+	m := mapFiles{digests: files, grubCfg: cfg, vouched: map[string]bool{}}
+	for _, path := range vouched {
+		m.vouched[path] = true
+	}
+	return m
+}
+
+// withFiles is debianFiles and more.
+func withFiles(more map[string]string) map[string]string {
+	files := map[string]string{}
+	for k, v := range debianFiles {
+		files[k] = v
+	}
+	for k, v := range more {
+		files[k] = v
+	}
+	return files
+}
+
+const (
+	nextImage  = "/boot/vmlinuz-6.12.120+deb13-amd64"
+	nextInitrd = "/boot/initrd.img-6.12.120+deb13-amd64"
+)
 
 // The menu commands rebuilt from the machine's grub.cfg hash to what GRUB
 // measured.
@@ -176,11 +204,11 @@ func TestPredictGRUBAfterKernelUpdate(t *testing.T) {
 	for k, v := range debianFiles {
 		files[k] = v
 	}
-	files["/boot/vmlinuz-6.12.120+deb13-amd64"] = strings.Repeat("11", 32)
-	files["/boot/initrd.img-6.12.120+deb13-amd64"] = strings.Repeat("22", 32)
-	p := predictGRUB(events, digestsFrom(files), []string{"6.12.86+deb13-amd64", "6.12.111+deb13-amd64", "6.12.120+deb13-amd64"})
-	if p.NewKernel != "6.12.120+deb13-amd64" {
-		t.Fatalf("new kernel %q", p.NewKernel)
+	files[nextImage] = strings.Repeat("11", 32)
+	files[nextInitrd] = strings.Repeat("22", 32)
+	p := predictGRUB(events, digestsFrom(files, nextImage, nextInitrd), []string{"6.12.86+deb13-amd64", "6.12.111+deb13-amd64", "6.12.120+deb13-amd64"})
+	if p.NewKernel != "6.12.120+deb13-amd64" || len(p.Unvouched) != 0 {
+		t.Fatalf("new kernel %q, unvouched %v", p.NewKernel, p.Unvouched)
 	}
 	joined := strings.Join(p.Substituted, "\n")
 	for _, want := range []string{
@@ -206,6 +234,113 @@ func TestPredictGRUBAfterKernelUpdate(t *testing.T) {
 	p8, p9 := replay89(events)
 	if p8 == debianPCR8 || p9 == debianPCR9 {
 		t.Fatal("a kernel update left a PCR as it was")
+	}
+}
+
+// The finding's boot: a kernel and an initrd put on /boot offline under a
+// version that sorts first - the image a copy of the signed kernel, the
+// initrd another - beside the kernel the package manager installed. The
+// prediction is for the installed one, as if the planted files were not
+// there, and names the planted kernel; nothing of it is in the prediction.
+func TestPredictGRUBPassesOverAPlantedKernel(t *testing.T) {
+	kernels := []string{"6.12.111+deb13-amd64", "6.12.120+deb13-amd64", "99.0"}
+	planted := map[string]string{
+		"/boot/vmlinuz-99.0":    debianFiles["/boot/vmlinuz-6.12.111+deb13-amd64"],
+		"/boot/initrd.img-99.0": strings.Repeat("66", 32),
+	}
+	installed := map[string]string{nextImage: strings.Repeat("11", 32), nextInitrd: strings.Repeat("22", 32)}
+	honest := debianEvents(t)
+	predictGRUB(honest, digestsFrom(withFiles(installed), nextImage, nextInitrd), kernels[:2])
+	want8, want9 := replay89(honest)
+
+	events := debianEvents(t)
+	all := withFiles(installed)
+	for k, v := range planted {
+		all[k] = v
+	}
+	p := predictGRUB(events, digestsFrom(all, nextImage, nextInitrd), kernels)
+	if p.NewKernel != "6.12.120+deb13-amd64" {
+		t.Fatalf("predicted for %q", p.NewKernel)
+	}
+	if len(p.Unvouched) != 1 || p.Unvouched[0] != (unvouchedKernel{"99.0", "/boot/vmlinuz-99.0"}) {
+		t.Fatalf("unvouched: %v", p.Unvouched)
+	}
+	if joined := strings.Join(p.Substituted, "\n"); strings.Contains(joined, "99.0") {
+		t.Fatalf("the planted kernel is in the prediction:\n%s", joined)
+	}
+	if p8, p9 := replay89(events); p8 != want8 || p9 != want9 {
+		t.Fatal("the planted files changed the prediction")
+	}
+
+	// The planted kernel alone: the prediction is this boot's, as logged.
+	events = debianEvents(t)
+	p = predictGRUB(events, digestsFrom(withFiles(planted)), []string{"6.12.111+deb13-amd64", "99.0"})
+	if p.NewKernel != "" || len(p.Substituted) != 0 || len(p.Unvouched) != 1 || p.Unvouched[0].Version != "99.0" {
+		t.Fatalf("new kernel %q, substituted %v, unvouched %v", p.NewKernel, p.Substituted, p.Unvouched)
+	}
+	if p8, p9 := replay89(events); p8 != debianPCR8 || p9 != debianPCR9 {
+		t.Fatal("the planted kernel changed the PCRs")
+	}
+}
+
+// The installed kernel's initrd changed on /boot offline: its record no
+// longer matches, and the kernel is passed over, though its image is the
+// package's.
+func TestPredictGRUBPassesOverAKernelWithAnInitrdChanged(t *testing.T) {
+	events := debianEvents(t)
+	files := withFiles(map[string]string{nextImage: strings.Repeat("11", 32), nextInitrd: strings.Repeat("66", 32)})
+	p := predictGRUB(events, digestsFrom(files, nextImage), []string{"6.12.111+deb13-amd64", "6.12.120+deb13-amd64"})
+	if p.NewKernel != "" || len(p.Unvouched) != 1 || p.Unvouched[0] != (unvouchedKernel{"6.12.120+deb13-amd64", nextInitrd}) {
+		t.Fatalf("new kernel %q, unvouched %v", p.NewKernel, p.Unvouched)
+	}
+	if p8, p9 := replay89(events); p8 != debianPCR8 || p9 != debianPCR9 {
+		t.Fatal("the changed initrd changed the PCRs")
+	}
+}
+
+// Every file GRUB read under the booted version is the next kernel's under
+// its own, on whichever device - here a device tree on the ESP: substituted
+// when vouched for, the kernel passed over when not, replayed as logged when
+// the next kernel has none (GRUB will not find it either).
+func TestPredictGRUBVouchesForEveryFileOfTheKernel(t *testing.T) {
+	dtb := strings.Repeat("33", 32)
+	withDTB := func() []attest.Event {
+		events := debianEvents(t)
+		for i, e := range events {
+			if e.Index == 9 && EventText(e) == "/vmlinuz-6.12.111+deb13-amd64" {
+				d, _ := hex.DecodeString(dtb)
+				ev := attest.Event{Index: 9, Type: attest.EventType(0x0d), Data: []byte("(hd0,gpt1)/dtb-6.12.111+deb13-amd64"), Digest: d}
+				return append(events[:i:i], append([]attest.Event{ev}, events[i:]...)...)
+			}
+		}
+		t.Fatal("no kernel in the log")
+		return nil
+	}
+	const nextDTB = "/boot/efi/dtb-6.12.120+deb13-amd64"
+	kernels := []string{"6.12.111+deb13-amd64", "6.12.120+deb13-amd64"}
+	files := withFiles(map[string]string{"/boot/efi/dtb-6.12.111+deb13-amd64": dtb,
+		nextImage: strings.Repeat("11", 32), nextInitrd: strings.Repeat("22", 32), nextDTB: strings.Repeat("44", 32)})
+
+	p := predictGRUB(withDTB(), digestsFrom(files, nextImage, nextInitrd, nextDTB), kernels)
+	if p.NewKernel != kernels[1] || !strings.Contains(strings.Join(p.Substituted, "\n"), "PCR9 (hd0,gpt1)/dtb-6.12.111+deb13-amd64: now "+nextDTB) {
+		t.Fatalf("vouched for: new kernel %q, substituted %v", p.NewKernel, p.Substituted)
+	}
+
+	p = predictGRUB(withDTB(), digestsFrom(files, nextImage, nextInitrd), kernels)
+	if p.NewKernel != "" || len(p.Unvouched) != 1 || p.Unvouched[0] != (unvouchedKernel{kernels[1], nextDTB}) {
+		t.Fatalf("not vouched for: new kernel %q, unvouched %v", p.NewKernel, p.Unvouched)
+	}
+
+	delete(files, nextDTB)
+	events := withDTB()
+	p = predictGRUB(events, digestsFrom(files, nextImage, nextInitrd), kernels)
+	if p.NewKernel != kernels[1] || len(p.Unvouched) != 0 || strings.Contains(strings.Join(p.Substituted, "\n"), "dtb") {
+		t.Fatalf("not there: new kernel %q, unvouched %v, substituted %v", p.NewKernel, p.Unvouched, p.Substituted)
+	}
+	for _, e := range events {
+		if EventText(e) == "(hd0,gpt1)/dtb-6.12.111+deb13-amd64" && hex.EncodeToString(e.Digest) != dtb {
+			t.Fatal("the device tree's event is not as logged")
+		}
 	}
 }
 

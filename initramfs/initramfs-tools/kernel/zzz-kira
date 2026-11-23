@@ -1,12 +1,36 @@
 #!/bin/sh
 # Run by the kernel package hooks (/etc/kernel/postinst.d, postrm.d) after
 # zz-update-grub has written the new grub.cfg: the last word on what GRUB
-# will measure at the next boot. Reseals with PCR 8 and 9 predicted from
+# will measure at the next boot. Records the kernel installed, or takes the
+# records of the one removed; then reseals with PCR 8 and 9 predicted from
 # this boot's event log and the files on disk (the new kernel, its initrd,
 # the menu entries of the new grub.cfg).
 #   $1 kernel version   $2 kernel image path
 
 set -e
+
+# The kernel's records (internal/measure/grub_vouch.go), on the encrypted
+# root, which no one writing /boot offline reaches: installed, the SHA-256 of
+# the image; removed, its image's and its initrd's records go with it. The
+# prediction takes a kernel other than the booted one only with files they
+# (or dpkg) vouch for. Kept whether kira is set up or not, so that none
+# outlives its kernel; a version that could name another place is passed over.
+records=/var/lib/kira/kernels
+case "$1" in
+''|.*|*/*) ;;
+*)
+    case "$0" in
+    */postrm.d/*)
+        rm -f "$records/vmlinuz-$1" "$records/initrd.img-$1" || echo "kira: the records of kernel $1 in $records are not removed" >&2
+        ;;
+    *)
+        if [ -f "$2" ] && digest=$(sha256sum < "$2") && mkdir -p -m 700 "$records"; then
+            printf '%s\n' "${digest%% *}" > "$records/vmlinuz-$1" || echo "kira: kernel $1 is not recorded in $records" >&2
+        fi
+        ;;
+    esac
+    ;;
+esac
 
 # make install puts kira in /usr/local/bin, which the PATH this runs
 # with may leave out.

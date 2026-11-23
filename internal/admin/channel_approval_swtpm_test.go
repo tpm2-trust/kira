@@ -184,7 +184,7 @@ exec %q "$@"
 			if err != nil {
 				t.Fatal(err)
 			}
-			text := strings.ReplaceAll(string(src), "/etc/kira/keys", keys)
+			text := hookForTest(string(src), keys, dir)
 			copyPath := filepath.Join(dir, filepath.Base(hook)+"-copy")
 			if err := os.WriteFile(copyPath, []byte(text), 0o755); err != nil {
 				t.Fatal(err)

@@ -281,7 +281,7 @@ on disk now - the way SUSE's `pcr-oracle` does it; neither Debian nor
 | changed on disk | what is put into the replay |
 |---|---|
 | the initrd (`update-initramfs`) | its SHA-256, in GRUB's file event and the stub's `Linux initrd` tag |
-| a new kernel | the version string in GRUB's `linux`/`initrd`/`echo` commands, the kernel command line and the stub's load options; the kernel's and initrd's SHA-256 |
+| a new kernel, the newest the running system vouches for (below) | the version string in GRUB's `linux`/`initrd`/`echo` commands, the kernel command line and the stub's load options; the kernel's and initrd's SHA-256 |
 | `grub.cfg` (`update-grub`) | its SHA-256, and the `menuentry`/`submenu` commands rebuilt from it - GRUB measures them with their whole body |
 | `grubenv`, GRUB modules, `.lst` files | their SHA-256 |
 
@@ -305,3 +305,44 @@ against this machine's real log in the test suite
 Approving is still never automatic at *boot*: a tampered kernel does not
 become a trusted baseline by being booted once. The hooks run on the
 unlocked system, after a change you made.
+
+### Which kernel: the newest the running system vouches for
+
+The next boot is predicted for the newest kernel in `/boot` whose files
+the running system vouches for, else for the booted one. This boot did
+not read the files of another kernel, so nothing in its log speaks for
+them; Debian's `/boot` is not encrypted, so whoever has the disk can put
+a kernel and an initrd there under a version that sorts first; and the
+hooks approve with no one looking. So every file GRUB read under the
+booted version - the kernel, the initrd, whatever else carries the
+version, on any device - is taken under the new version's name only when
+its bytes match a record on the encrypted root
+(`internal/measure/grub_vouch.go`):
+
+| record | written by | what it holds |
+|---|---|---|
+| `/var/lib/kira/kernels/vmlinuz-<version>` | `/etc/kernel/postinst.d/zzz-kira`, before it approves | the SHA-256 of the image the kernel install gave it: a package's, or `make install`'s through `installkernel` |
+| `/var/lib/kira/kernels/initrd.img-<version>` | `/etc/initramfs/post-update.d/kira`, before it approves | the SHA-256 of the initrd `update-initramfs` wrote |
+| `/var/lib/dpkg/info/<package>.md5sums` | dpkg | the MD5 of every file a package installed, at its path |
+
+The directory is root's alone (0700). The hooks keep the records whether
+kira is set up or not, and pass over a version that is empty, begins with
+a dot or holds a slash; `/etc/kernel/postrm.d/zzz-kira` takes a kernel's
+records when its package removes it, so that none outlives it. Nothing
+puts them into the boot image. A file put on `/boot` or changed there
+after it was installed matches none: its kernel is passed over, and the
+approval says so, `WARNING: PCR 8/9 are not predicted for kernel ...`,
+naming the file. A boot of that kernel shows no code; `sudo kira slot
+approve` after it binds to it, if the kernel is yours.
+
+Not vouched for, and so not predicted: a kernel or an initrd copied to
+`/boot` by hand, and an initrd last written before kira was installed
+(`update-initramfs -u -k <version>` records it). A kernel whose image
+dpkg has no record of (`make install`, a package without md5sums) is
+passed over, with the warning, by the approval of `post-update.d`, which
+runs before `zzz-kira` has recorded the image; `zzz-kira`'s approval
+right after is for it. A file the new kernel does not have replays as
+logged. A kernel removed by hand, not by its package, keeps its records
+until they are deleted
+(`rm /var/lib/kira/kernels/*-<version>`); control's "Delete everything"
+takes them with `/var/lib/kira`.

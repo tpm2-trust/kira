@@ -896,6 +896,20 @@ policy: `leave-initrd`, `sysinit`, `ready` (PCR 11), `machine-id:<id>` (PCR 15),
 > docs/BOOT-INTEGRATION.md, "PCR 8 and 9 are predicted for the next boot"). What it
 > cannot foresee - a menu choice, an edited command line, a grubenv the boot
 > rewrites - leaves a boot without a code and an approval after it.
+>
+> A kernel other than the booted one is the input the hooks' unattended approval
+> takes from Debian's unencrypted `/boot`, which an offline writer controls: this
+> boot did not read its files, so its log vouches for none of them. The prediction
+> is for the newest kernel whose every version-named file has the bytes a record on
+> the encrypted root names - the kernel hook's of the image it was given, the
+> initramfs hook's of the initrd it wrote (`/var/lib/kira/kernels`, root's alone,
+> gone with the kernel), or dpkg's md5sums of the file at its path
+> (`internal/measure/grub_vouch.go`). A kernel or an initrd planted or changed
+> offline matches none and is passed over, named in a warning; its boot shows no
+> code. The records are never in the boot image. They hold for an offline writer
+> of `/boot` only while `/var/lib` is on the encrypted root, as dpkg's database is
+> on Debian's encrypted install; root on the running system can write them, as it
+> can run the approval itself.
 
 **UKI section measurement.** systemd-stub measures each present section twice,
 in its own fixed order (`.linux`, `.osrel`, `.cmdline`, `.initrd`, `.ucode`,
