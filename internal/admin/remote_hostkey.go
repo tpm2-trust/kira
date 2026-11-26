@@ -173,7 +173,7 @@ func createSSHCA(conf *config.Config, tpmPath string, signer crypto.Signer) (*ho
 	if err != nil {
 		return nil, err
 	}
-	ca, err := hostkey.CreateCA(tpmDev, signer.Public(), hostkey.CAOptions{Type: conf.CAType, Bank: conf.Bank, Slots: slots, PolicyRef: []byte(conf.PolicyRef)})
+	ca, err := hostkey.CreateCA(tpmDev, signer.Public(), hostkey.CAOptions{Type: conf.CAType, Bank: conf.Bank, Slots: slots, Use: conf.PolicyRef})
 	if err != nil {
 		return nil, err
 	}

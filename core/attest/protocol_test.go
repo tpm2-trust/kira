@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -709,5 +710,96 @@ func TestSHA256BankIsNoWarning(t *testing.T) {
 	}
 	if ev := p.Last(EvVerdict); ev == nil || ev.Verdict.SHA1Bank {
 		t.Fatalf("%+v", ev)
+	}
+}
+
+// Values that reproduce the digest of a quote the pinned key did not sign are
+// whoever sent them's: the verdict is not authentic, carries no values and
+// establishes nothing of Secure Boot.
+func TestVerdictIsAuthenticOnlyUnderThePinnedKey(t *testing.T) {
+	f := newFixture(t)
+	f.build(t)
+	if v := Verify(f.ev, f.pol, f.pin, f.qd, f.now); !v.Authentic || v.Values == nil {
+		t.Fatalf("the machine's own quote is not authentic: %+v", v.Reasons)
+	}
+
+	forged := map[string]func(f *fixture){
+		"a signature that does not verify": func(f *fixture) {
+			sig, _ := tpm2.Unmarshal[tpm2.TPMTSignature](f.ev.Signature)
+			e, _ := sig.Signature.ECDSA()
+			e.Hash = tpm2.TPMAlgSHA1
+			f.ev.Signature = tpm2.Marshal(*sig)
+		},
+		"another device":  func(f *fixture) { f.ev.DeviceID = bytes.Repeat([]byte{2}, 16) },
+		"another session": func(f *fixture) { f.qd = bytes.Repeat([]byte{0xBB}, 32) },
+		"another key's name": func(f *fixture) {
+			f.ev.AKName = append([]byte(nil), f.ev.AKName...)
+			f.ev.AKName[len(f.ev.AKName)-1] ^= 1
+		},
+	}
+	for name, mutate := range forged {
+		f := newFixture(t)
+		f.build(t)
+		mutate(f)
+		v := Verify(f.ev, f.pol, f.pin, f.qd, f.now)
+		if v.State != StateFailed || v.Authentic || v.Values != nil {
+			t.Errorf("%s: state %q, authentic %v, values %v", name, v.State, v.Authentic, v.Values != nil)
+		}
+		if v.SecureBoot.State == SecureBootOn {
+			t.Errorf("%s: Secure Boot read from values nobody proved", name)
+		}
+	}
+}
+
+// Whoever answers in the machine's place with another TPM gets no approval,
+// whatever the person types, and the phone's record learns nothing from it: not a
+// reset count, not a profile, and the kept phone salt stays.
+func TestNothingToApproveWithoutThePinnedKey(t *testing.T) {
+	m, p := newMachine(t), newPhone(t)
+	rec := enrol(t, m, p)
+	before, err := json.Marshal(p.Record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	other := newSoftTPM(t)
+	for i, d := range m.TPM.PCRs {
+		other.PCRs[i] = d
+	}
+	m.TPM = other
+	for _, d := range []Decision{DecisionApproveOnce, DecisionApproveRemember} {
+		p.Events = nil
+		p.Decision, p.Confirm = d, "Thinkpad-X1"
+		_, _, perr := attestOnce(t, m, p, rec)
+		if perr == nil || !strings.Contains(perr.Error(), "did not prove") {
+			t.Fatalf("decision %d on a quote of another TPM: %v", d, perr)
+		}
+		if v := p.Last(EvVerdict).Verdict; v == nil || v.Authentic || v.State != StateFailed {
+			t.Fatalf("the verdict shown: %+v", v)
+		}
+	}
+	after, err := json.Marshal(p.Record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(before, after) {
+		t.Fatalf("the record changed:\n%s\n%s", before, after)
+	}
+}
+
+// A boot that failed a hard check is let through once, by name; its values do
+// not become a known-good profile.
+func TestFailedAttestationIsNotRemembered(t *testing.T) {
+	m, p := newMachine(t), newPhone(t)
+	rec := enrol(t, m, p)
+	profiles := len(rec.Policy.Profiles)
+	m.TPM.ResetCount = rec.ResetCount - 1 // a hard failure of the machine's own TPM
+	m.TPM.Extend(4, "something else")
+	p.Decision, p.Confirm = DecisionApproveRemember, "Thinkpad-X1"
+	_, _, perr := attestOnce(t, m, p, rec)
+	if perr == nil || !strings.Contains(perr.Error(), "not remembered") {
+		t.Fatalf("remembering a failed attestation: %v", perr)
+	}
+	if len(p.Record.Policy.Profiles) != profiles {
+		t.Fatal("a failed attestation's values became a profile")
 	}
 }

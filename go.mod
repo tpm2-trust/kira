@@ -9,7 +9,7 @@ require (
 	github.com/tpm2-trust/go-tui-slim v0.0.0
 	github.com/tpm2-trust/go-uefi-slim v0.0.0
 	github.com/tpm2-trust/kira/core v0.0.0
-	golang.org/x/crypto v0.58.0
+	golang.org/x/crypto v0.59.0
 	golang.org/x/sys v0.50.0
 	rsc.io/qr v0.2.0
 )

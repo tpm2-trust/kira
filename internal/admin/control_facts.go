@@ -99,6 +99,9 @@ type machineFacts struct {
 	// PlainSwap are the swaps a hibernation would write the memory to in
 	// the clear (swap.go); empty when the kernel offers no hibernation.
 	PlainSwap []string
+	// DeepSleep: the kernel offers a suspend to RAM (S3), which firmware
+	// with a fault lets root use to undo the close (swap.go).
+	DeepSleep bool
 	// SSHKeys is how many keys may log in at boot (-1: the file cannot be
 	// read); SSHCA the SSH CA and its approval of the next boot. Both only
 	// with SSH on.
@@ -249,6 +252,7 @@ func fastFacts(tpmPath string, debug bool) machineFacts {
 	}
 	f.NoRecovery, _, _ = recoveryFacts(f.Status.Devices, false)
 	f.PlainSwap = plainSwaps()
+	f.DeepSleep = deepSleepOffered()
 	for _, s := range f.Status.Slots {
 		f.Phone = f.Phone || s.Phones > 0
 		f.Salt = f.Salt || s.PhoneSalt
@@ -538,6 +542,9 @@ func (c *controller) factsText() string {
 	}
 	if len(f.PlainSwap) > 0 {
 		fmt.Fprintf(&w, "  Hibernation %s\n", bad("to unencrypted swap: "+strings.Join(f.PlainSwap, ", ")+" (risk: the memory - the disk's key included - lands on the disk in the clear, and a resume from it runs past the boot image, the SSH CA open - encrypt the swap or disable hibernation)"))
+	}
+	if f.DeepSleep {
+		fmt.Fprintf(&w, "  Suspend     %s\n", warn("suspend to RAM (S3) is offered (risk: on firmware that restarts the TPM at a failed resume, root on the running system empties the PCRs and undoes the close - switch S3 off in the firmware's setup, behind its password)"))
 	}
 	if f.Remote.Net.Mode != "off" {
 		fmt.Fprintf(&w, "  Boot network %s\n", strings.Join(RemoteStatusLines(f.Remote), "; "))

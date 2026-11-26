@@ -46,6 +46,7 @@ type event struct {
 	Purpose       string          `json:"purpose"`
 	NeedsDecision bool            `json:"needs_decision"`
 	Record        json.RawMessage `json:"record"`
+	Confirm       bool            `json:"confirm"`
 	Verdict       *attest.Verdict `json:"verdict"`
 	Result        int             `json:"result"`
 }
@@ -110,6 +111,9 @@ func (a *app) run(s *Session, link *memLink, conn *frame.Conn, mtu int) {
 				}
 			case "enrolled", "record_updated":
 				a.record = string(e.Record)
+				if e.Confirm {
+					pending = append(pending, s.RecordStored(true))
+				}
 			case "error":
 				a.t.Fatalf("session error event: %s", st.Event(i))
 			}

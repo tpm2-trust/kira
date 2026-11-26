@@ -43,8 +43,48 @@ func DeviceOf(r *EnrolRequest) *Device {
 	}
 }
 
+// MaxNameSize bounds a machine's name and a keyslot's label at the vault.
+const MaxNameSize = 64
+
+// ValidName says whether s can be a machine's name or a keyslot's label at the
+// vault: 1 to MaxNameSize bytes of ASCII letters, digits, '.', '_' and '-',
+// starting with a letter or a digit. The vault writes both into its audit log
+// and onto its operators' terminals, and an operator types the name
+// (device revoke NAME): nothing in it steers a terminal, looks like an option,
+// or reads as another name than it is.
+func ValidName(s string) bool {
+	if s == "" || len(s) > MaxNameSize {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9':
+		case (c == '.' || c == '_' || c == '-') && i > 0:
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// CheckNames checks the request's name and label alone: what a vault does before
+// it writes either anywhere, its audit log included.
+func (r *EnrolRequest) CheckNames() error {
+	if !ValidName(r.Name) {
+		return fmt.Errorf("the machine's name: 1 to %d letters, digits, '.', '_' or '-', the first a letter or a digit", MaxNameSize)
+	}
+	if !ValidName(r.Label) {
+		return fmt.Errorf("the keyslot's label: 1 to %d letters, digits, '.', '_' or '-', the first a letter or a digit", MaxNameSize)
+	}
+	return nil
+}
+
 // Check checks an enrolment request's form, before the vault keeps it.
 func (r *EnrolRequest) Check() error {
+	if err := r.CheckNames(); err != nil {
+		return err
+	}
 	if len(r.DeviceID) != DeviceIDSize {
 		return fmt.Errorf("device ID: %d bytes, want %d", len(r.DeviceID), DeviceIDSize)
 	}

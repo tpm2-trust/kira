@@ -288,6 +288,14 @@ func (s *Session) Decide(decision int, confirmName string) *Step {
 	return s.run(func() (*attest.Output, error) { return s.v.Decide(attest.Decision(decision), confirmName) })
 }
 
+// RecordStored answers a record_updated event whose "confirm" is set: the app
+// has written the record through to its storage (stored), or could not. Only
+// then is the phone salt released to the machine; a record_updated event without
+// "confirm" needs no answer.
+func (s *Session) RecordStored(stored bool) *Step {
+	return s.run(func() (*attest.Output, error) { return s.v.RecordStored(stored) })
+}
+
 // RequestEventlog asks the machine for its event log while a decision is
 // pending; progress arrives as eventlog events.
 func (s *Session) RequestEventlog() *Step {

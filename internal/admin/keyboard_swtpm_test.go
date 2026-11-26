@@ -51,7 +51,7 @@ func TestPhoneKeyboardOnATPM(t *testing.T) {
 	}
 	att := sb.Payload.Attestation
 	p := &sb.Payload
-	s.blob.Phone.Verifiers = []attest.EnrolledVerifier{{ID: "my-phone", AnchorPub: []byte{1}, NoisePub: make([]byte, 32)}}
+	phone := enrolTestPhone(t, s.blob)
 	s.sealChannel(t, tpm, slot)
 	if err := writeAttestBlob(tpm, slot, s.blob, signer); err != nil {
 		t.Fatal(err)
@@ -91,6 +91,7 @@ func TestPhoneKeyboardOnATPM(t *testing.T) {
 
 	svc := phonegate.NewGateService(tpm, slot, pubPath, false)
 	r, layout := release()
+	phone.attests(t, svc)
 	status, msg := svc.TakeRelease(r)
 	if status != attest.ReleaseOK || !strings.Contains(msg, "keyboard") {
 		t.Fatalf("the TPM did not open salt and seed: %d %s", status, msg)
@@ -118,6 +119,7 @@ func TestPhoneKeyboardOnATPM(t *testing.T) {
 	plain := phonegate.NewGateService(tpm, slot, pubPath, false)
 	r, _ = release()
 	r.KeyboardCredential, r.KeyboardSecret = nil, nil
+	phone.attests(t, plain)
 	if status, _ := plain.TakeRelease(r); status != attest.ReleaseOK || plain.KeyboardSession() != nil || plain.Salt() == nil {
 		t.Fatalf("without a seed: %d", status)
 	}
@@ -138,6 +140,7 @@ func TestPhoneKeyboardOnATPM(t *testing.T) {
 	s.extend(t, 23, "x")
 	moved := phonegate.NewGateService(tpm, slot, pubPath, false)
 	r, _ = release()
+	phone.attests(t, moved)
 	if status, _ := moved.TakeRelease(r); status != attest.ReleaseTPMRefused || moved.KeyboardSession() != nil {
 		t.Fatalf("a moved PCR opened the seed: %d", status)
 	}

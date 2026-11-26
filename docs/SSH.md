@@ -75,7 +75,7 @@ key, a login is a session of the code screen):
 | `ASSH_CA_TYPE` | `p256` (default) or `rsa2048`: what control asked when it created the CA |
 | `ASSH_CA_SLOT_<N>` | a slot's PCRs, `0,2,4,7` with `ASSH_CA_SLOT_0_SIGNED=11` (and `ASSH_PCR_KEY`, `ASSH_PCR_SIGNATURE`, the PCR key's) on a UKI, `0,2,4,7,8,9` on GRUB; control writes two, worked out for this machine (§4). An edit takes effect at the next approval or control, which make the CA's slots these and approve them |
 | `ASSH_CHILD_UIDS` | `0x7FFE0000-0x7FFEFFFF` (default): where `ssh-child`'s uid is chosen from, one no one else has |
-| `ASSH_CA_REF` | `kira ssh ca` (default): what the signing key's approvals are bound to |
+| `ASSH_CA_REF` | `kira ssh ca` (default): the CA's use; the signing key's approvals are bound to it and to the CA's own nonce, so to this CA alone |
 | `ASSH_LISTEN` | `:22` (default): the address the server listens on |
 | `ASSH_AUTHORIZED_KEYS` | `/etc/kira/authorized_keys` (default), kira's own file - control copies root's keys there when asked, edit it for others; any key type OpenSSH has. A line with options in front of the key (`from=`, `command=`) is left out: the options are not honoured. Their sum is part of the SSH part's digest in the boot plan, so control sees a difference without unpacking the image |
 | `ASSH_KEY_ID`, `ASSH_PRINCIPALS`, `ASSH_HOSTKEY_TYPE` | the host certificate's name (`kira boot`), its principals (`*`), the host key's type (`p256`) |

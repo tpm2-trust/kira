@@ -8,6 +8,68 @@ formats and CLI flags may change without migration paths.
 
 ---
 
+## The vault's TLS root key left the state directory (2026-11-12)
+
+The vault's TLS root key and its leaf's key were PEM files in the state directory
+(`tls/ca-key.pem`, `tls/key.pem`), and so in every backup of it. The pin a machine
+keeps of the vault is the root's key: who held a backup and a place on the path
+could play the vault - not for a machine's R, which needs the TPM, but for what an
+operator sends it, a bearer token and a pepper (the workspace's security review,
+item 13). The root key is now derived from the master and imported into the TPM
+beside it (`keys.ImportTLSRoot`); the leaf's key is made in memory at each start.
+Derived, not made in the TPM, because the master's backup has to restore the vault
+whole: a key made in the TPM would have changed the pin at a restore, and no machine
+could have fetched its part. A vault is made again (`init`), its machines enrolled
+again.
+
+## The phone approved what nobody proved; a phone salt was handed over before it was stored (fixed 2026-11-11)
+
+Two faults of the core, `core/attest`, found by the workspace's review (`TODO-SEC.md` #3, #5):
+
+- **A failed verdict could be approved although the pinned attestation key had not signed
+  it.** After a bad signature, a foreign key or a wrong binding, `Verify` still set the
+  values that reproduced the unverified quote's digest, and `Decide` took them as authentic.
+  One typed approval on a forged session rewrote the phone's record: its reset count, the
+  kept phone salt and, through the API, a known-good profile. Now `Verdict.Authentic`:
+  values and Secure Boot's state come only with it, approvals need it, a failed attestation
+  is approved once and never remembered.
+- **The phone salt was released in the step that told the app to store the record.** A
+  phone that could not store it (locked, a failed write) had handed the salt over all the
+  same; the machine took that as "the phone keeps it" and made the disk's key. Now the
+  core waits for `RecordStored` and releases only then.
+
+## The vault locked a device for garbage sent under its ID (fixed 2026-11-11)
+
+Any release that failed verification counted against the device, also one whose quote the
+device's attestation key had not signed: five such requests locked it, and a device ID is
+no secret. Only a verified quote counts now. With it: a limit of challenges per address,
+audit lines before authentication in bounded number (a full log stops every release), a
+rule for a machine's name and a keyslot's label. `TODO-SEC.md` #2, #12, #26; the vault's
+part is in kira-vault.
+
+## Slot secrets crossed the TPM's bus in clear (fixed 2026-11-11)
+
+The slot's policy session had no salt and no parameter encryption. Everything opened
+through it came back in clear: the phone salt's factor, the keyboard seed, the TPM salt,
+the vault's local and remote part and its pepper key (`TPM2_ActivateCredential`), the
+machine-id (`TPM2_Unseal`) and the boot key's shared point (`TPM2_ECDH_ZGen`). A passive
+probe on the bus of a stolen machine read the TPM salt at every approved boot (recipe
+0x1200), and both parts of the disk's key with 0x2400. The docs said the opposite.
+
+Now `nvslot.ApprovedSecretSession`: salted to a key the caller holds loaded (the EK, the
+storage primary), the answer encrypted. `TPM2_Sign` and the TOTP code's `TPM2_HMAC` keep
+the plain session: a signature and a code on the screen are no secrets, and a TPM refuses
+the encrypting session for `TPM2_Sign`. Nothing stored changed. Found by the workspace's
+review (`TODO-SEC.md` #1).
+
+## The coordinator opened a phone salt without a receipt (fixed 2026-11-11)
+
+`GateService.TakeRelease` opened whatever credential the radio worker handed it, in any
+approved boot. The worker sees the phone's credential in clear after Noise, and it is
+static: seen once, it could be fed in at a later boot with no phone there. A release is
+now opened only after an authentic receipt of an enrolled phone for a quote of this boot,
+in the session that receipt came in. Found by the workspace's review (`TODO-SEC.md` #4).
+
 
 ## What the README said until it was cut down (2026-11-04)
 

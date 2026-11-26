@@ -74,6 +74,8 @@ type Phone struct {
 	Events    []attest.Event
 	Record    *attest.MachineRecord
 	SAS       string
+	// StorageFails: the phone cannot store a record it is asked to confirm.
+	StorageFails bool
 }
 
 // NewPhone creates a phone with fresh keys that confirms every code and
@@ -166,7 +168,16 @@ func (p *Phone) react(v *attest.Verifier, evs []attest.Event) (*attest.Output, e
 				o, err = v.Decide(p.decisionFor(p.Last(attest.EvVerdict).Verdict), p.Confirm)
 			}
 		case attest.EvEnrolled, attest.EvRecordUpdated:
-			p.Record = e.Record
+			if e.Confirm {
+				// The app stores the record, then says so: StorageFails is a
+				// phone that could not (locked, a full or failing storage).
+				if !p.StorageFails {
+					p.Record = e.Record
+				}
+				o, err = v.RecordStored(!p.StorageFails)
+			} else {
+				p.Record = e.Record
+			}
 		}
 		if o != nil {
 			acted = true

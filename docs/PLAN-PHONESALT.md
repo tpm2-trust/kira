@@ -376,7 +376,7 @@ machine that asks.
 | Root on the running, unlocked system | The disk is open. Unchanged. |
 | A captured factor | It is static (§3.1). The password and the combiner's cost remain; rotation is manual. |
 | A compromised phone **plus** physical possession of the laptop | The approval key can open the RK's `PolicySigned` branch in any PCR state. The attacker then has the factor and must still guess the password — this is the case where the combiner's Argon2id cost is the last line. |
-| Bus sniffing of `F` | `F` crosses the TPM bus in the clear unless parameter encryption is used on `TPM2_ActivateCredential`. It must be; same task as [PLAN-VAULT.md](PLAN-VAULT.md) §9.2. |
+| Bus sniffing of `F` | `F` comes back from `TPM2_ActivateCredential` encrypted, in a session salted to the EK (`nvslot.ApprovedSecretSession`). A device that answers in the TPM's place stays out of scope. |
 | Firmware-TPM flaws | The unwrap is as trustworthy as the TPM. |
 | A phished recovery key | §7.3. |
 

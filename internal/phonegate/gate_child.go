@@ -156,7 +156,8 @@ func RadioWorkerMain(debug bool) int {
 		rfkill = os.NewFile(workerRFKillFD, "/dev/rfkill")
 		defer rfkill.Close()
 	}
-	confined, err := sandbox.Apply(sandbox.Policy{ReadBeneath: []string{"/sys"}})
+	// The adapters' names beneath /sys, and the adapter itself: an HCI socket.
+	confined, err := sandbox.Apply(sandbox.Policy{ReadBeneath: []string{"/sys"}, Sockets: []int{unix.AF_BLUETOOTH}})
 	if err != nil {
 		GateFail("the radio worker cannot confine itself: %v", err)
 		return ExitInternal

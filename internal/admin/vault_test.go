@@ -172,6 +172,11 @@ func TestVaultClientPin(t *testing.T) {
 			json.NewEncoder(w).Encode(vaultproto.ChallengeResponse{RequestID: "r", Nonce: make([]byte, 32), ExpiresIn: 120})
 			return
 		}
+		if r.URL.Path == "/busy" {
+			w.WriteHeader(http.StatusTooManyRequests)
+			json.NewEncoder(w).Encode(vaultproto.ErrorResponse{Error: "at most 3 challenges per address per minute"})
+			return
+		}
 		w.WriteHeader(http.StatusForbidden)
 		json.NewEncoder(w).Encode(vaultproto.ErrorResponse{Error: "unknown device\x1b[2J"})
 	}))
@@ -193,6 +198,12 @@ func TestVaultClientPin(t *testing.T) {
 	}
 	if vaultkey.Retryable(err) {
 		t.Fatal("an answer is not a reason to try again")
+	}
+	// The vault's rate limit is "not yet", not an answer about the machine:
+	// whoever else asks from this address, or under this device's ID, uses it up.
+	err = c.Post(context.Background(), "/busy", vaultproto.ChallengeRequest{}, &ch)
+	if err == nil || !strings.Contains(err.Error(), "per address") || !vaultkey.Retryable(err) {
+		t.Fatalf("a vault that says wait is asked again: %v", err)
 	}
 
 	other, _ := vaultkey.NewClient(srv.URL, "sha256:"+strings.Repeat("00", 32))

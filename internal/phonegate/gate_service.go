@@ -119,6 +119,11 @@ type GateService struct {
 	// releaseWait from releaseSince).
 	ExpectingRelease bool
 	ReleaseSince     time.Time
+	// receipted: an enrolled phone's authentic receipt for a quote of this boot
+	// said attested, in the session that is still running. Only then is a
+	// release opened: the radio worker hands releases over, and it is not the
+	// one to say that a phone was satisfied.
+	receipted bool
 }
 
 // releaseWait bounds how long the boot waits for the phone's phone salt
@@ -384,6 +389,13 @@ func (s *GateService) TakeRelease(r *attest.Release) (uint8, string) {
 		s.mu.Unlock()
 		return attest.ReleaseOK, "the phone keeps the phone salt; this TPM opens it at the next boot"
 	}
+	s.mu.Lock()
+	receipted := s.receipted
+	s.receipted = false // one release per receipt
+	s.mu.Unlock()
+	if !receipted {
+		return attest.ReleaseTPMRefused, "no phone salt is opened without an enrolled phone's receipt for this boot"
+	}
 	defer func() {
 		s.mu.Lock()
 		s.Current.Releasing = false // taken, one way or the other
@@ -523,6 +535,7 @@ func (s *GateService) JudgeReceipt(r *attest.Receipt, verifierID string) attest.
 	if state := receiptState(check); state != "" {
 		s.Current.State = state
 		s.Current.Code = "" // the session it belonged to is answered
+		s.receipted = state == GateAttested
 		if state == GateAttested && s.ExpectingRelease && len(s.Blob.ReleaseKeyPublic) > 0 {
 			s.Current.Releasing = true
 			s.ReleaseSince = time.Now()
@@ -544,6 +557,7 @@ func (s *GateService) Report(state GateState) {
 	if state == GateSessionOver {
 		s.mu.Lock()
 		s.Current.Releasing = false // nothing more comes from that session
+		s.receipted = false
 		s.mu.Unlock()
 		return
 	}

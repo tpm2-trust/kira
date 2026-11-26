@@ -152,9 +152,6 @@ func vaultName(given, attName string) string {
 	if given == "" {
 		return attName
 	}
-	if len(given) > 64 {
-		given = given[:64]
-	}
 	return given
 }
 
@@ -308,6 +305,9 @@ func vaultEnrolKey(o VaultEnrolOptions) ([]byte, uint32, error) {
 		Pepper:           pepper != nil,
 		ReleaseKeyPublic: att.ReleaseKeyPublic,
 		Keyboard:         o.Keyboard,
+	}
+	if err := req.CheckNames(); err != nil {
+		return nil, 0, fmt.Errorf("%w (name %q, label %q): the vault takes no other; give them with --name and --label", err, req.Name, req.Label)
 	}
 	if err := req.Check(); err != nil {
 		return nil, 0, err

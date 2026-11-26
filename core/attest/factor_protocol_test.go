@@ -2,6 +2,7 @@ package attest_test
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 
 	. "github.com/tpm2-trust/kira/core/attest"
@@ -144,5 +145,63 @@ func TestFactorIsNotReleasedOnReject(t *testing.T) {
 	b.Close()
 	if be.released != nil || p.Record.HasFactor() {
 		t.Fatal("a rejected verdict released or kept a factor")
+	}
+}
+
+// The phone salt is handed over only once the phone stored the record that holds
+// it: a phone that cannot store it releases nothing and the session fails, so at
+// an enrolment the machine has no "the phone keeps it" to build a keyslot on.
+func TestNoReleaseUntilTheRecordIsStored(t *testing.T) {
+	m, p := newMachine(t), newPhone(t)
+	rec := enrol(t, m, p)
+	blob := &FactorBlob{CredentialBlob: bytes.Repeat([]byte{0xC1}, 80), EncryptedSecret: bytes.Repeat([]byte{0xE5}, 65), Label: "luks"}
+	be := &factorBackend{SoftTPM: m.TPM, status: ReleaseOK, keep: blob}
+
+	session := func() (*AttestResult, error, error) {
+		a, b := attesttest.NewPipe()
+		type r struct {
+			res *AttestResult
+			err error
+		}
+		done := make(chan r, 1)
+		go func() {
+			res, err := ServeAttestation(a, m.AttestIdentity(), be, nil)
+			a.Close()
+			done <- r{res, err}
+		}()
+		v, err := NewAttestVerifier(p.Config(), rec)
+		if err != nil {
+			t.Fatal(err)
+		}
+		perr := p.Drive(v, b)
+		b.Close()
+		got := <-done
+		return got.res, got.err, perr
+	}
+
+	p.StorageFails = true
+	res, _, perr := session()
+	if perr == nil || !strings.Contains(perr.Error(), "could not store") {
+		t.Fatalf("a phone that cannot store the record: %v", perr)
+	}
+	if e := p.Last(EvRecordUpdated); e == nil || !e.Confirm {
+		t.Fatalf("the record to store did not ask for a confirmation: %+v", e)
+	}
+	if be.released != nil || (res != nil && res.Release != nil) {
+		t.Fatal("a phone salt was released although its record is stored nowhere")
+	}
+	if p.Record.HasFactor() {
+		t.Fatal("the test phone kept what it could not store")
+	}
+
+	// The phone stores it: the release follows, and the machine's backend has it.
+	p.StorageFails = false
+	p.Events = nil
+	res, merr, perr := session()
+	if merr != nil || perr != nil {
+		t.Fatalf("machine %v phone %v", merr, perr)
+	}
+	if !p.Record.HasFactor() || be.released == nil || res.Release == nil || !bytes.Equal(res.Release.CredentialBlob, blob.CredentialBlob) {
+		t.Fatalf("the stored record's phone salt was not released: %+v", res.Release)
 	}
 }
